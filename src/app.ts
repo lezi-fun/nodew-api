@@ -1,6 +1,10 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import sensible from '@fastify/sensible';
+import fastifyStatic from '@fastify/static';
 import Fastify from 'fastify';
 
 import { env } from './config/env.js';
@@ -28,9 +32,22 @@ const app = Fastify({
   },
 });
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const frontendRoot = path.resolve(__dirname, '../web/dist');
+
 await app.register(sensible);
 await app.register(cors, { origin: true, credentials: true });
-await app.register(helmet);
+await app.register(helmet, {
+  contentSecurityPolicy:
+    env.NODE_ENV === 'development'
+      ? {
+          directives: {
+            upgradeInsecureRequests: null,
+          },
+        }
+      : undefined,
+});
 await app.register(authPlugin);
 
 app.addHook('onSend', async (_request, _reply, payload) => {
@@ -62,6 +79,31 @@ await app.register(async (api) => {
   await api.register(selfRoutes);
   await api.register(apiKeyRoutes);
 }, { prefix: '/api' });
+
+await app.register(fastifyStatic, {
+  root: frontendRoot,
+  prefix: '/',
+  wildcard: false,
+});
+
+app.setNotFoundHandler(async (request, reply) => {
+  if (
+    request.raw.method !== 'GET' ||
+    request.url.startsWith('/api') ||
+    request.url === '/health' ||
+    request.url === '/ready' ||
+    request.url.startsWith('/assets/') ||
+    path.extname(request.url)
+  ) {
+    return reply.code(404).send({
+      statusCode: 404,
+      error: 'Not Found',
+      message: 'Route not found',
+    });
+  }
+
+  return reply.sendFile('index.html');
+});
 
 const start = async () => {
   try {

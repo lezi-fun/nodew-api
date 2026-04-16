@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 
+import SetupCheck from './components/setup/SetupCheck';
 import HomePage from './pages/Home';
 import LoginPage from './pages/Login';
 import SetupPage from './pages/Setup';
@@ -70,23 +71,27 @@ function App() {
       return;
     }
 
-    if (!state.setup.isInitialized && location.pathname !== '/setup') {
-      navigate('/setup', { replace: true });
+    if (!state.setup.isInitialized) {
+      if (location.pathname !== '/setup') {
+        navigate('/setup', { replace: true });
+      }
       return;
     }
 
-    if (state.setup.isInitialized && !state.user && location.pathname !== '/login') {
-      navigate('/login', { replace: true });
+    if (!state.user) {
+      if (location.pathname !== '/login') {
+        navigate('/login', { replace: true });
+      }
       return;
     }
 
-    if (state.user && (location.pathname === '/login' || location.pathname === '/setup')) {
+    if (location.pathname === '/login' || location.pathname === '/setup') {
       navigate('/', { replace: true });
     }
   }, [location.pathname, navigate, state.loading, state.setup, state.user]);
 
   const content = useMemo(() => {
-    if (state.loading) {
+    if (state.loading || !state.setup) {
       return <div className="screen-state">Loading nodew-api...</div>;
     }
 
@@ -101,26 +106,32 @@ function App() {
     }
 
     return (
-      <Routes>
-        <Route
-          path="/setup"
-          element={<SetupPage onSuccess={() => void refresh()} setup={state.setup!} />}
-        />
-        <Route path="/login" element={<LoginPage onSuccess={() => void refresh()} />} />
-        <Route
-          path="/"
-          element={
-            state.user && state.status ? (
-              <HomePage user={state.user} status={state.status} onLogout={async () => {
-                await api.logout();
-                await refresh();
-              }} />
-            ) : (
-              <Navigate to={state.setup?.isInitialized ? '/login' : '/setup'} replace />
-            )
-          }
-        />
-      </Routes>
+      <SetupCheck setup={state.setup} loading={state.loading}>
+        <Routes>
+          <Route
+            path="/setup"
+            element={<SetupPage onSuccess={() => void refresh()} setup={state.setup} />}
+          />
+          <Route path="/login" element={<LoginPage onSuccess={() => void refresh()} />} />
+          <Route
+            path="/"
+            element={
+              state.user && state.status ? (
+                <HomePage
+                  user={state.user}
+                  status={state.status}
+                  onLogout={async () => {
+                    await api.logout();
+                    await refresh();
+                  }}
+                />
+              ) : (
+                <Navigate to={state.setup.isInitialized ? '/login' : '/setup'} replace />
+              )
+            }
+          />
+        </Routes>
+      </SetupCheck>
     );
   }, [state.error, state.loading, state.setup, state.status, state.user]);
 

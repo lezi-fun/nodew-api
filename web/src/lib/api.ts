@@ -23,6 +23,46 @@ export type CurrentUser = {
   createdAt: string;
 };
 
+const formatErrorMessage = (message: unknown): string => {
+  if (typeof message === 'string') {
+    try {
+      const parsed = JSON.parse(message) as Array<{ message?: string; path?: string[] }>;
+
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed
+          .map((issue) => {
+            const field = issue.path?.[0];
+
+            if (field === 'password') {
+              return 'Password must contain at least 8 characters';
+            }
+
+            if (field === 'username') {
+              return 'Username must be 3-32 characters and use only letters, numbers, underscores, or dashes';
+            }
+
+            if (field === 'email') {
+              return 'Email address is invalid';
+            }
+
+            if (field === 'displayName') {
+              return 'Display name must be between 1 and 64 characters';
+            }
+
+            return issue.message ?? 'Request failed';
+          })
+          .join('\n');
+      }
+    } catch {
+      return message;
+    }
+
+    return message;
+  }
+
+  return 'Request failed';
+};
+
 const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
   const response = await fetch(path, {
     credentials: 'include',
@@ -36,7 +76,7 @@ const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(data.message ?? 'Request failed');
+    throw new Error(formatErrorMessage(data.message));
   }
 
   return data as T;

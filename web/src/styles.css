@@ -59,10 +59,7 @@ input:focus {
   border-color: transparent;
 }
 
-#root {
-  min-height: 100vh;
-}
-
+#root,
 .app-shell {
   min-height: 100vh;
 }
@@ -76,7 +73,8 @@ input:focus {
 }
 
 .hero-card,
-.panel {
+.panel,
+.setup-wizard-card {
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(8, 18, 34, 0.72);
   backdrop-filter: blur(18px);
@@ -107,7 +105,10 @@ input:focus {
 
 .hero-card h1,
 .panel h2,
-.screen-state h1 {
+.screen-state h1,
+.setup-header h1,
+.setup-helper-text h3,
+.complete-step h3 {
   margin: 14px 0 10px;
 }
 
@@ -115,7 +116,13 @@ input:focus {
 .panel p,
 .screen-state p,
 label span,
-.metric-panel dt {
+.metric-panel dt,
+.setup-header p,
+.setup-helper-text p,
+.setup-banner p,
+.setup-info-card p,
+.complete-step p,
+.usage-mode-card span {
   color: #a9b8cc;
 }
 
@@ -187,18 +194,196 @@ label {
   max-width: 520px;
 }
 
-@media (max-width: 800px) {
+.setup-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px 16px;
+}
+
+.setup-wizard-card {
+  width: min(1100px, 100%);
+  display: grid;
+  gap: 28px;
+  background:
+    radial-gradient(circle at top right, rgba(79, 124, 255, 0.25), transparent 18%),
+    rgba(8, 18, 34, 0.82);
+}
+
+.setup-header {
+  display: grid;
+  gap: 14px;
+}
+
+.setup-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.setup-step-pill {
+  display: grid;
+  gap: 8px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.setup-step-pill span {
+  width: 30px;
+  height: 30px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  font-weight: 700;
+}
+
+.setup-step-pill.active {
+  border-color: rgba(79, 124, 255, 0.45);
+  background: rgba(79, 124, 255, 0.12);
+}
+
+.setup-step-pill.done span,
+.setup-step-pill.active span {
+  background: linear-gradient(135deg, #4f7cff, #43d9ad);
+  color: #04111f;
+}
+
+.setup-body {
+  display: grid;
+  gap: 20px;
+  padding: 12px 0;
+}
+
+.setup-step-content {
+  display: grid;
+  gap: 20px;
+}
+
+.setup-banner {
+  padding: 20px;
+  border-radius: 22px;
+  border: 1px solid rgba(79, 124, 255, 0.2);
+  background: rgba(79, 124, 255, 0.08);
+}
+
+.setup-banner.success {
+  border-color: rgba(67, 217, 173, 0.22);
+  background: rgba(67, 217, 173, 0.08);
+}
+
+.setup-info-grid,
+.setup-form-grid,
+.usage-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.setup-info-card,
+.usage-mode-card {
+  padding: 20px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.usage-mode-card {
+  text-align: left;
+  display: grid;
+  gap: 12px;
+  color: #e6eef8;
+}
+
+.usage-mode-card.active {
+  border-color: rgba(79, 124, 255, 0.45);
+  background: rgba(79, 124, 255, 0.12);
+}
+
+.setup-helper-text.compact {
+  gap: 4px;
+}
+
+.complete-step {
+  place-items: center;
+  text-align: center;
+}
+
+.complete-step-badge {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #4f7cff, #43d9ad);
+  color: #04111f;
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+.setup-summary {
+  width: min(680px, 100%);
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+
+.setup-summary div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.setup-summary dt {
+  color: #a9b8cc;
+}
+
+.setup-summary dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.setup-navigation {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.setup-navigation-meta {
+  color: #a9b8cc;
+}
+
+.setup-navigation-actions {
+  display: flex;
+  gap: 12px;
+}
+
+@media (max-width: 900px) {
   .page {
     width: min(100vw - 24px, 1120px);
     padding-top: 24px;
   }
 
-  .dashboard-grid {
+  .dashboard-grid,
+  .setup-steps,
+  .setup-info-grid,
+  .setup-form-grid,
+  .usage-mode-grid {
     grid-template-columns: 1fr;
   }
 
   .actions-panel,
-  .metric-panel div {
+  .metric-panel div,
+  .setup-summary div,
+  .setup-navigation {
     flex-direction: column;
     align-items: flex-start;
   }
