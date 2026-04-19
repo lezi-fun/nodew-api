@@ -11,6 +11,8 @@ import { env } from './config/env.js';
 import { prisma } from './lib/prisma.js';
 import apiKeyRoutes from './modules/api-keys/routes.js';
 import authRoutes from './modules/auth/routes.js';
+import optionsRoutes from './modules/admin/options/routes.js';
+import usersRoutes from './modules/admin/users/routes.js';
 import channelRoutes from './modules/channels/routes.js';
 import relayRoutes from './modules/relay/routes.js';
 import selfRoutes from './modules/self/routes.js';
@@ -81,6 +83,8 @@ await app.register(async (api) => {
   await api.register(authRoutes);
   await api.register(selfRoutes);
   await api.register(apiKeyRoutes);
+  await api.register(usersRoutes);
+  await api.register(optionsRoutes);
   await api.register(channelRoutes);
   await api.register(usageRoutes);
 }, { prefix: '/api' });
