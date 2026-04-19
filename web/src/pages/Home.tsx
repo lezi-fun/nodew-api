@@ -9,18 +9,25 @@ type HomePageProps = {
 function HomePage({ user, status, onLogout }: HomePageProps) {
   return (
     <main className="page page-home">
-      <section className="hero-card accent-card">
-        <div className="eyebrow">Home</div>
-        <h1>Unified model gateway, now in Node</h1>
-        <p>
-          This landing view borrows the new-api front-page structure, but points to the backend
-          that now runs in this repository.
-        </p>
+      <section className="hero-card home-hero-card accent-card">
+        <div className="home-hero-copy">
+          <div className="eyebrow">Console</div>
+          <h1>Unified model gateway, now in Node</h1>
+          <p>
+            The first-run console now mirrors the new-api style landing flow: a prominent hero,
+            fast service summary, and clear follow-up actions for the administrator.
+          </p>
+        </div>
+        <div className="home-hero-actions">
+          <button className="secondary-button" onClick={() => void onLogout()}>
+            Logout
+          </button>
+        </div>
       </section>
 
-      <section className="dashboard-grid">
+      <section className="dashboard-grid dashboard-grid-wide">
         <article className="panel metric-panel">
-          <h2>Current user</h2>
+          <h2>Administrator profile</h2>
           <dl>
             <div>
               <dt>Display name</dt>
@@ -58,6 +65,24 @@ function HomePage({ user, status, onLogout }: HomePageProps) {
             </div>
           </dl>
         </article>
+
+        <article className="panel metric-panel feature-panel">
+          <h2>Ready now</h2>
+          <dl>
+            <div>
+              <dt>Setup</dt>
+              <dd>Completed</dd>
+            </div>
+            <div>
+              <dt>Auth session</dt>
+              <dd>Active</dd>
+            </div>
+            <div>
+              <dt>API foundation</dt>
+              <dd>Online</dd>
+            </div>
+          </dl>
+        </article>
       </section>
 
       <section className="panel actions-panel">
@@ -65,12 +90,13 @@ function HomePage({ user, status, onLogout }: HomePageProps) {
           <h2>Next steps</h2>
           <p>
             The backend setup, login, self profile, and token management APIs are already in place.
-            This home page is the first frontend shell to build on top of them.
+            The next frontend milestone is to turn this summary console into a full admin workspace.
           </p>
         </div>
-        <button className="secondary-button" onClick={() => void onLogout()}>
-          Logout
-        </button>
+        <div className="actions-inline-note">
+          <strong>Current focus</strong>
+          <p>Continue expanding the authenticated console around tokens, profile, and runtime data.</p>
+        </div>
       </section>
     </main>
   );

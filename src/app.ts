@@ -11,9 +11,12 @@ import { env } from './config/env.js';
 import { prisma } from './lib/prisma.js';
 import apiKeyRoutes from './modules/api-keys/routes.js';
 import authRoutes from './modules/auth/routes.js';
+import channelRoutes from './modules/channels/routes.js';
+import relayRoutes from './modules/relay/routes.js';
 import selfRoutes from './modules/self/routes.js';
 import setupRoutes from './modules/setup/routes.js';
 import statusRoutes from './modules/status/routes.js';
+import usageRoutes from './modules/usage/routes.js';
 import authPlugin from './plugins/auth.js';
 
 const app = Fastify({
@@ -78,7 +81,11 @@ await app.register(async (api) => {
   await api.register(authRoutes);
   await api.register(selfRoutes);
   await api.register(apiKeyRoutes);
+  await api.register(channelRoutes);
+  await api.register(usageRoutes);
 }, { prefix: '/api' });
+
+await app.register(relayRoutes, { prefix: '/v1' });
 
 await app.register(fastifyStatic, {
   root: frontendRoot,

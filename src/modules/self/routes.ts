@@ -2,11 +2,49 @@ import type { Prisma } from '@prisma/client';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 
+import { hashPassword, verifyPassword } from '../../lib/crypto.js';
 import { prisma } from '../../lib/prisma.js';
 
 const updateSelfBodySchema = z.object({
   displayName: z.string().min(1).max(64).optional(),
   settings: z.record(z.string(), z.unknown()).optional(),
+});
+
+const changePasswordBodySchema = z.object({
+  currentPassword: z.string().min(8).max(128),
+  newPassword: z.string().min(8).max(128),
+});
+
+const selfSelect = {
+  id: true,
+  email: true,
+  username: true,
+  displayName: true,
+  role: true,
+  status: true,
+  quotaRemaining: true,
+  quotaUsed: true,
+  lastLoginAt: true,
+  settings: true,
+  createdAt: true,
+} satisfies Prisma.UserSelect;
+
+const serializeUser = (user: {
+  id: string;
+  email: string;
+  username: string;
+  displayName: string | null;
+  role: 'USER' | 'ADMIN';
+  status: 'ACTIVE' | 'DISABLED';
+  quotaRemaining: bigint;
+  quotaUsed: bigint;
+  lastLoginAt: Date | null;
+  settings: Prisma.JsonValue | null;
+  createdAt: Date;
+}) => ({
+  ...user,
+  quotaRemaining: user.quotaRemaining.toString(),
+  quotaUsed: user.quotaUsed.toString(),
 });
 
 const selfRoutes: FastifyPluginAsync = async (app) => {
@@ -15,29 +53,11 @@ const selfRoutes: FastifyPluginAsync = async (app) => {
   }, async (request) => {
     const user = await prisma.user.findUnique({
       where: { id: request.currentUser!.id },
-      select: {
-        id: true,
-        email: true,
-        username: true,
-        displayName: true,
-        role: true,
-        status: true,
-        quotaRemaining: true,
-        quotaUsed: true,
-        lastLoginAt: true,
-        settings: true,
-        createdAt: true,
-      },
+      select: selfSelect,
     });
 
     return {
-      user: user
-        ? {
-            ...user,
-            quotaRemaining: user.quotaRemaining.toString(),
-            quotaUsed: user.quotaUsed.toString(),
-          }
-        : null,
+      user: user ? serializeUser(user) : null,
     };
   });
 
@@ -57,27 +77,45 @@ const selfRoutes: FastifyPluginAsync = async (app) => {
     const user = await prisma.user.update({
       where: { id: request.currentUser!.id },
       data: updateData,
+      select: selfSelect,
+    });
+
+    return {
+      user: serializeUser(user),
+    };
+  });
+
+  app.post('/user/self/password', {
+    preHandler: app.requireUser,
+  }, async (request) => {
+    const body = changePasswordBodySchema.parse(request.body);
+
+    if (body.currentPassword === body.newPassword) {
+      throw app.httpErrors.badRequest('New password must be different from the current password');
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: request.currentUser!.id },
       select: {
         id: true,
-        email: true,
-        username: true,
-        displayName: true,
-        role: true,
-        status: true,
-        quotaRemaining: true,
-        quotaUsed: true,
-        lastLoginAt: true,
-        settings: true,
-        createdAt: true,
+        passwordHash: true,
+      },
+    });
+
+    if (!user || !verifyPassword(body.currentPassword, user.passwordHash)) {
+      throw app.httpErrors.unauthorized('Current password is incorrect');
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash: hashPassword(body.newPassword),
+        accessToken: null,
       },
     });
 
     return {
-      user: {
-        ...user,
-        quotaRemaining: user.quotaRemaining.toString(),
-        quotaUsed: user.quotaUsed.toString(),
-      },
+      success: true,
     };
   });
 };

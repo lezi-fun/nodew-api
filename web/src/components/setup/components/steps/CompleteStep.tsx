@@ -3,6 +3,7 @@ type UsageMode = 'operations' | 'self-hosted' | 'demo';
 type CompleteStepProps = {
   email: string;
   username: string;
+  displayName: string;
   usageMode: UsageMode;
 };
 
@@ -12,7 +13,7 @@ const usageModeLabels: Record<UsageMode, string> = {
   demo: 'Demo mode',
 };
 
-function CompleteStep({ email, username, usageMode }: CompleteStepProps) {
+function CompleteStep({ email, username, displayName, usageMode }: CompleteStepProps) {
   return (
     <div className="setup-step-content complete-step">
       <div className="complete-step-badge">✓</div>
@@ -34,6 +35,10 @@ function CompleteStep({ email, username, usageMode }: CompleteStepProps) {
         <div>
           <dt>Admin username</dt>
           <dd>{username}</dd>
+        </div>
+        <div>
+          <dt>Display name</dt>
+          <dd>{displayName || 'Not set'}</dd>
         </div>
         <div>
           <dt>Usage mode</dt>

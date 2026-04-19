@@ -24,6 +24,8 @@ type AdminFormState = {
   confirmPassword: string;
 };
 
+type ValidationErrors = Partial<Record<keyof AdminFormState, string>>;
+
 const stepTitles = ['Database check', 'Administrator', 'Usage mode', 'Complete'];
 
 function SetupWizard({ setup, onSuccess }: SetupWizardProps) {
@@ -38,6 +40,7 @@ function SetupWizard({ setup, onSuccess }: SetupWizardProps) {
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
 
   if (setup.isInitialized) {
     return <Navigate to="/login" replace />;
@@ -68,11 +71,62 @@ function SetupWizard({ setup, onSuccess }: SetupWizardProps) {
   const updateField = (field: keyof AdminFormState, value: string) => {
     setForm((current) => ({ ...current, [field]: value }));
     setError(null);
+    setValidationErrors((current) => ({ ...current, [field]: undefined }));
+
+    if (field === 'password' || field === 'confirmPassword') {
+      setValidationErrors((current) => ({ ...current, password: undefined, confirmPassword: undefined }));
+    }
+  };
+
+  const validateAdminStep = (): boolean => {
+    const nextErrors: ValidationErrors = {};
+
+    if (!form.email.trim()) {
+      nextErrors.email = 'Email is required';
+    }
+
+    if (!form.username.trim()) {
+      nextErrors.username = 'Username is required';
+    }
+
+    if (!form.password.trim()) {
+      nextErrors.password = 'Password is required';
+    }
+
+    if (!form.confirmPassword.trim()) {
+      nextErrors.confirmPassword = 'Please confirm the password';
+    }
+
+    if (form.password && form.password.length < 8) {
+      nextErrors.password = 'Password must contain at least 8 characters';
+    }
+
+    if (form.username && !/^[a-zA-Z0-9_-]{3,32}$/.test(form.username)) {
+      nextErrors.username = 'Username must be 3-32 characters and use only letters, numbers, underscores, or dashes';
+    }
+
+    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      nextErrors.email = 'Email address is invalid';
+    }
+
+    if (form.password && form.confirmPassword && form.password !== form.confirmPassword) {
+      nextErrors.confirmPassword = 'Passwords do not match';
+    }
+
+    setValidationErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const handleNext = () => {
+    if (currentStep === 1 && !validateAdminStep()) {
+      return;
+    }
+
+    setCurrentStep((step) => Math.min(stepTitles.length - 1, step + 1));
   };
 
   const handleSubmit = async () => {
-    if (form.password !== form.confirmPassword) {
-      setError('Passwords do not match');
+    if (!validateAdminStep()) {
       setCurrentStep(1);
       return;
     }
@@ -125,10 +179,22 @@ function SetupWizard({ setup, onSuccess }: SetupWizardProps) {
 
         <div className="setup-body">
           {currentStep === 0 ? <DatabaseStep hasAdmin={setup.hasAdmin} /> : null}
-          {currentStep === 1 ? <AdminStep form={form} error={error} onChange={updateField} /> : null}
+          {currentStep === 1 ? (
+            <AdminStep
+              form={form}
+              error={error}
+              validationErrors={validationErrors}
+              onChange={updateField}
+            />
+          ) : null}
           {currentStep === 2 ? <UsageModeStep value={usageMode} onChange={setUsageMode} /> : null}
           {currentStep === 3 ? (
-            <CompleteStep email={form.email} username={form.username} usageMode={usageMode} />
+            <CompleteStep
+              email={form.email}
+              username={form.username}
+              displayName={form.displayName}
+              usageMode={usageMode}
+            />
           ) : null}
         </div>
 
@@ -138,7 +204,7 @@ function SetupWizard({ setup, onSuccess }: SetupWizardProps) {
           canProceed={canProceed}
           submitting={submitting}
           onBack={() => setCurrentStep((step) => Math.max(0, step - 1))}
-          onNext={() => setCurrentStep((step) => Math.min(stepTitles.length - 1, step + 1))}
+          onNext={handleNext}
           onSubmit={handleSubmit}
         />
       </section>
