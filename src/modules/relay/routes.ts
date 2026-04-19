@@ -10,11 +10,6 @@ const relayRoutes: FastifyPluginAsync = async (app) => {
     preHandler: app.requireRelayApiKey,
   }, async (request, reply) => {
     const body = chatCompletionsBodySchema.parse(request.body);
-
-    if (body.stream) {
-      throw app.httpErrors.badRequest('Streaming is not supported yet');
-    }
-
     const requestId = request.headers['x-request-id'];
     const relayExecution = await relayChatCompletion({
       userId: request.currentUser!.id,
@@ -26,6 +21,11 @@ const relayRoutes: FastifyPluginAsync = async (app) => {
     if (relayExecution.attempts.length > 1) {
       reply.header('x-relay-attempts', relayExecution.attempts.length.toString());
       reply.header('x-relay-chain', relayExecution.attempts.map((attempt) => attempt.channelName).join(','));
+    }
+
+    if (body.stream && typeof relayExecution.result.body === 'string') {
+      reply.header('content-type', 'text/event-stream; charset=utf-8');
+      return reply.code(relayExecution.result.statusCode).send(relayExecution.result.body);
     }
 
     return reply.code(relayExecution.result.statusCode).send(relayExecution.result.body);
