@@ -3,6 +3,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 
 import {
+  decryptChannelKey,
   encryptChannelKey,
   hasEncryptedValue,
   readChannelKeyPreview,
@@ -25,8 +26,41 @@ const channelSelect = {
   updatedAt: true,
 } satisfies Prisma.ChannelSelect;
 
+const channelDetailSelect = channelSelect;
+
+const channelTestSelect = {
+  id: true,
+  name: true,
+  provider: true,
+  baseUrl: true,
+  model: true,
+  encryptedKey: true,
+} satisfies Prisma.ChannelSelect;
+
+const channelModelDiscoverySelect = {
+  id: true,
+  provider: true,
+  baseUrl: true,
+  encryptedKey: true,
+} satisfies Prisma.ChannelSelect;
+
+const channelKeyLookupSelect = {
+  id: true,
+  encryptedKey: true,
+} satisfies Prisma.ChannelSelect;
+
 const channelParamsSchema = z.object({
   id: z.string().cuid(),
+});
+
+const channelQuerySchema = z.object({
+  provider: z.string().min(1).max(32).optional(),
+  status: z.enum(['ACTIVE', 'DISABLED']).optional(),
+  keyword: z.string().trim().min(1).max(128).optional(),
+});
+
+const channelModelQuerySchema = z.object({
+  model: z.string().min(1).max(128).optional(),
 });
 
 const channelBodySchema = z.object({
@@ -54,6 +88,15 @@ const updateChannelBodySchema = z.object({
   rateLimitPerMin: z.coerce.number().int().min(1).max(1_000_000).nullable().optional(),
   metadata: z.record(z.string(), z.unknown()).nullable().optional(),
 });
+
+const testChannelBodySchema = z.object({
+  model: z.string().min(1).max(128).optional(),
+});
+
+const channelNotFoundMessage = 'Channel not found';
+const modelDiscoverySupportMessage = 'Model discovery is only supported for openai channels';
+const channelTestSupportMessage = 'Channel test is only supported for openai channels';
+const getChannelKeyRouteNote = 'Plaintext keys are only returned when the channel is created.';
 
 const serializeChannel = (channel: {
   id: string;
@@ -85,18 +128,345 @@ const serializeChannel = (channel: {
   updatedAt: channel.updatedAt,
 });
 
+const serializeChannelTestResult = (channel: {
+  id: string;
+  name: string;
+  provider: string;
+  model: string | null;
+}, result: { statusCode: number; body: unknown }) => ({
+  channelId: channel.id,
+  channelName: channel.name,
+  provider: channel.provider,
+  model: channel.model,
+  statusCode: result.statusCode,
+  success: result.statusCode >= 200 && result.statusCode < 300,
+  errorMessage: result.statusCode >= 200 && result.statusCode < 300 ? null : extractErrorMessage(result.body),
+});
+
+const serializeChannelKeyResult = (channel: { id: string; encryptedKey: string }) => ({
+  id: channel.id,
+  keyPreview: readChannelKeyPreview(channel.encryptedKey),
+  note: getChannelKeyRouteNote,
+});
+
+const serializeDiscoveredModels = (models: Array<{ id: string; ownedBy: string | null }>) => ({
+  items: models,
+  total: models.length,
+});
+
+const channelListResponse = (channels: Array<Parameters<typeof serializeChannel>[0]>) => ({
+  items: channels.map(serializeChannel),
+});
+
+const channelDetailResponse = (channel: Parameters<typeof serializeChannel>[0]) => ({
+  item: serializeChannel(channel),
+});
+
+const channelKeyResponse = (channel: { id: string; encryptedKey: string }) => ({
+  item: serializeChannelKeyResult(channel),
+});
+
+const channelTestResponse = (channel: {
+  id: string;
+  name: string;
+  provider: string;
+  model: string | null;
+}, result: { statusCode: number; body: unknown }) => ({
+  item: serializeChannelTestResult(channel, result),
+});
+
+const channelModelsResponse = (result: { statusCode: number; body: unknown }, models: Array<{ id: string; ownedBy: string | null }>) => ({
+  item: {
+    statusCode: result.statusCode,
+    success: result.statusCode >= 200 && result.statusCode < 300,
+    errorMessage: result.statusCode >= 200 && result.statusCode < 300 ? null : extractErrorMessage(result.body),
+    ...serializeDiscoveredModels(models),
+  },
+});
+
+const extractErrorMessage = (body: unknown) => {
+  if (body && typeof body === 'object' && 'error' in body) {
+    const error = body.error;
+
+    if (typeof error === 'string') {
+      return error;
+    }
+
+    if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
+      return error.message;
+    }
+  }
+
+  return 'Upstream request failed';
+};
+
+const buildChannelWhere = (query: z.infer<typeof channelQuerySchema>): Prisma.ChannelWhereInput => ({
+  ...(query.provider ? { provider: query.provider } : {}),
+  ...(query.status ? { status: query.status } : {}),
+  ...(query.keyword
+    ? {
+        OR: [
+          { name: { contains: query.keyword, mode: 'insensitive' } },
+          { provider: { contains: query.keyword, mode: 'insensitive' } },
+          { model: { contains: query.keyword, mode: 'insensitive' } },
+          { baseUrl: { contains: query.keyword, mode: 'insensitive' } },
+        ],
+      }
+    : {}),
+});
+
+const parseChannelId = (params: unknown) => channelParamsSchema.parse(params).id;
+const parseChannelQuery = (query: unknown) => channelQuerySchema.parse(query);
+const parseChannelModelQuery = (query: unknown) => channelModelQuerySchema.parse(query);
+const parseChannelTestBody = (body: unknown) => testChannelBodySchema.parse(body);
+
+const ensureOpenAIChannel = (provider: string, message: string) => {
+  if (provider !== 'openai') {
+    throw new Error(message);
+  }
+};
+
+const getNormalizedBaseUrl = (baseUrl: string | null) => (baseUrl ?? 'https://api.openai.com/v1').replace(/\/+$/, '');
+
+const getChannelModelsUrl = (channel: { provider: string; baseUrl: string | null }) => {
+  ensureOpenAIChannel(channel.provider, modelDiscoverySupportMessage);
+  const normalizedBase = getNormalizedBaseUrl(channel.baseUrl);
+  return normalizedBase.endsWith('/models') ? normalizedBase : `${normalizedBase}/models`;
+};
+
+const getChannelChatCompletionsUrl = (channel: { baseUrl: string | null }) => {
+  const normalizedBase = getNormalizedBaseUrl(channel.baseUrl);
+  return normalizedBase.endsWith('/chat/completions') ? normalizedBase : `${normalizedBase}/chat/completions`;
+};
+
+const normalizeModelList = (body: unknown) => {
+  if (!body || typeof body !== 'object' || !('data' in body) || !Array.isArray(body.data)) {
+    return [] as Array<{ id: string; ownedBy: string | null }>;
+  }
+
+  return body.data.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object' || !('id' in entry) || typeof entry.id !== 'string') {
+      return [];
+    }
+
+    return [{
+      id: entry.id,
+      ownedBy: 'owned_by' in entry && typeof entry.owned_by === 'string' ? entry.owned_by : null,
+    }];
+  });
+};
+
+const maybeFilterDiscoveredModels = (models: Array<{ id: string; ownedBy: string | null }>, requestedModel: string | null) => {
+  if (!requestedModel) {
+    return models;
+  }
+
+  return models.filter((model) => model.id.includes(requestedModel));
+};
+
+const findChannelList = (query: z.infer<typeof channelQuerySchema>) => prisma.channel.findMany({
+  where: buildChannelWhere(query),
+  orderBy: [{ priority: 'desc' }, { weight: 'desc' }, { createdAt: 'desc' }],
+  select: channelSelect,
+});
+
+const findChannelDetailOrThrow = async (id: string) => {
+  const channel = await prisma.channel.findUnique({
+    where: { id },
+    select: channelDetailSelect,
+  });
+
+  if (!channel) {
+    throw new Error(channelNotFoundMessage);
+  }
+
+  return channel;
+};
+
+const findChannelKeyOrThrow = async (id: string) => {
+  const channel = await prisma.channel.findUnique({
+    where: { id },
+    select: channelKeyLookupSelect,
+  });
+
+  if (!channel) {
+    throw new Error(channelNotFoundMessage);
+  }
+
+  return channel;
+};
+
+const findChannelForTestOrThrow = async (id: string) => {
+  const channel = await prisma.channel.findUnique({
+    where: { id },
+    select: channelTestSelect,
+  });
+
+  if (!channel) {
+    throw new Error(channelNotFoundMessage);
+  }
+
+  return channel;
+};
+
+const findChannelForModelsOrThrow = async (id: string) => {
+  const channel = await prisma.channel.findUnique({
+    where: { id },
+    select: channelModelDiscoverySelect,
+  });
+
+  if (!channel) {
+    throw new Error(channelNotFoundMessage);
+  }
+
+  return channel;
+};
+
+const testChannelConnection = async (channel: {
+  provider: string;
+  baseUrl: string | null;
+  encryptedKey: string;
+}) => {
+  ensureOpenAIChannel(channel.provider, channelTestSupportMessage);
+
+  const response = await fetch(getChannelModelsUrl(channel), {
+    headers: {
+      authorization: `Bearer ${decryptChannelKey(channel.encryptedKey)}`,
+    },
+  });
+
+  const responseBody = await response.json().catch(async () => ({ error: { message: await response.text() } }));
+
+  return {
+    statusCode: response.status,
+    body: responseBody,
+  };
+};
+
+const readModelDiscovery = async (channel: {
+  provider: string;
+  baseUrl: string | null;
+  encryptedKey: string;
+}, requestedModel: string | null) => {
+  ensureOpenAIChannel(channel.provider, modelDiscoverySupportMessage);
+  const result = await testChannelConnection(channel);
+
+  if (result.statusCode < 200 || result.statusCode >= 300) {
+    return {
+      result,
+      models: [] as Array<{ id: string; ownedBy: string | null }>,
+    };
+  }
+
+  return {
+    result,
+    models: maybeFilterDiscoveredModels(normalizeModelList(result.body), requestedModel),
+  };
+};
+
+const buildTestRequestBody = (model: string) => ({
+  model,
+  messages: [{ role: 'user', content: 'ping' }],
+  max_tokens: 1,
+});
+
+const getTestModel = (body: unknown, fallbackModel: string | null) => parseChannelTestBody(body).model ?? fallbackModel;
+
+const runChannelChatTest = async (channel: {
+  provider: string;
+  baseUrl: string | null;
+  encryptedKey: string;
+  model: string | null;
+}, model: string | null) => {
+  ensureOpenAIChannel(channel.provider, channelTestSupportMessage);
+
+  if (!model) {
+    return testChannelConnection(channel);
+  }
+
+  const response = await fetch(getChannelChatCompletionsUrl(channel), {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${decryptChannelKey(channel.encryptedKey)}`,
+    },
+    body: JSON.stringify(buildTestRequestBody(model)),
+  });
+
+  const responseBody = await response.json().catch(async () => ({ error: { message: await response.text() } }));
+
+  return {
+    statusCode: response.status,
+    body: responseBody,
+  };
+};
+
+const throwKnownChannelError = (app: Parameters<FastifyPluginAsync>[0], error: unknown) => {
+  if (error instanceof Error && error.message === channelNotFoundMessage) {
+    throw app.httpErrors.notFound(channelNotFoundMessage);
+  }
+
+  if (error instanceof Error && (error.message === modelDiscoverySupportMessage || error.message === channelTestSupportMessage)) {
+    throw app.httpErrors.badRequest(error.message);
+  }
+
+  throw error;
+};
+
 const channelRoutes: FastifyPluginAsync = async (app) => {
   app.get('/channels', {
     preHandler: app.requireUser,
-  }, async () => {
-    const channels = await prisma.channel.findMany({
-      orderBy: [{ priority: 'desc' }, { weight: 'desc' }, { createdAt: 'desc' }],
-      select: channelSelect,
-    });
+  }, async (request) => {
+    const query = parseChannelQuery(request.query);
+    const channels = await findChannelList(query);
 
-    return {
-      items: channels.map(serializeChannel),
-    };
+    return channelListResponse(channels);
+  });
+
+  app.get('/channels/:id', {
+    preHandler: app.requireUser,
+  }, async (request) => {
+    try {
+      const channel = await findChannelDetailOrThrow(parseChannelId(request.params));
+      return channelDetailResponse(channel);
+    } catch (error) {
+      return throwKnownChannelError(app, error);
+    }
+  });
+
+  app.post('/channels/:id/key', {
+    preHandler: app.requireAdminUser,
+  }, async (request) => {
+    try {
+      const channel = await findChannelKeyOrThrow(parseChannelId(request.params));
+      return channelKeyResponse(channel);
+    } catch (error) {
+      return throwKnownChannelError(app, error);
+    }
+  });
+
+  app.post('/channels/:id/test', {
+    preHandler: app.requireAdminUser,
+  }, async (request) => {
+    try {
+      const channel = await findChannelForTestOrThrow(parseChannelId(request.params));
+      const result = await runChannelChatTest(channel, getTestModel(request.body, channel.model));
+      return channelTestResponse(channel, result);
+    } catch (error) {
+      return throwKnownChannelError(app, error);
+    }
+  });
+
+  app.get('/channels/:id/models', {
+    preHandler: app.requireAdminUser,
+  }, async (request) => {
+    try {
+      const channel = await findChannelForModelsOrThrow(parseChannelId(request.params));
+      const { result, models } = await readModelDiscovery(channel, parseChannelModelQuery(request.query).model ?? null);
+      return channelModelsResponse(result, models);
+    } catch (error) {
+      return throwKnownChannelError(app, error);
+    }
   });
 
   app.post('/channels', {
@@ -137,7 +507,7 @@ const channelRoutes: FastifyPluginAsync = async (app) => {
     });
 
     if (!existing) {
-      throw app.httpErrors.notFound('Channel not found');
+      throw app.httpErrors.notFound(channelNotFoundMessage);
     }
 
     const updateData: Prisma.ChannelUpdateInput = {};
@@ -203,7 +573,7 @@ const channelRoutes: FastifyPluginAsync = async (app) => {
     });
 
     if (deleted.count === 0) {
-      throw app.httpErrors.notFound('Channel not found');
+      throw app.httpErrors.notFound(channelNotFoundMessage);
     }
 
     return {
