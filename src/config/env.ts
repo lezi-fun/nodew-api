@@ -10,10 +10,14 @@ const envSchema = z.object({
   CHANNEL_SECRET: z.string().min(16).optional(),
 });
 
-const parsed = envSchema.safeParse(process.env);
+export const parseEnv = (input: NodeJS.ProcessEnv = process.env) => {
+  const parsed = envSchema.safeParse(input);
 
-if (!parsed.success) {
-  throw new Error(`Invalid environment variables: ${parsed.error.message}`);
-}
+  if (!parsed.success) {
+    throw new Error(`Invalid environment variables: ${parsed.error.message}`);
+  }
 
-export const env = parsed.data;
+  return parsed.data;
+};
+
+export const env = parseEnv();

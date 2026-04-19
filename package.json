@@ -8,13 +8,13 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "tsx watch --env-file=.env src/app.ts",
+    "dev": "tsx watch --env-file=.env src/server.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node --env-file=.env dist/app.js",
+    "start": "node --env-file=.env dist/server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "test": "vitest run"
+    "test": "vitest run -c vitest.config.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
