@@ -251,6 +251,62 @@ describe('relay integration', () => {
     }
   });
 
+  it('does not fall back when the upstream error is non-retryable', async () => {
+    const user = await createUser();
+    const { apiKey } = await createApiKey(user.id);
+    await createChannel({ name: 'Primary Channel', priority: 10 });
+    await createChannel({ name: 'Fallback Channel', priority: 5 });
+    const fetchMock = mockFetchSequence([
+      {
+        status: 400,
+        headers: { 'content-type': 'application/json' },
+        body: { error: { message: 'bad request' } },
+      },
+      {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+        body: {
+          id: 'chatcmpl_should_not_happen',
+          object: 'chat.completion',
+          choices: [],
+        },
+      },
+    ]);
+
+    const app = await createTestApp();
+
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/v1/chat/completions',
+        headers: {
+          authorization: `Bearer ${apiKey}`,
+          'x-request-id': 'relay-non-retryable-request',
+        },
+        payload: {
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: 'hello' }],
+        },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.headers['x-relay-attempts']).toBeUndefined();
+      expect(response.headers['x-relay-chain']).toBeUndefined();
+      expect(response.json().error.message).toBe('bad request');
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      const log = await prisma.usageLog.findUnique({
+        where: { requestId: 'relay-non-retryable-request' },
+      });
+
+      expect(log?.success).toBe(false);
+      expect(log?.statusCode).toBe(400);
+      expect(log?.errorMessage).toBe('Primary Channel:400');
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
   it('forwards stream responses as event streams and records zero-token usage', async () => {
     const user = await createUser();
     const { apiKey } = await createApiKey(user.id);
