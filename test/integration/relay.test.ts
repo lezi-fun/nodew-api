@@ -23,6 +23,61 @@ describe('relay integration', () => {
     }
   });
 
+  it('rejects requests with an invalid relay API key', async () => {
+    const app = await createTestApp();
+
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/v1/chat/completions',
+        headers: {
+          authorization: 'Bearer sk-invalid-token',
+        },
+        payload: {
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: 'hello' }],
+        },
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(response.json().message).toBe('API key required');
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
+  it('returns a failure when no active channel is available for the requested model', async () => {
+    const user = await createUser();
+    const { apiKey } = await createApiKey(user.id);
+    const app = await createTestApp();
+
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/v1/chat/completions',
+        headers: {
+          authorization: `Bearer ${apiKey}`,
+          'x-request-id': 'relay-no-channel-request',
+        },
+        payload: {
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: 'hello' }],
+        },
+      });
+
+      expect(response.statusCode).toBe(500);
+      expect(response.json().message).toBe('No active channel available for the requested model');
+
+      const log = await prisma.usageLog.findUnique({
+        where: { requestId: 'relay-no-channel-request' },
+      });
+
+      expect(log).toBeNull();
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
   it('proxies an authenticated relay request and writes a usage log', async () => {
     const user = await createUser();
     const { apiKey } = await createApiKey(user.id);
