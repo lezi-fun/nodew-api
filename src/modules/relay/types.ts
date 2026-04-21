@@ -7,6 +7,36 @@ export const chatMessageSchema = z.object({
   tool_call_id: z.string().optional(),
 });
 
+export const embeddingsBodySchema = z.object({
+  model: z.string().min(1).max(128),
+  input: z.union([
+    z.string().min(1),
+    z.array(z.string().min(1)).min(1),
+    z.array(z.number()).min(1),
+    z.array(z.array(z.number()).min(1)).min(1),
+  ]),
+  user: z.string().min(1).max(256).optional(),
+  dimensions: z.number().int().positive().optional(),
+  encoding_format: z.enum(['float', 'base64']).optional(),
+}).passthrough();
+
+export type EmbeddingsBody = z.infer<typeof embeddingsBodySchema>;
+
+export const responsesBodySchema = z.object({
+  model: z.string().min(1).max(128),
+  input: z.unknown(),
+  instructions: z.string().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+  temperature: z.number().min(0).max(2).optional(),
+  top_p: z.number().min(0).max(1).optional(),
+  max_output_tokens: z.number().int().positive().optional(),
+  stream: z.boolean().optional(),
+  tools: z.array(z.unknown()).optional(),
+  tool_choice: z.union([z.string(), z.record(z.string(), z.unknown())]).optional(),
+}).passthrough();
+
+export type ResponsesBody = z.infer<typeof responsesBodySchema>;
+
 export const chatCompletionsBodySchema = z.object({
   model: z.string().min(1).max(128),
   messages: z.array(chatMessageSchema).min(1),
