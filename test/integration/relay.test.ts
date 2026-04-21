@@ -195,4 +195,49 @@ describe('relay integration', () => {
       await closeTestApp(app);
     }
   });
+
+  it('forwards stream responses as event streams and records zero-token usage', async () => {
+    const user = await createUser();
+    const { apiKey } = await createApiKey(user.id);
+    await createChannel();
+    mockFetchOnce({
+      status: 200,
+      headers: { 'content-type': 'text/event-stream; charset=utf-8' },
+      body: 'data: {"choices":[{"delta":{"content":"hello"}}]}\n\ndata: [DONE]\n\n',
+    });
+
+    const app = await createTestApp();
+
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/v1/chat/completions',
+        headers: {
+          authorization: `Bearer ${apiKey}`,
+          'x-request-id': 'relay-stream-request',
+        },
+        payload: {
+          model: 'gpt-4o-mini',
+          stream: true,
+          messages: [{ role: 'user', content: 'hello' }],
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.headers['content-type']).toContain('text/event-stream');
+      expect(response.body).toContain('data: {"choices"');
+      expect(response.body).toContain('data: [DONE]');
+
+      const log = await prisma.usageLog.findUnique({
+        where: { requestId: 'relay-stream-request' },
+      });
+
+      expect(log?.success).toBe(true);
+      expect(log?.promptTokens).toBe(0);
+      expect(log?.completionTokens).toBe(0);
+      expect(log?.totalTokens).toBe(0);
+    } finally {
+      await closeTestApp(app);
+    }
+  });
 });
