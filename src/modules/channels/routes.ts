@@ -322,6 +322,20 @@ const findChannelForModelsOrThrow = async (id: string) => {
   return channel;
 };
 
+const readChannelResponseBody = async (response: Response) => {
+  const rawBody = await response.text();
+
+  if (!rawBody) {
+    return { error: { message: 'Upstream request failed' } };
+  }
+
+  try {
+    return JSON.parse(rawBody);
+  } catch {
+    return { error: { message: rawBody } };
+  }
+};
+
 const testChannelConnection = async (channel: {
   provider: string;
   baseUrl: string | null;
@@ -335,7 +349,7 @@ const testChannelConnection = async (channel: {
     },
   });
 
-  const responseBody = await response.json().catch(async () => ({ error: { message: await response.text() } }));
+  const responseBody = await readChannelResponseBody(response);
 
   return {
     statusCode: response.status,
@@ -393,7 +407,7 @@ const runChannelChatTest = async (channel: {
     body: JSON.stringify(buildTestRequestBody(model)),
   });
 
-  const responseBody = await response.json().catch(async () => ({ error: { message: await response.text() } }));
+  const responseBody = await readChannelResponseBody(response);
 
   return {
     statusCode: response.status,

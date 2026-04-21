@@ -237,4 +237,45 @@ describe('relay responses integration', () => {
       await closeTestApp(app);
     }
   });
+
+  it('treats error event streams as failed upstream responses', async () => {
+    const user = await createUser();
+    const { apiKey } = await createApiKey(user.id);
+    await createChannel({ name: 'Responses Error Stream Channel', model: 'gpt-4.1-mini' });
+    mockFetchOnce({
+      status: 200,
+      headers: { 'content-type': 'text/event-stream; charset=utf-8' },
+      body: 'event: error\ndata: "{"\n\n',
+    });
+
+    const app = await createTestApp();
+
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/v1/responses',
+        headers: {
+          authorization: `Bearer ${apiKey}`,
+          'x-request-id': 'relay-responses-error-stream-request',
+        },
+        payload: {
+          model: 'gpt-4.1-mini',
+          input: 'hello error stream',
+        },
+      });
+
+      expect(response.statusCode).toBe(502);
+      expect(response.json().error.message).toBe('{');
+
+      const log = await prisma.usageLog.findUnique({
+        where: { requestId: 'relay-responses-error-stream-request' },
+      });
+
+      expect(log?.success).toBe(false);
+      expect(log?.statusCode).toBe(502);
+      expect(log?.errorMessage).toBe('Responses Error Stream Channel:502');
+    } finally {
+      await closeTestApp(app);
+    }
+  });
 });
