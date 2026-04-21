@@ -56,4 +56,49 @@ describe('channels integration', () => {
       await closeTestApp(app);
     }
   });
+
+  it('rejects model discovery for non-openai providers', async () => {
+    const admin = await createAdminUser();
+    const token = await createSessionForUser(admin.id);
+    const channel = await createChannel({ provider: 'anthropic' });
+    const app = await createTestApp();
+
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: `/api/channels/${channel.id}/models`,
+        cookies: {
+          nodew_session: app.signCookie(token),
+        },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json().message).toBe('Model discovery is only supported for openai channels');
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
+  it('rejects channel test for non-openai providers', async () => {
+    const admin = await createAdminUser();
+    const token = await createSessionForUser(admin.id);
+    const channel = await createChannel({ provider: 'anthropic' });
+    const app = await createTestApp();
+
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: `/api/channels/${channel.id}/test`,
+        cookies: {
+          nodew_session: app.signCookie(token),
+        },
+        payload: {},
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json().message).toBe('Channel test is only supported for openai channels');
+    } finally {
+      await closeTestApp(app);
+    }
+  });
 });
