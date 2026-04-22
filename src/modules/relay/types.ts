@@ -7,6 +7,30 @@ export const chatMessageSchema = z.object({
   tool_call_id: z.string().optional(),
 });
 
+export const claudeContentBlockSchema = z.record(z.string(), z.unknown());
+
+export const claudeMessageSchema = z.object({
+  role: z.enum(['user', 'assistant']),
+  content: z.union([z.string(), z.array(claudeContentBlockSchema).min(1)]),
+}).passthrough();
+
+export const claudeMessagesBodySchema = z.object({
+  model: z.string().min(1).max(128),
+  messages: z.array(claudeMessageSchema).min(1),
+  system: z.union([z.string(), z.array(claudeContentBlockSchema).min(1)]).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+  stop_sequences: z.array(z.string().min(1)).max(16).optional(),
+  temperature: z.number().min(0).max(1).optional(),
+  top_p: z.number().min(0).max(1).optional(),
+  top_k: z.number().int().positive().optional(),
+  max_tokens: z.number().int().min(0).max(32768).optional(),
+  stream: z.boolean().optional(),
+  tools: z.array(z.record(z.string(), z.unknown())).optional(),
+  tool_choice: z.union([z.string(), z.record(z.string(), z.unknown())]).optional(),
+}).passthrough();
+
+export type ClaudeMessagesBody = z.infer<typeof claudeMessagesBodySchema>;
+
 export const embeddingsBodySchema = z.object({
   model: z.string().min(1).max(128),
   input: z.union([
@@ -84,6 +108,23 @@ export type RelayAttempt = {
   provider: string;
   statusCode: number;
   errorMessage: string | null;
+};
+
+export type GeminiGenerateContentBody = {
+  contents: Array<{
+    role?: string;
+    parts: Array<Record<string, unknown>>;
+  }>;
+  safetySettings?: Array<Record<string, unknown>>;
+  generationConfig?: Record<string, unknown>;
+  tools?: unknown;
+  toolConfig?: Record<string, unknown>;
+  systemInstruction?: {
+    role?: string;
+    parts: Array<Record<string, unknown>>;
+  };
+  cachedContent?: string;
+  [key: string]: unknown;
 };
 
 export type RelayExecutionResult = {

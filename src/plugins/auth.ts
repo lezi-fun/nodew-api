@@ -36,6 +36,31 @@ const resolveBearerToken = (authorization?: string) => {
   return token || null;
 };
 
+const resolveRelayApiToken = (request: FastifyRequest) => {
+  const bearerToken = resolveBearerToken(request.headers.authorization);
+
+  if (bearerToken) {
+    return bearerToken;
+  }
+
+  const anthropicApiKeyHeader = request.headers['x-api-key'];
+
+  if (typeof anthropicApiKeyHeader === 'string' && anthropicApiKeyHeader.trim()) {
+    return anthropicApiKeyHeader.trim();
+  }
+
+  const geminiApiKeyHeader = request.headers['x-goog-api-key'];
+
+  if (typeof geminiApiKeyHeader === 'string' && geminiApiKeyHeader.trim()) {
+    return geminiApiKeyHeader.trim();
+  }
+
+  const rawUrl = request.raw.url ?? request.url;
+  const queryKey = new URL(rawUrl, 'http://localhost').searchParams.get('key')?.trim();
+
+  return queryKey || null;
+};
+
 const authenticateApiKey = async (token: string) => {
   const keyPrefix = token.slice(0, 12);
 
@@ -171,10 +196,12 @@ const authPlugin = fp(async (app) => {
     request.currentUser = null;
     request.currentApiKey = null;
 
-    const bearerToken = resolveBearerToken(request.headers.authorization);
+    const relayApiToken = (request.url.startsWith('/v1/') || request.url.startsWith('/v1beta/'))
+      ? resolveRelayApiToken(request)
+      : null;
 
-    if (bearerToken && request.url.startsWith('/v1/')) {
-      const authenticated = await authenticateApiKey(bearerToken);
+    if (relayApiToken) {
+      const authenticated = await authenticateApiKey(relayApiToken);
 
       if (!authenticated) {
         return;

@@ -278,4 +278,68 @@ describe('relay responses integration', () => {
       await closeTestApp(app);
     }
   });
+
+  it('does not route responses to anthropic channels for the same model', async () => {
+    const user = await createUser();
+    const { apiKey } = await createApiKey(user.id);
+    await createChannel({ name: 'Anthropic Channel', provider: 'anthropic', model: 'gpt-4.1-mini', priority: 100 });
+    await createChannel({ name: 'OpenAI Responses Channel', provider: 'openai', model: 'gpt-4.1-mini', priority: 10 });
+    const fetchMock = mockFetchOnce({
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+      body: {
+        id: 'resp_provider_boundary',
+        object: 'response',
+        output: [
+          {
+            id: 'msg_1',
+            type: 'message',
+            role: 'assistant',
+            content: [
+              {
+                type: 'output_text',
+                text: 'responses boundary ok',
+              },
+            ],
+          },
+        ],
+        usage: {
+          input_tokens: 6,
+          output_tokens: 4,
+          total_tokens: 10,
+        },
+      },
+    });
+
+    const app = await createTestApp();
+
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/v1/responses',
+        headers: {
+          authorization: `Bearer ${apiKey}`,
+          'x-request-id': 'relay-responses-provider-boundary-request',
+        },
+        payload: {
+          model: 'gpt-4.1-mini',
+          input: 'hello responses',
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json().output[0].content[0].text).toBe('responses boundary ok');
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock.mock.calls[0]?.[0]).toBe('https://example.test/v1/responses');
+
+      const log = await prisma.usageLog.findUnique({
+        where: { requestId: 'relay-responses-provider-boundary-request' },
+      });
+
+      expect(log?.success).toBe(true);
+      expect(log?.provider).toBe('openai');
+    } finally {
+      await closeTestApp(app);
+    }
+  });
 });

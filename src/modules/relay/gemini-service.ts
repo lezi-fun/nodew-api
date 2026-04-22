@@ -7,16 +7,29 @@ import {
   shouldRetryRelay,
   summarizeRelayAttempts,
 } from './channel-selector.js';
-import { sendOpenAIEmbeddings } from './openai-adapter.js';
-import type { EmbeddingsBody, RelayExecutionResult } from './types.js';
+import { sendGeminiGenerateContent } from './gemini-adapter.js';
+import type { GeminiGenerateContentBody, RelayExecutionResult } from './types.js';
 
-export const relayEmbeddings = async (params: {
+const extractGeminiModel = (path: string) => {
+  const withoutQuery = path.split('?')[0] ?? path;
+  const match = withoutQuery.match(/^\/models\/([^:]+):([^/?]+)$/);
+
+  if (!match) {
+    throw new Error('Invalid Gemini relay path');
+  }
+
+  return match[1]!;
+};
+
+export const relayGeminiGenerateContent = async (params: {
   userId: string;
   apiKeyId: string;
   requestId: string;
-  body: EmbeddingsBody;
+  path: string;
+  body: GeminiGenerateContentBody;
 }): Promise<RelayExecutionResult> => {
-  const channels = await selectRelayChannels(params.body.model, ['openai']);
+  const model = extractGeminiModel(params.path);
+  const channels = await selectRelayChannels(model, ['gemini']);
 
   if (channels.length === 0) {
     throw new Error('No active channel available for the requested model');
@@ -28,7 +41,7 @@ export const relayEmbeddings = async (params: {
   let lastChannel: RelayExecutionResult['channel'] | null = null;
 
   for (const channel of channels.slice(0, relayRetryLimit + 1)) {
-    const result = await sendOpenAIEmbeddings(channel, params.body);
+    const result = await sendGeminiGenerateContent(channel, params.path, params.body);
     const errorMessage = result.statusCode >= 200 && result.statusCode < 300 ? null : extractRelayErrorMessage(result.body);
 
     attempts.push(formatRelayAttempt(channel, result.statusCode, errorMessage));
@@ -43,8 +56,8 @@ export const relayEmbeddings = async (params: {
           channelId: channel.id,
           requestId: params.requestId,
           provider: channel.provider,
-          model: channel.model ?? params.body.model,
-          endpoint: '/v1/embeddings',
+          model: channel.model ?? model,
+          endpoint: `/v1beta${params.path}`,
           promptTokens: result.promptTokens,
           completionTokens: result.completionTokens,
           totalTokens: result.totalTokens,
@@ -74,8 +87,8 @@ export const relayEmbeddings = async (params: {
       channelId: lastChannel?.id ?? null,
       requestId: params.requestId,
       provider: lastChannel?.provider ?? 'unknown',
-      model: lastChannel?.model ?? params.body.model,
-      endpoint: '/v1/embeddings',
+      model: lastChannel?.model ?? model,
+      endpoint: `/v1beta${params.path}`,
       promptTokens: lastResult?.promptTokens ?? 0,
       completionTokens: lastResult?.completionTokens ?? 0,
       totalTokens: lastResult?.totalTokens ?? 0,

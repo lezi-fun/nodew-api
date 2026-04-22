@@ -179,4 +179,61 @@ describe('relay embeddings integration', () => {
       await closeTestApp(app);
     }
   });
+
+  it('does not route embeddings to anthropic channels for the same model', async () => {
+    const user = await createUser();
+    const { apiKey } = await createApiKey(user.id);
+    await createChannel({ name: 'Anthropic Channel', provider: 'anthropic', model: 'text-embedding-3-small', priority: 100 });
+    await createChannel({ name: 'OpenAI Embeddings Channel', provider: 'openai', model: 'text-embedding-3-small', priority: 10 });
+    const fetchMock = mockFetchOnce({
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+      body: {
+        object: 'list',
+        data: [
+          {
+            object: 'embedding',
+            index: 0,
+            embedding: [0.7, 0.8, 0.9],
+          },
+        ],
+        model: 'text-embedding-3-small',
+        usage: {
+          prompt_tokens: 5,
+          total_tokens: 5,
+        },
+      },
+    });
+
+    const app = await createTestApp();
+
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/v1/embeddings',
+        headers: {
+          authorization: `Bearer ${apiKey}`,
+          'x-request-id': 'relay-embeddings-provider-boundary-request',
+        },
+        payload: {
+          model: 'text-embedding-3-small',
+          input: 'hello embeddings',
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json().data[0].embedding).toEqual([0.7, 0.8, 0.9]);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock.mock.calls[0]?.[0]).toBe('https://example.test/v1/embeddings');
+
+      const log = await prisma.usageLog.findUnique({
+        where: { requestId: 'relay-embeddings-provider-boundary-request' },
+      });
+
+      expect(log?.success).toBe(true);
+      expect(log?.provider).toBe('openai');
+    } finally {
+      await closeTestApp(app);
+    }
+  });
 });

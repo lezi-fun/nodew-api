@@ -7,16 +7,17 @@ import {
   shouldRetryRelay,
   summarizeRelayAttempts,
 } from './channel-selector.js';
-import { sendOpenAIEmbeddings } from './openai-adapter.js';
-import type { EmbeddingsBody, RelayExecutionResult } from './types.js';
+import { sendClaudeMessages } from './claude-adapter.js';
+import type { ClaudeMessagesBody, RelayExecutionResult } from './types.js';
 
-export const relayEmbeddings = async (params: {
+export const relayClaudeMessages = async (params: {
   userId: string;
   apiKeyId: string;
   requestId: string;
-  body: EmbeddingsBody;
+  body: ClaudeMessagesBody;
+  anthropicVersion?: string;
 }): Promise<RelayExecutionResult> => {
-  const channels = await selectRelayChannels(params.body.model, ['openai']);
+  const channels = await selectRelayChannels(params.body.model, ['anthropic']);
 
   if (channels.length === 0) {
     throw new Error('No active channel available for the requested model');
@@ -28,7 +29,7 @@ export const relayEmbeddings = async (params: {
   let lastChannel: RelayExecutionResult['channel'] | null = null;
 
   for (const channel of channels.slice(0, relayRetryLimit + 1)) {
-    const result = await sendOpenAIEmbeddings(channel, params.body);
+    const result = await sendClaudeMessages(channel, params.body, params.anthropicVersion);
     const errorMessage = result.statusCode >= 200 && result.statusCode < 300 ? null : extractRelayErrorMessage(result.body);
 
     attempts.push(formatRelayAttempt(channel, result.statusCode, errorMessage));
@@ -44,7 +45,7 @@ export const relayEmbeddings = async (params: {
           requestId: params.requestId,
           provider: channel.provider,
           model: channel.model ?? params.body.model,
-          endpoint: '/v1/embeddings',
+          endpoint: '/v1/messages',
           promptTokens: result.promptTokens,
           completionTokens: result.completionTokens,
           totalTokens: result.totalTokens,
@@ -75,7 +76,7 @@ export const relayEmbeddings = async (params: {
       requestId: params.requestId,
       provider: lastChannel?.provider ?? 'unknown',
       model: lastChannel?.model ?? params.body.model,
-      endpoint: '/v1/embeddings',
+      endpoint: '/v1/messages',
       promptTokens: lastResult?.promptTokens ?? 0,
       completionTokens: lastResult?.completionTokens ?? 0,
       totalTokens: lastResult?.totalTokens ?? 0,

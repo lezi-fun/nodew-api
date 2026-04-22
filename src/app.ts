@@ -93,6 +93,7 @@ export const createApp = async (appEnv: AppEnv = parseEnv()) => {
   }, { prefix: '/api' });
 
   await app.register(relayRoutes, { prefix: '/v1' });
+  await app.register(relayRoutes, { prefix: '/v1beta' });
 
   await app.register(fastifyStatic, {
     root: frontendRoot,

@@ -16,7 +16,7 @@ export const relayResponses = async (params: {
   requestId: string;
   body: ResponsesBody;
 }): Promise<RelayExecutionResult> => {
-  const channels = await selectRelayChannels(params.body.model);
+  const channels = await selectRelayChannels(params.body.model, ['openai']);
 
   if (channels.length === 0) {
     throw new Error('No active channel available for the requested model');

@@ -251,6 +251,65 @@ describe('relay integration', () => {
     }
   });
 
+  it('does not route chat completions to anthropic channels for the same model', async () => {
+    const user = await createUser();
+    const { apiKey } = await createApiKey(user.id);
+    await createChannel({ name: 'Anthropic Channel', provider: 'anthropic', model: 'gpt-4o-mini', priority: 100 });
+    await createChannel({ name: 'OpenAI Channel', provider: 'openai', model: 'gpt-4o-mini', priority: 10 });
+    const fetchMock = mockFetchOnce({
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+      body: {
+        id: 'chatcmpl_provider_boundary',
+        object: 'chat.completion',
+        usage: {
+          prompt_tokens: 3,
+          completion_tokens: 2,
+          total_tokens: 5,
+        },
+        choices: [
+          {
+            index: 0,
+            message: { role: 'assistant', content: 'provider boundary ok' },
+            finish_reason: 'stop',
+          },
+        ],
+      },
+    });
+
+    const app = await createTestApp();
+
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/v1/chat/completions',
+        headers: {
+          authorization: `Bearer ${apiKey}`,
+          'x-request-id': 'relay-provider-boundary-request',
+        },
+        payload: {
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: 'hello' }],
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json().choices[0].message.content).toBe('provider boundary ok');
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock.mock.calls[0]?.[0]).toBe('https://example.test/v1/chat/completions');
+
+      const log = await prisma.usageLog.findUnique({
+        where: { requestId: 'relay-provider-boundary-request' },
+      });
+
+      expect(log?.success).toBe(true);
+      expect(log?.provider).toBe('openai');
+      expect(log?.channelId).not.toBeNull();
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
   it('does not fall back when the upstream error is non-retryable', async () => {
     const user = await createUser();
     const { apiKey } = await createApiKey(user.id);

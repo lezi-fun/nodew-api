@@ -1,11 +1,12 @@
 import { prisma } from '../../lib/prisma.js';
 import type { RelayAttempt, RelayChannel } from './types.js';
 
-export const selectRelayChannels = async (requestedModel: string): Promise<RelayChannel[]> => {
+export const selectRelayChannels = async (requestedModel: string, providers?: string[]): Promise<RelayChannel[]> => {
   const channels = await prisma.channel.findMany({
     where: {
       status: 'ACTIVE',
       OR: [{ model: requestedModel }, { model: null }],
+      ...(providers && providers.length > 0 ? { provider: { in: providers } } : {}),
     },
     orderBy: [{ priority: 'desc' }, { weight: 'desc' }, { createdAt: 'desc' }],
     select: {
