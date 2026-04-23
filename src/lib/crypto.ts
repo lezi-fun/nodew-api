@@ -30,6 +30,21 @@ export const verifyPassword = (password: string, storedHash: string) => {
 
 export const generateAccessToken = () => randomBytes(24).toString('hex');
 
+export const generatePasswordResetToken = () => randomBytes(24).toString('hex');
+
+export const hashPasswordResetToken = (token: string) => createHash('sha256').update(token).digest('hex');
+
+export const verifyPasswordResetToken = (token: string, storedHash: string) => {
+  const tokenBuffer = Buffer.from(hashPasswordResetToken(token), 'hex');
+  const hashBuffer = Buffer.from(storedHash, 'hex');
+
+  if (tokenBuffer.length !== hashBuffer.length) {
+    return false;
+  }
+
+  return timingSafeEqual(tokenBuffer, hashBuffer);
+};
+
 export const generateApiKey = () => `${TOKEN_PREFIX}${randomBytes(24).toString('hex')}`;
 
 export const hashApiKey = (apiKey: string) => hashPassword(apiKey);

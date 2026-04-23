@@ -28,23 +28,27 @@ enum ChannelStatus {
 }
 
 model User {
-  id             String        @id @default(cuid())
-  email          String        @unique
-  username       String        @unique
-  passwordHash   String
-  displayName    String?
-  accessToken    String?       @unique
-  settings       Json?
-  role           UserRole      @default(USER)
-  status         UserStatus    @default(ACTIVE)
-  quotaRemaining BigInt        @default(0)
-  quotaUsed      BigInt        @default(0)
-  lastLoginAt    DateTime?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  apiKeys        APIKey[]
-  usageLogs      UsageLog[]
-  createdApiKeys APIKey[]      @relation("APIKeyCreator")
+  id                          String     @id @default(cuid())
+  email                       String     @unique
+  username                    String     @unique
+  passwordHash                String
+  displayName                 String?
+  emailVerifiedAt             DateTime?
+  passwordResetTokenHash      String?
+  passwordResetTokenExpiresAt DateTime?
+  passwordResetRequestedAt    DateTime?
+  accessToken                 String?    @unique
+  settings                    Json?
+  role                        UserRole   @default(USER)
+  status                      UserStatus @default(ACTIVE)
+  quotaRemaining              BigInt     @default(0)
+  quotaUsed                   BigInt     @default(0)
+  lastLoginAt                 DateTime?
+  createdAt                   DateTime   @default(now())
+  updatedAt                   DateTime   @updatedAt
+  apiKeys                     APIKey[]
+  usageLogs                   UsageLog[]
+  createdApiKeys              APIKey[]   @relation("APIKeyCreator")
 
   @@index([role])
   @@index([status])
@@ -75,11 +79,11 @@ model APIKey {
 }
 
 model SetupState {
-  id            String   @id @default(cuid())
-  isInitialized Boolean  @default(false)
+  id            String    @id @default(cuid())
+  isInitialized Boolean   @default(false)
   initializedAt DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
 model SystemOption {
@@ -90,20 +94,20 @@ model SystemOption {
 }
 
 model Channel {
-  id             String        @id @default(cuid())
-  name           String
-  provider       String
-  baseUrl        String?
-  model          String?
-  encryptedKey   String
-  status         ChannelStatus @default(ACTIVE)
-  priority       Int           @default(0)
-  weight         Int           @default(1)
+  id              String        @id @default(cuid())
+  name            String
+  provider        String
+  baseUrl         String?
+  model           String?
+  encryptedKey    String
+  status          ChannelStatus @default(ACTIVE)
+  priority        Int           @default(0)
+  weight          Int           @default(1)
   rateLimitPerMin Int?
-  metadata       Json?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  usageLogs      UsageLog[]
+  metadata        Json?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  usageLogs       UsageLog[]
 
   @@index([provider])
   @@index([status])
@@ -111,27 +115,27 @@ model Channel {
 }
 
 model UsageLog {
-  id                 String    @id @default(cuid())
+  id                 String   @id @default(cuid())
   userId             String
   apiKeyId           String?
   channelId          String?
-  requestId          String?   @unique
+  requestId          String?  @unique
   provider           String
   model              String?
   endpoint           String
-  promptTokens       Int       @default(0)
-  completionTokens   Int       @default(0)
-  totalTokens        Int       @default(0)
+  promptTokens       Int      @default(0)
+  completionTokens   Int      @default(0)
+  totalTokens        Int      @default(0)
   estimatedCostCents Int?
   statusCode         Int?
-  success            Boolean   @default(true)
+  success            Boolean  @default(true)
   errorCode          String?
   errorMessage       String?
   latencyMs          Int?
-  createdAt          DateTime  @default(now())
-  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  apiKey             APIKey?   @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
-  channel            Channel?  @relation(fields: [channelId], references: [id], onDelete: SetNull)
+  createdAt          DateTime @default(now())
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiKey             APIKey?  @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  channel            Channel? @relation(fields: [channelId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
   @@index([apiKeyId, createdAt])

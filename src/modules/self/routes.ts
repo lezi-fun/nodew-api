@@ -2,8 +2,9 @@ import type { Prisma } from '@prisma/client';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 
-import { hashPassword, verifyPassword } from '../../lib/crypto.js';
+import { verifyPassword } from '../../lib/crypto.js';
 import { prisma } from '../../lib/prisma.js';
+import { updateUserPassword } from '../auth/password-reset.js';
 
 const updateSelfBodySchema = z.object({
   displayName: z.string().min(1).max(64).optional(),
@@ -106,12 +107,9 @@ const selfRoutes: FastifyPluginAsync = async (app) => {
       throw app.httpErrors.unauthorized('Current password is incorrect');
     }
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        passwordHash: hashPassword(body.newPassword),
-        accessToken: null,
-      },
+    await updateUserPassword({
+      userId: user.id,
+      password: body.newPassword,
     });
 
     return {

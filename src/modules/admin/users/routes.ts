@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { generateAccessToken, hashPassword } from '../../../../src/lib/crypto.js';
 import { prisma } from '../../../../src/lib/prisma.js';
+import { updateUserPassword } from '../../auth/password-reset.js';
 
 const userParamsSchema = z.object({
   id: z.string().cuid(),
@@ -248,12 +249,10 @@ const usersRoutes: FastifyPluginAsync = async (app) => {
       throw app.httpErrors.notFound('User not found');
     }
 
-    await prisma.user.update({
-      where: { id: params.id },
-      data: {
-        passwordHash: hashPassword(body.password),
-        accessToken: body.revokeSession ? null : undefined,
-      },
+    await updateUserPassword({
+      userId: params.id,
+      password: body.password,
+      revokeSession: body.revokeSession,
     });
 
     return {
