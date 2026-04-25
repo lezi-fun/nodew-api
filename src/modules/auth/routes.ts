@@ -1,7 +1,14 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 
-import { generateAccessToken, generatePasswordResetToken, hashPassword, verifyPassword } from '../../lib/crypto.js';
+import {
+  generateAccessToken,
+  generatePasswordResetToken,
+  getRedemptionCodePrefix,
+  hashPassword,
+  verifyPassword,
+  verifyRedemptionCode,
+} from '../../lib/crypto.js';
 import { prisma } from '../../lib/prisma.js';
 import { clearSessionCookie, setSessionCookie } from '../../plugins/auth.js';
 import { setPasswordResetToken, updateUserPassword, canUsePasswordResetToken } from './password-reset.js';
@@ -27,6 +34,10 @@ const resetPasswordBodySchema = z.object({
   email: z.string().email(),
   token: z.string().min(1).max(256),
   password: z.string().min(8).max(128),
+});
+
+const redeemRedemptionBodySchema = z.object({
+  code: z.string().trim().min(1).max(128),
 });
 
 const authUserSelect = {
@@ -178,6 +189,77 @@ const authRoutes: FastifyPluginAsync = async (app) => {
 
     return {
       success: true,
+    };
+  });
+
+  app.post('/user/redemption/redeem', {
+    preHandler: app.requireUser,
+  }, async (request) => {
+    const body = redeemRedemptionBodySchema.parse(request.body);
+    const now = new Date();
+    const codePrefix = getRedemptionCodePrefix(body.code);
+
+    const redemptions = await prisma.redemption.findMany({
+      where: {
+        codePrefix,
+        status: 'ACTIVE',
+        OR: [
+          { expiresAt: null },
+          { expiresAt: { gt: now } },
+        ],
+      },
+      select: {
+        id: true,
+        codeHash: true,
+        quotaAmount: true,
+      },
+    });
+    const redemption = redemptions.find((entry) => verifyRedemptionCode(body.code, entry.codeHash));
+
+    if (!redemption) {
+      throw app.httpErrors.badRequest('Redemption code is invalid or expired');
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const updatedRedemption = await tx.redemption.updateMany({
+        where: {
+          id: redemption.id,
+          status: 'ACTIVE',
+          OR: [
+            { expiresAt: null },
+            { expiresAt: { gt: now } },
+          ],
+        },
+        data: {
+          status: 'REDEEMED',
+          redeemedByUserId: request.currentUser!.id,
+          redeemedAt: now,
+        },
+      });
+
+      if (updatedRedemption.count === 0) {
+        throw app.httpErrors.badRequest('Redemption code is invalid or expired');
+      }
+
+      const user = await tx.user.update({
+        where: { id: request.currentUser!.id },
+        data: {
+          quotaRemaining: { increment: redemption.quotaAmount },
+        },
+        select: {
+          quotaRemaining: true,
+          quotaUsed: true,
+        },
+      });
+
+      return user;
+    });
+
+    return {
+      success: true,
+      quotaAmount: redemption.quotaAmount.toString(),
+      quotaRemaining: result.quotaRemaining.toString(),
+      quotaUsed: result.quotaUsed.toString(),
     };
   });
 
