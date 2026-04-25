@@ -65,7 +65,7 @@ export const createApp = async (appEnv: AppEnv = parseEnv()) => {
       return payload;
     }
 
-    return payload.replace(/(\d+)n/g, '$1');
+    return payload.replace(/:\s*(-?\d+)n(?=\s*[,}])/g, ':$1');
   });
 
   app.get('/health', async () => ({
