@@ -93,6 +93,31 @@ const testChannelBodySchema = z.object({
   model: z.string().min(1).max(128).optional(),
 });
 
+const copyChannelBodySchema = z.object({
+  name: z.string().min(1).max(64).optional(),
+  suffix: z.string().min(1).max(32).default(' Copy'),
+});
+
+const batchChannelStatusBodySchema = z.object({
+  ids: z.array(z.string().cuid()).min(1).max(100),
+  status: z.enum(['ACTIVE', 'DISABLED']),
+});
+
+const batchChannelMetadataBodySchema = z.object({
+  ids: z.array(z.string().cuid()).min(1).max(100),
+  metadata: z.record(z.string(), z.unknown()).nullable(),
+});
+
+const batchChannelTagsBodySchema = z.object({
+  ids: z.array(z.string().cuid()).min(1).max(100),
+  tags: z.array(z.string().trim().min(1).max(64)).max(32),
+});
+
+const tagStatusBodySchema = z.object({
+  tag: z.string().trim().min(1).max(64),
+  status: z.enum(['ACTIVE', 'DISABLED']),
+});
+
 const channelNotFoundMessage = 'Channel not found';
 const modelDiscoverySupportMessage = 'Model discovery is only supported for openai channels';
 const channelTestSupportMessage = 'Channel test is only supported for openai channels';
@@ -219,6 +244,24 @@ const parseChannelId = (params: unknown) => channelParamsSchema.parse(params).id
 const parseChannelQuery = (query: unknown) => channelQuerySchema.parse(query);
 const parseChannelModelQuery = (query: unknown) => channelModelQuerySchema.parse(query);
 const parseChannelTestBody = (body: unknown) => testChannelBodySchema.parse(body);
+
+const toMetadataObject = (metadata: Prisma.JsonValue | null) => {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return {} as Record<string, unknown>;
+  }
+
+  return metadata as Record<string, unknown>;
+};
+
+const withTags = (metadata: Prisma.JsonValue | null, tags: string[]) => ({
+  ...toMetadataObject(metadata),
+  tags,
+});
+
+const batchResult = (count: number) => ({
+  success: true,
+  count,
+});
 
 const ensureOpenAIChannel = (provider: string, message: string) => {
   if (provider !== 'openai') {
@@ -428,6 +471,73 @@ const throwKnownChannelError = (app: Parameters<FastifyPluginAsync>[0], error: u
 };
 
 const channelRoutes: FastifyPluginAsync = async (app) => {
+  app.post('/channels/batch/status', {
+    preHandler: app.requireAdminUser,
+  }, async (request) => {
+    const body = batchChannelStatusBodySchema.parse(request.body);
+    const result = await prisma.channel.updateMany({
+      where: { id: { in: body.ids } },
+      data: { status: body.status },
+    });
+
+    return batchResult(result.count);
+  });
+
+  app.post('/channels/batch/metadata', {
+    preHandler: app.requireAdminUser,
+  }, async (request) => {
+    const body = batchChannelMetadataBodySchema.parse(request.body);
+    const result = await prisma.channel.updateMany({
+      where: { id: { in: body.ids } },
+      data: { metadata: body.metadata === null ? Prisma.JsonNull : body.metadata as Prisma.InputJsonValue },
+    });
+
+    return batchResult(result.count);
+  });
+
+  app.post('/channels/batch/tags', {
+    preHandler: app.requireAdminUser,
+  }, async (request) => {
+    const body = batchChannelTagsBodySchema.parse(request.body);
+    const channels = await prisma.channel.findMany({
+      where: { id: { in: body.ids } },
+      select: { id: true, metadata: true },
+    });
+
+    await prisma.$transaction(channels.map((channel) => prisma.channel.update({
+      where: { id: channel.id },
+      data: { metadata: withTags(channel.metadata, body.tags) as Prisma.InputJsonValue },
+    })));
+
+    return batchResult(channels.length);
+  });
+
+  app.post('/channels/tag/status', {
+    preHandler: app.requireAdminUser,
+  }, async (request) => {
+    const body = tagStatusBodySchema.parse(request.body);
+    const channels = await prisma.channel.findMany({
+      select: { id: true, metadata: true },
+    });
+    const ids = channels
+      .filter((channel) => {
+        const tags = toMetadataObject(channel.metadata).tags;
+        return Array.isArray(tags) && tags.includes(body.tag);
+      })
+      .map((channel) => channel.id);
+
+    if (ids.length === 0) {
+      return batchResult(0);
+    }
+
+    const result = await prisma.channel.updateMany({
+      where: { id: { in: ids } },
+      data: { status: body.status },
+    });
+
+    return batchResult(result.count);
+  });
+
   app.get('/channels', {
     preHandler: app.requireUser,
   }, async (request) => {
@@ -443,6 +553,38 @@ const channelRoutes: FastifyPluginAsync = async (app) => {
     try {
       const channel = await findChannelDetailOrThrow(parseChannelId(request.params));
       return channelDetailResponse(channel);
+    } catch (error) {
+      return throwKnownChannelError(app, error);
+    }
+  });
+
+  app.post('/channels/:id/copy', {
+    preHandler: app.requireAdminUser,
+  }, async (request, reply) => {
+    const id = parseChannelId(request.params);
+    const body = copyChannelBodySchema.parse(request.body);
+
+    try {
+      const source = await findChannelDetailOrThrow(id);
+      const channel = await prisma.channel.create({
+        data: {
+          name: body.name ?? `${source.name}${body.suffix}`,
+          provider: source.provider,
+          baseUrl: source.baseUrl,
+          model: source.model,
+          encryptedKey: source.encryptedKey,
+          status: source.status,
+          priority: source.priority,
+          weight: source.weight,
+          rateLimitPerMin: source.rateLimitPerMin,
+          metadata: source.metadata === null ? Prisma.JsonNull : source.metadata as Prisma.InputJsonValue,
+        },
+        select: channelSelect,
+      });
+
+      return reply.code(201).send({
+        item: serializeChannel(channel),
+      });
     } catch (error) {
       return throwKnownChannelError(app, error);
     }
