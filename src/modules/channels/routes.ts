@@ -484,7 +484,7 @@ const channelRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.post('/channels', {
-    preHandler: app.requireUser,
+    preHandler: app.requireAdminUser,
   }, async (request, reply) => {
     const body = channelBodySchema.parse(request.body);
 
@@ -510,7 +510,7 @@ const channelRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.patch('/channels/:id', {
-    preHandler: app.requireUser,
+    preHandler: app.requireAdminUser,
   }, async (request) => {
     const params = channelParamsSchema.parse(request.params);
     const body = updateChannelBodySchema.parse(request.body);
@@ -578,7 +578,7 @@ const channelRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.delete('/channels/:id', {
-    preHandler: app.requireUser,
+    preHandler: app.requireAdminUser,
   }, async (request) => {
     const params = channelParamsSchema.parse(request.params);
 
