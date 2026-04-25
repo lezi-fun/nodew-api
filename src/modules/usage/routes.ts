@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 
@@ -8,6 +9,70 @@ const usageQuerySchema = z.object({
   cursor: z.string().cuid().optional(),
   success: z.enum(['true', 'false']).optional(),
 });
+
+const tokenUsageParamsSchema = z.object({
+  id: z.string().cuid(),
+});
+
+const paginateLogs = async (params: {
+  where: Prisma.UsageLogWhereInput;
+  limit: number;
+  cursor?: string;
+}) => {
+  const logs = await prisma.usageLog.findMany({
+    where: params.where,
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    take: params.limit + 1,
+    ...(params.cursor ? { cursor: { id: params.cursor }, skip: 1 } : {}),
+    select: {
+      id: true,
+      requestId: true,
+      provider: true,
+      model: true,
+      endpoint: true,
+      promptTokens: true,
+      completionTokens: true,
+      totalTokens: true,
+      estimatedCostCents: true,
+      statusCode: true,
+      success: true,
+      errorCode: true,
+      errorMessage: true,
+      latencyMs: true,
+      createdAt: true,
+      apiKey: {
+        select: {
+          id: true,
+          name: true,
+          keyPrefix: true,
+        },
+      },
+      channel: {
+        select: {
+          id: true,
+          name: true,
+          provider: true,
+          model: true,
+        },
+      },
+      user: {
+        select: {
+          id: true,
+          email: true,
+          username: true,
+        },
+      },
+    },
+  });
+
+  const hasMore = logs.length > params.limit;
+  const items = hasMore ? logs.slice(0, params.limit) : logs;
+
+  return {
+    items: items.map(serializeUsageLog),
+    nextCursor: hasMore ? items.at(-1)?.id ?? null : null,
+  };
+};
 
 const serializeUsageLog = (log: {
   id: string;
@@ -55,61 +120,63 @@ const usageRoutes: FastifyPluginAsync = async (app) => {
   }, async (request) => {
     const query = usageQuerySchema.parse(request.query);
 
-    const logs = await prisma.usageLog.findMany({
+    return paginateLogs({
       where: {
         userId: request.currentUser!.id,
         ...(query.success ? { success: query.success === 'true' } : {}),
       },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      take: query.limit + 1,
-      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+      limit: query.limit,
+      cursor: query.cursor,
+    });
+  });
+
+  app.get('/usage/token/:id', {
+    preHandler: app.requireUser,
+  }, async (request) => {
+    const params = tokenUsageParamsSchema.parse(request.params);
+    const query = usageQuerySchema.parse(request.query);
+
+    const apiKey = await prisma.aPIKey.findFirst({
+      where: {
+        id: params.id,
+        userId: request.currentUser!.id,
+      },
       select: {
         id: true,
-        requestId: true,
-        provider: true,
-        model: true,
-        endpoint: true,
-        promptTokens: true,
-        completionTokens: true,
-        totalTokens: true,
-        estimatedCostCents: true,
-        statusCode: true,
-        success: true,
-        errorCode: true,
-        errorMessage: true,
-        latencyMs: true,
-        createdAt: true,
-        apiKey: {
-          select: {
-            id: true,
-            name: true,
-            keyPrefix: true,
-          },
-        },
-        channel: {
-          select: {
-            id: true,
-            name: true,
-            provider: true,
-            model: true,
-          },
-        },
-        user: {
-          select: {
-            id: true,
-            email: true,
-            username: true,
-          },
-        },
+        name: true,
+        keyPrefix: true,
+        status: true,
+        quotaRemaining: true,
+        expiresAt: true,
+        lastUsedAt: true,
       },
     });
 
-    const hasMore = logs.length > query.limit;
-    const items = hasMore ? logs.slice(0, query.limit) : logs;
+    if (!apiKey) {
+      throw app.httpErrors.notFound('API key not found');
+    }
+
+    const usage = await paginateLogs({
+      where: {
+        userId: request.currentUser!.id,
+        apiKeyId: apiKey.id,
+        ...(query.success ? { success: query.success === 'true' } : {}),
+      },
+      limit: query.limit,
+      cursor: query.cursor,
+    });
 
     return {
-      items: items.map(serializeUsageLog),
-      nextCursor: hasMore ? items.at(-1)?.id ?? null : null,
+      token: {
+        id: apiKey.id,
+        name: apiKey.name,
+        keyPrefix: apiKey.keyPrefix,
+        status: apiKey.status,
+        quotaRemaining: apiKey.quotaRemaining?.toString() ?? null,
+        expiresAt: apiKey.expiresAt,
+        lastUsedAt: apiKey.lastUsedAt,
+      },
+      ...usage,
     };
   });
 
@@ -118,59 +185,11 @@ const usageRoutes: FastifyPluginAsync = async (app) => {
   }, async (request) => {
     const query = usageQuerySchema.parse(request.query);
 
-    const logs = await prisma.usageLog.findMany({
-      where: query.success ? { success: query.success === 'true' } : undefined,
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      take: query.limit + 1,
-      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
-      select: {
-        id: true,
-        requestId: true,
-        provider: true,
-        model: true,
-        endpoint: true,
-        promptTokens: true,
-        completionTokens: true,
-        totalTokens: true,
-        estimatedCostCents: true,
-        statusCode: true,
-        success: true,
-        errorCode: true,
-        errorMessage: true,
-        latencyMs: true,
-        createdAt: true,
-        apiKey: {
-          select: {
-            id: true,
-            name: true,
-            keyPrefix: true,
-          },
-        },
-        channel: {
-          select: {
-            id: true,
-            name: true,
-            provider: true,
-            model: true,
-          },
-        },
-        user: {
-          select: {
-            id: true,
-            email: true,
-            username: true,
-          },
-        },
-      },
+    return paginateLogs({
+      where: query.success ? { success: query.success === 'true' } : {},
+      limit: query.limit,
+      cursor: query.cursor,
     });
-
-    const hasMore = logs.length > query.limit;
-    const items = hasMore ? logs.slice(0, query.limit) : logs;
-
-    return {
-      items: items.map(serializeUsageLog),
-      nextCursor: hasMore ? items.at(-1)?.id ?? null : null,
-    };
   });
 };
 

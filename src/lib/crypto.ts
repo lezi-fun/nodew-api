@@ -55,6 +55,25 @@ export const getApiKeyPrefix = (apiKey: string) => apiKey.slice(0, 12);
 
 export const maskApiKey = (prefix: string) => `${prefix}••••••••••••••••`;
 
+export const generateRedemptionCode = () => randomBytes(18).toString('hex').toUpperCase();
+
+export const hashRedemptionCode = (code: string) => createHash('sha256').update(code).digest('hex');
+
+export const verifyRedemptionCode = (code: string, storedHash: string) => {
+  const codeBuffer = Buffer.from(hashRedemptionCode(code), 'hex');
+  const hashBuffer = Buffer.from(storedHash, 'hex');
+
+  if (codeBuffer.length !== hashBuffer.length) {
+    return false;
+  }
+
+  return timingSafeEqual(codeBuffer, hashBuffer);
+};
+
+export const getRedemptionCodePrefix = (code: string) => code.slice(0, 8);
+
+export const maskRedemptionCode = (prefix: string) => `${prefix}••••••••`;
+
 const CHANNEL_KEY_ALGORITHM = 'aes-256-gcm';
 const CHANNEL_KEY_IV_LENGTH = 12;
 

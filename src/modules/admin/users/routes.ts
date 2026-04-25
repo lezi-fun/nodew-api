@@ -25,6 +25,7 @@ const createUserBodySchema = z.object({
   displayName: z.string().min(1).max(64).optional(),
   role: z.enum(['USER', 'ADMIN']).default('USER'),
   status: z.enum(['ACTIVE', 'DISABLED']).default('ACTIVE'),
+  groupId: z.string().cuid().nullable().optional(),
   quotaRemaining: z.coerce.bigint().optional(),
   settings: z.record(z.string(), z.unknown()).optional(),
 });
@@ -35,6 +36,7 @@ const updateUserBodySchema = z.object({
   displayName: z.string().min(1).max(64).nullable().optional(),
   role: z.enum(['USER', 'ADMIN']).optional(),
   status: z.enum(['ACTIVE', 'DISABLED']).optional(),
+  groupId: z.string().cuid().nullable().optional(),
   quotaRemaining: z.coerce.bigint().optional(),
   settings: z.record(z.string(), z.unknown()).nullable().optional(),
 });
@@ -44,6 +46,11 @@ const resetPasswordBodySchema = z.object({
   revokeSession: z.boolean().default(true),
 });
 
+const groupSelect = {
+  id: true,
+  name: true,
+} as const;
+
 const userSelect = {
   id: true,
   email: true,
@@ -51,6 +58,9 @@ const userSelect = {
   displayName: true,
   role: true,
   status: true,
+  group: {
+    select: groupSelect,
+  },
   quotaRemaining: true,
   quotaUsed: true,
   lastLoginAt: true,
@@ -66,6 +76,7 @@ const serializeUser = (user: {
   displayName: string | null;
   role: 'USER' | 'ADMIN';
   status: 'ACTIVE' | 'DISABLED';
+  group: { id: string; name: string } | null;
   quotaRemaining: bigint;
   quotaUsed: bigint;
   lastLoginAt: Date | null;
@@ -77,6 +88,21 @@ const serializeUser = (user: {
   quotaRemaining: user.quotaRemaining.toString(),
   quotaUsed: user.quotaUsed.toString(),
 });
+
+const ensureGroupExists = async (groupId: string | null | undefined) => {
+  if (groupId === undefined || groupId === null) {
+    return;
+  }
+
+  const group = await prisma.group.findUnique({
+    where: { id: groupId },
+    select: { id: true },
+  });
+
+  if (!group) {
+    throw new Error('Group not found');
+  }
+};
 
 const usersRoutes: FastifyPluginAsync = async (app) => {
   app.get('/users', {
@@ -93,6 +119,7 @@ const usersRoutes: FastifyPluginAsync = async (app) => {
               { email: { contains: query.keyword, mode: 'insensitive' } },
               { username: { contains: query.keyword, mode: 'insensitive' } },
               { displayName: { contains: query.keyword, mode: 'insensitive' } },
+              { group: { name: { contains: query.keyword, mode: 'insensitive' } } },
             ],
           }
         : {}),
@@ -150,6 +177,16 @@ const usersRoutes: FastifyPluginAsync = async (app) => {
       throw app.httpErrors.conflict('User already exists');
     }
 
+    try {
+      await ensureGroupExists(body.groupId);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Group not found') {
+        throw app.httpErrors.notFound('Group not found');
+      }
+
+      throw error;
+    }
+
     const user = await prisma.user.create({
       data: {
         email: body.email,
@@ -158,6 +195,7 @@ const usersRoutes: FastifyPluginAsync = async (app) => {
         displayName: body.displayName,
         role: body.role,
         status: body.status,
+        groupId: body.groupId === undefined ? undefined : body.groupId,
         quotaRemaining: body.quotaRemaining ?? undefined,
         settings: body.settings as Prisma.InputJsonValue | undefined,
       },
@@ -184,6 +222,16 @@ const usersRoutes: FastifyPluginAsync = async (app) => {
       throw app.httpErrors.notFound('User not found');
     }
 
+    try {
+      await ensureGroupExists(body.groupId);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Group not found') {
+        throw app.httpErrors.notFound('Group not found');
+      }
+
+      throw error;
+    }
+
     const updateData: Prisma.UserUpdateInput = {
       email: body.email,
       username: body.username,
@@ -191,6 +239,11 @@ const usersRoutes: FastifyPluginAsync = async (app) => {
       role: body.role,
       status: body.status,
       quotaRemaining: body.quotaRemaining,
+      group: body.groupId === undefined
+        ? undefined
+        : body.groupId === null
+          ? { disconnect: true }
+          : { connect: { id: body.groupId } },
     };
 
     if (body.settings !== undefined) {

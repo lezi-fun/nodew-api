@@ -1,14 +1,17 @@
 import { randomUUID } from 'node:crypto';
 
-import { APIKeyStatus, ChannelStatus, UserRole, UserStatus } from '@prisma/client';
+import { APIKeyStatus, ChannelStatus, RedemptionStatus, UserRole, UserStatus } from '@prisma/client';
 
 import {
   encryptChannelKey,
   generateAccessToken,
   generateApiKey,
+  generateRedemptionCode,
   getApiKeyPrefix,
+  getRedemptionCodePrefix,
   hashApiKey,
   hashPassword,
+  hashRedemptionCode,
 } from '../../src/lib/crypto.js';
 import { prisma } from '../../src/lib/prisma.js';
 
@@ -22,6 +25,8 @@ export const createUser = async (overrides: Partial<{
   role: UserRole;
   status: UserStatus;
   accessToken: string | null;
+  groupId: string | null;
+  quotaRemaining: bigint;
 }> = {}) => {
   const password = overrides.password ?? 'testtest';
   const suffix = uniqueSuffix();
@@ -35,6 +40,8 @@ export const createUser = async (overrides: Partial<{
       role: overrides.role ?? 'USER',
       status: overrides.status ?? 'ACTIVE',
       accessToken: overrides.accessToken ?? null,
+      groupId: overrides.groupId === undefined ? undefined : overrides.groupId,
+      quotaRemaining: overrides.quotaRemaining ?? undefined,
     },
   });
 };
@@ -83,12 +90,79 @@ export const createNamedApiKey = async (userId: string, name: string, overrides:
   name,
 });
 
+export const createGroup = async (overrides: Partial<{
+  name: string;
+  description: string | null;
+}> = {}) => {
+  const suffix = uniqueSuffix();
+
+  return prisma.group.create({
+    data: {
+      name: overrides.name ?? `group_${suffix}`,
+      description: overrides.description ?? null,
+    },
+  });
+};
+
+export const createRedemption = async (createdById: string, overrides: Partial<{
+  code: string;
+  quotaAmount: bigint;
+  status: RedemptionStatus;
+  expiresAt: Date | null;
+}> = {}) => {
+  const code = overrides.code ?? generateRedemptionCode();
+  const record = await prisma.redemption.create({
+    data: {
+      codeHash: hashRedemptionCode(code),
+      codePrefix: getRedemptionCodePrefix(code),
+      quotaAmount: overrides.quotaAmount ?? 100n,
+      status: overrides.status ?? 'ACTIVE',
+      expiresAt: overrides.expiresAt ?? null,
+      createdById,
+    },
+  });
+
+  return { code, record };
+};
+
+export const createUsageLog = async (overrides: {
+  userId: string;
+  apiKeyId?: string | null;
+  channelId?: string | null;
+  requestId?: string | null;
+  provider?: string;
+  model?: string | null;
+  endpoint?: string;
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+  statusCode?: number | null;
+  success?: boolean;
+}) => prisma.usageLog.create({
+  data: {
+    userId: overrides.userId,
+    apiKeyId: overrides.apiKeyId ?? null,
+    channelId: overrides.channelId ?? null,
+    requestId: overrides.requestId ?? `request-${uniqueSuffix()}`,
+    provider: overrides.provider ?? 'openai',
+    model: overrides.model ?? 'gpt-4o-mini',
+    endpoint: overrides.endpoint ?? '/v1/chat/completions',
+    promptTokens: overrides.promptTokens ?? 1,
+    completionTokens: overrides.completionTokens ?? 2,
+    totalTokens: overrides.totalTokens ?? 3,
+    statusCode: overrides.statusCode ?? 200,
+    success: overrides.success ?? true,
+  },
+});
+
 export const createAdminUser = async (overrides: Partial<{
   email: string;
   username: string;
   password: string;
   displayName: string | null;
   accessToken: string | null;
+  groupId: string | null;
+  quotaRemaining: bigint;
 }> = {}) => createUser({
   ...overrides,
   role: 'ADMIN',
