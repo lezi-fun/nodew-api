@@ -8,6 +8,7 @@ import {
   summarizeRelayAttempts,
 } from './channel-selector.js';
 import { sendGeminiGenerateContent } from './gemini-adapter.js';
+import { sendGeminiViaOpenAIChatCompletion } from './gemini-openai-adapter.js';
 import type { GeminiGenerateContentBody, RelayExecutionResult } from './types.js';
 
 const extractGeminiModel = (path: string) => {
@@ -21,6 +22,8 @@ const extractGeminiModel = (path: string) => {
   return match[1]!;
 };
 
+const isStreamPath = (path: string) => path.includes(':streamGenerateContent');
+
 export const relayGeminiGenerateContent = async (params: {
   userId: string;
   apiKeyId: string;
@@ -29,7 +32,12 @@ export const relayGeminiGenerateContent = async (params: {
   body: GeminiGenerateContentBody;
 }): Promise<RelayExecutionResult> => {
   const model = extractGeminiModel(params.path);
-  const channels = await selectRelayChannels(model, ['gemini']);
+  const nativeChannels = await selectRelayChannels(model, ['gemini']);
+  const bridgeChannels = isStreamPath(params.path) || nativeChannels.length > 0
+    ? []
+    : await selectRelayChannels(model, ['openai']);
+  const channels = nativeChannels.length > 0 ? nativeChannels : bridgeChannels;
+  const useOpenAIBridge = nativeChannels.length === 0 && bridgeChannels.length > 0;
 
   if (channels.length === 0) {
     throw new Error('No active channel available for the requested model');
@@ -41,7 +49,9 @@ export const relayGeminiGenerateContent = async (params: {
   let lastChannel: RelayExecutionResult['channel'] | null = null;
 
   for (const channel of channels.slice(0, relayRetryLimit + 1)) {
-    const result = await sendGeminiGenerateContent(channel, params.path, params.body);
+    const result = useOpenAIBridge
+      ? await sendGeminiViaOpenAIChatCompletion(channel, model, params.body)
+      : await sendGeminiGenerateContent(channel, params.path, params.body);
     const errorMessage = result.statusCode >= 200 && result.statusCode < 300 ? null : extractRelayErrorMessage(result.body);
 
     attempts.push(formatRelayAttempt(channel, result.statusCode, errorMessage));

@@ -2,6 +2,7 @@ import { prisma } from '../../src/lib/prisma.js';
 
 export const resetDatabase = async () => {
   await prisma.usageLog.deleteMany();
+  await prisma.relaySelectionState.deleteMany();
   await prisma.aPIKey.deleteMany();
   await prisma.redemption.deleteMany();
   await prisma.channel.deleteMany();

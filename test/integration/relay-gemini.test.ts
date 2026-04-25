@@ -83,6 +83,97 @@ describe('relay gemini integration', () => {
     }
   });
 
+  it('converts Gemini generateContent requests through OpenAI channels when no Gemini channel exists', async () => {
+    const user = await createUser();
+    const { apiKey } = await createApiKey(user.id);
+    await createChannel({
+      name: 'OpenAI Gemini Bridge Channel',
+      provider: 'openai',
+      baseUrl: 'https://example.test/v1',
+      model: 'gemini-2.0-flash',
+    });
+    const fetchMock = mockFetchOnce({
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+      body: {
+        id: 'chat_bridge',
+        object: 'chat.completion',
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: 'openai bridge ok',
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 8,
+          completion_tokens: 5,
+          total_tokens: 13,
+        },
+      },
+    });
+
+    const app = await createTestApp();
+
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/v1beta/models/gemini-2.0-flash:generateContent',
+        headers: {
+          'x-goog-api-key': apiKey,
+          'x-request-id': 'relay-gemini-openai-bridge-request',
+        },
+        payload: {
+          systemInstruction: {
+            parts: [{ text: 'be concise' }],
+          },
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: 'hello bridge' }],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.2,
+            topP: 0.9,
+            maxOutputTokens: 32,
+            stopSequences: ['stop'],
+          },
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json().candidates[0].content.parts[0].text).toBe('openai bridge ok');
+      expect(response.json().usageMetadata.totalTokenCount).toBe(13);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock.mock.calls[0]?.[0]).toBe('https://example.test/v1/chat/completions');
+      expect(JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string)).toMatchObject({
+        model: 'gemini-2.0-flash',
+        messages: [
+          { role: 'system', content: 'be concise' },
+          { role: 'user', content: 'hello bridge' },
+        ],
+        temperature: 0.2,
+        top_p: 0.9,
+        max_tokens: 32,
+        stop: ['stop'],
+      });
+
+      const log = await prisma.usageLog.findUnique({
+        where: { requestId: 'relay-gemini-openai-bridge-request' },
+      });
+
+      expect(log?.success).toBe(true);
+      expect(log?.provider).toBe('openai');
+      expect(log?.totalTokens).toBe(13);
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
   it('accepts Gemini query-string auth and falls back across gemini channels only', async () => {
     const user = await createUser();
     const { apiKey } = await createApiKey(user.id);
