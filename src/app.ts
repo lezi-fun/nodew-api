@@ -7,6 +7,7 @@ import sensible from '@fastify/sensible';
 import fastifyStatic from '@fastify/static';
 import Fastify from 'fastify';
 
+import { ensureDevelopmentSeed } from './bootstrap/dev-seed.js';
 import { type env as envShape, parseEnv } from './config/env.js';
 import { prisma } from './lib/prisma.js';
 import apiKeyRoutes from './modules/api-keys/routes.js';
@@ -127,6 +128,8 @@ export const createApp = async (appEnv: AppEnv = parseEnv()) => {
 };
 
 export const startApp = async (appEnv: AppEnv = parseEnv()) => {
+  await ensureDevelopmentSeed();
+
   const app = await createApp(appEnv);
 
   try {

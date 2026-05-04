@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 
 import App from '../../App';
+import ErrorBoundary from '../common/ErrorBoundary';
 import FooterBar from './Footer';
 import HeaderBar from './headerbar';
 import SiderBar from './SiderBar';
@@ -41,7 +42,9 @@ export default function PageLayout() {
         ) : null}
         <Layout className={`app-content-layout ${!isMobile && showSider ? 'with-sider' : ''}`}>
           <Content className="app-content">
-            <App />
+            <ErrorBoundary>
+              <App />
+            </ErrorBoundary>
           </Content>
           {!isConsoleRoute ? <FooterBar /> : null}
         </Layout>

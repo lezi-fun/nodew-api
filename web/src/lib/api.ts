@@ -102,6 +102,21 @@ export type GroupItem = {
   updatedAt: string;
 };
 
+export type SystemOptionKey =
+  | 'registration_enabled'
+  | 'self_use_mode_enabled'
+  | 'demo_site_enabled'
+  | 'site_name'
+  | 'site_description'
+  | 'default_model';
+
+export type SystemOptionItem = {
+  key: SystemOptionKey;
+  value: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type UsageLogItem = {
   id: string;
   requestId: string | null;
@@ -281,6 +296,10 @@ export const api = {
   logout: async () => (await client.post<{ success: boolean }>('/api/user/logout')).data,
   getCurrentUser: async () => (await client.get<{ user: CurrentUser }>('/api/user/self')).data,
   getStatus: async () => (await client.get<AppStatus>('/api/status')).data,
+  updateCurrentUser: async (payload: { displayName?: string; settings?: Record<string, unknown> }) =>
+    (await client.patch<{ user: CurrentUser }>('/api/user/self', payload)).data,
+  changeCurrentUserPassword: async (payload: { currentPassword: string; newPassword: string }) =>
+    (await client.post<{ success: boolean }>('/api/user/self/password', payload)).data,
   listChannels: async () => (await client.get<ListResponse<ChannelItem>>('/api/channels')).data,
   createChannel: async (payload: ChannelPayload & { apiKey: string }) =>
     (await client.post<{ item: ChannelItem }>('/api/channels', payload)).data,
@@ -303,6 +322,8 @@ export const api = {
     (await client.get<ListResponse<RedemptionItem>>('/api/redemptions', { params })).data,
   createRedemption: async (payload: RedemptionCreatePayload) =>
     (await client.post<{ item: CreatedRedemptionItem }>('/api/redemptions', payload)).data,
+  redeemCode: async (payload: { code: string }) =>
+    (await client.post<{ user: CurrentUser }>('/api/user/redemption/redeem', payload)).data,
   updateRedemption: async (id: string, payload: RedemptionUpdatePayload) =>
     (await client.patch<{ item: RedemptionItem }>(`/api/redemptions/${id}`, payload)).data,
   deleteRedemption: async (id: string) => (await client.delete<{ success: boolean }>(`/api/redemptions/${id}`)).data,
@@ -321,6 +342,9 @@ export const api = {
     (await client.post<{ accessToken: string }>(`/api/users/${id}/access-token`)).data,
   listGroups: async (params?: { limit?: number; cursor?: string; keyword?: string }) =>
     (await client.get<ListResponse<GroupItem>>('/api/groups', { params })).data,
+  listOptions: async () => (await client.get<ListResponse<SystemOptionItem>>('/api/options')).data,
+  updateOption: async (key: SystemOptionKey, value: string | boolean | number) =>
+    (await client.put<{ item: SystemOptionItem }>(`/api/options/${key}`, { value })).data,
   listUsageLogs: async (params?: UsageQuery) => (await client.get<ListResponse<UsageLogItem>>('/api/usage', { params })).data,
   listSelfUsageLogs: async (params?: UsageQuery) => (await client.get<ListResponse<UsageLogItem>>('/api/usage/self', { params })).data,
   getUsageSummary: async () => (await client.get<UsageSummary>('/api/usage/summary')).data,

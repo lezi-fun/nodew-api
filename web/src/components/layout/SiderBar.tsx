@@ -67,7 +67,9 @@ export default function SiderBar({ onNavigate }: { onNavigate?: () => void }) {
   const location = useLocation();
   const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('nodew-sidebar-collapsed') === 'true');
-  const selected = items.find((item) => location.pathname === item.to || location.pathname.startsWith(`${item.to}/`));
+  const selected = [...items]
+    .sort((a, b) => b.to.length - a.to.length)
+    .find((item) => location.pathname === item.to || location.pathname.startsWith(`${item.to}/`));
   const openedKeys = useMemo(() => sections.map((section) => section.key), []);
 
   useEffect(() => {
