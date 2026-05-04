@@ -6,7 +6,7 @@ Repository: <https://github.com/lezi-fun/nodew-api>
 
 Based on One API: <https://github.com/songquanpeng/one-api>
 
-Copyright 2026 nodew-api Team. Licensed under the Apache License, Version 2.0.
+Copyright 2026 lezi-fun Team. Licensed under the Apache License, Version 2.0.
 
 ## Status
 
