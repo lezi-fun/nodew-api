@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 
-import { prisma } from '../../../../src/lib/prisma.js';
+import { prisma } from '../../../lib/prisma.js';
 
 const groupsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),

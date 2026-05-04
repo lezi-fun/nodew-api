@@ -158,9 +158,8 @@ function SetupWizard({ setup, onSuccess }: SetupWizardProps) {
             <div className="eyebrow">System initialization</div>
             <h1>Set up your nodew-api deployment</h1>
             <p>
-              This onboarding flow is modeled after new-api&apos;s initialization wizard: verify the
-              environment, create the first administrator, choose the usage mode, and complete the
-              bootstrap process.
+              Verify the environment, create the first administrator, choose the usage mode, and
+              complete the bootstrap process.
             </p>
           </div>
         </header>

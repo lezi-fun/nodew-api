@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 
@@ -8,6 +9,7 @@ const createApiKeyBodySchema = z.object({
   name: z.string().min(1).max(64),
   expiresAt: z.string().datetime().optional(),
   quotaRemaining: z.coerce.bigint().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 const updateApiKeyBodySchema = z.object({
@@ -15,6 +17,7 @@ const updateApiKeyBodySchema = z.object({
   status: z.enum(['ACTIVE', 'REVOKED']).optional(),
   expiresAt: z.string().datetime().nullable().optional(),
   quotaRemaining: z.coerce.bigint().nullable().optional(),
+  metadata: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 
 const apiKeyRoutes: FastifyPluginAsync = async (app) => {
@@ -30,6 +33,7 @@ const apiKeyRoutes: FastifyPluginAsync = async (app) => {
         keyPrefix: true,
         status: true,
         quotaRemaining: true,
+        metadata: true,
         lastUsedAt: true,
         expiresAt: true,
         revokedAt: true,
@@ -62,6 +66,7 @@ const apiKeyRoutes: FastifyPluginAsync = async (app) => {
         keyPrefix: getApiKeyPrefix(plaintextKey),
         expiresAt: body.expiresAt ? new Date(body.expiresAt) : undefined,
         quotaRemaining: body.quotaRemaining,
+        metadata: body.metadata as Prisma.InputJsonValue | undefined,
       },
       select: {
         id: true,
@@ -69,6 +74,7 @@ const apiKeyRoutes: FastifyPluginAsync = async (app) => {
         keyPrefix: true,
         status: true,
         quotaRemaining: true,
+        metadata: true,
         expiresAt: true,
         createdAt: true,
       },
@@ -109,6 +115,7 @@ const apiKeyRoutes: FastifyPluginAsync = async (app) => {
         status: body.status,
         expiresAt: body.expiresAt === null ? null : body.expiresAt ? new Date(body.expiresAt) : undefined,
         quotaRemaining: body.quotaRemaining,
+        metadata: body.metadata === null ? Prisma.JsonNull : body.metadata as Prisma.InputJsonValue | undefined,
         revokedAt: body.status === 'REVOKED' ? new Date() : body.status === 'ACTIVE' ? null : undefined,
       },
       select: {
@@ -117,6 +124,7 @@ const apiKeyRoutes: FastifyPluginAsync = async (app) => {
         keyPrefix: true,
         status: true,
         quotaRemaining: true,
+        metadata: true,
         lastUsedAt: true,
         expiresAt: true,
         revokedAt: true,

@@ -7,8 +7,8 @@ import {
   getRedemptionCodePrefix,
   hashRedemptionCode,
   maskRedemptionCode,
-} from '../../../../src/lib/crypto.js';
-import { prisma } from '../../../../src/lib/prisma.js';
+} from '../../../lib/crypto.js';
+import { prisma } from '../../../lib/prisma.js';
 
 const redemptionStatusSchema = z.enum(['ACTIVE', 'REDEEMED', 'REVOKED']);
 

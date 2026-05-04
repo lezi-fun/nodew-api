@@ -26,8 +26,8 @@ function DatabaseStep({ hasAdmin }: DatabaseStepProps) {
 
       <div className="setup-helper-text">
         <p>
-          This step mirrors new-api&apos;s first-run database confirmation: verify runtime storage,
-          confirm the environment, then continue to initialize the first administrator.
+          Verify runtime storage, confirm the environment, then continue to initialize the first
+          administrator.
         </p>
       </div>
     </div>

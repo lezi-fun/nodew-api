@@ -1,3 +1,5 @@
+import { Readable } from 'node:stream';
+
 import { z } from 'zod';
 
 export const chatMessageSchema = z.object({
@@ -83,6 +85,30 @@ export const chatCompletionsBodySchema = z.object({
 
 export type ChatCompletionsBody = z.infer<typeof chatCompletionsBodySchema>;
 
+export const completionsBodySchema = z.object({
+  model: z.string().min(1).max(128),
+  prompt: z.union([
+    z.string(),
+    z.array(z.string()),
+    z.array(z.number()),
+    z.array(z.array(z.number())),
+  ]),
+  max_tokens: z.number().int().positive().max(32768).optional(),
+  temperature: z.number().min(0).max(2).optional(),
+  top_p: z.number().min(0).max(1).optional(),
+  n: z.number().int().positive().max(16).optional(),
+  stream: z.boolean().optional(),
+  stop: z.union([z.string(), z.array(z.string().min(1)).max(4)]).optional(),
+  user: z.string().min(1).max(256).optional(),
+}).passthrough();
+
+export type CompletionsBody = z.infer<typeof completionsBodySchema>;
+
+export const modelOptionalBodySchema = z.object({
+  model: z.string().min(1).max(128).optional(),
+  stream: z.boolean().optional(),
+}).passthrough();
+
 export type RelayChannel = {
   id: string;
   name: string;
@@ -92,11 +118,14 @@ export type RelayChannel = {
   encryptedKey: string;
   priority: number;
   weight: number;
+  rateLimitPerMin: number | null;
+  metadata: unknown;
 };
 
 export type RelayResult = {
   statusCode: number;
-  body: unknown;
+  body: unknown | Readable;
+  contentType?: string;
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
@@ -129,6 +158,14 @@ export type GeminiGenerateContentBody = {
 
 export type RelayExecutionResult = {
   result: RelayResult;
-  channel: RelayChannel;
+  channel: RelayChannel | null;
   attempts: RelayAttempt[];
 };
+
+export type ModelRoutedBody = {
+  model?: string;
+  stream?: boolean;
+  [key: string]: unknown;
+};
+
+export const isRelayStreamBody = (body: unknown): body is Readable => body instanceof Readable;

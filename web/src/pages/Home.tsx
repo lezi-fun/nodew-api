@@ -1,105 +1,48 @@
-import type { CurrentUser, ServiceStatus } from '../lib/api';
+import { Button, Card, Col, Row, Typography } from '@douyinfe/semi-ui';
+import { Link } from 'react-router-dom';
 
-type HomePageProps = {
-  user: CurrentUser;
-  status: ServiceStatus;
-  onLogout: () => Promise<void>;
-};
-
-function HomePage({ user, status, onLogout }: HomePageProps) {
+export default function HomePage() {
   return (
-    <main className="page page-home">
-      <section className="hero-card home-hero-card accent-card">
-        <div className="home-hero-copy">
-          <div className="eyebrow">Console</div>
-          <h1>Unified model gateway, now in Node</h1>
-          <p>
-            The first-run console now mirrors the new-api style landing flow: a prominent hero,
-            fast service summary, and clear follow-up actions for the administrator.
-          </p>
+    <main className="page-shell home-page">
+      <section className="hero-section">
+        <div className="hero-copy">
+          <span className="hero-badge">nodew-api</span>
+          <Typography.Title heading={1}>统一 AI 网关控制台</Typography.Title>
+          <Typography.Paragraph>
+            管理渠道、令牌、用户与使用日志，并通过统一控制台完成系统初始化和日常运维。
+          </Typography.Paragraph>
+          <div className="hero-actions">
+            <Button theme="solid" size="large" as={Link} to="/console">进入控制台</Button>
+            <Button theme="light" size="large" as={Link} to="/login">登录</Button>
+          </div>
         </div>
-        <div className="home-hero-actions">
-          <button className="secondary-button" onClick={() => void onLogout()}>
-            Logout
-          </button>
-        </div>
+        <Card className="hero-card-panel" bordered={false}>
+          <Typography.Title heading={4}>核心能力</Typography.Title>
+          <ul className="hero-list">
+            <li>统一管理渠道与模型接入配置</li>
+            <li>集中查看令牌、用户与兑换码数据</li>
+            <li>快速进入控制台完成初始化与日常运维</li>
+          </ul>
+        </Card>
       </section>
 
-      <section className="dashboard-grid dashboard-grid-wide">
-        <article className="panel metric-panel">
-          <h2>Administrator profile</h2>
-          <dl>
-            <div>
-              <dt>Display name</dt>
-              <dd>{user.displayName ?? user.username}</dd>
-            </div>
-            <div>
-              <dt>Email</dt>
-              <dd>{user.email}</dd>
-            </div>
-            <div>
-              <dt>Role</dt>
-              <dd>{user.role}</dd>
-            </div>
-            <div>
-              <dt>Quota used</dt>
-              <dd>{user.quotaUsed}</dd>
-            </div>
-          </dl>
-        </article>
-
-        <article className="panel metric-panel">
-          <h2>Service status</h2>
-          <dl>
-            <div>
-              <dt>Service</dt>
-              <dd>{status.service}</dd>
-            </div>
-            <div>
-              <dt>Status</dt>
-              <dd>{status.status}</dd>
-            </div>
-            <div>
-              <dt>Version</dt>
-              <dd>{status.version}</dd>
-            </div>
-          </dl>
-        </article>
-
-        <article className="panel metric-panel feature-panel">
-          <h2>Ready now</h2>
-          <dl>
-            <div>
-              <dt>Setup</dt>
-              <dd>Completed</dd>
-            </div>
-            <div>
-              <dt>Auth session</dt>
-              <dd>Active</dd>
-            </div>
-            <div>
-              <dt>API foundation</dt>
-              <dd>Online</dd>
-            </div>
-          </dl>
-        </article>
-      </section>
-
-      <section className="panel actions-panel">
-        <div>
-          <h2>Next steps</h2>
-          <p>
-            The backend setup, login, self profile, and token management APIs are already in place.
-            The next frontend milestone is to turn this summary console into a full admin workspace.
-          </p>
-        </div>
-        <div className="actions-inline-note">
-          <strong>Current focus</strong>
-          <p>Continue expanding the authenticated console around tokens, profile, and runtime data.</p>
-        </div>
-      </section>
+      <Row gutter={16}>
+        <Col xs={24} md={8}>
+          <Card className="feature-card" title="控制台">
+            集中处理渠道、令牌、日志、用户等核心管理工作。
+          </Card>
+        </Col>
+        <Col xs={24} md={8}>
+          <Card className="feature-card" title="认证流">
+            支持登录、注册、忘记密码和重置密码等基础认证路径。
+          </Card>
+        </Col>
+        <Col xs={24} md={8}>
+          <Card className="feature-card" title="管理体验">
+            继续完善列表操作、表单交互和数据联动，提升整体使用体验。
+          </Card>
+        </Col>
+      </Row>
     </main>
   );
 }
-
-export default HomePage;

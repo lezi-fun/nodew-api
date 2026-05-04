@@ -19,7 +19,7 @@ const modeOptions: Array<{ value: UsageMode; title: string; description: string 
   {
     value: 'demo',
     title: 'Demo mode',
-    description: 'Use this when you want a showcase environment before completing broader feature parity.',
+    description: 'Use this when you want a showcase environment with controlled operational scope.',
   },
 ];
 
@@ -29,8 +29,7 @@ function UsageModeStep({ value, onChange }: UsageModeStepProps) {
       <div className="setup-helper-text compact">
         <h3>Usage mode</h3>
         <p>
-          This step mirrors new-api&apos;s operating-mode selection: choose how the instance is meant
-          to be used, then finalize initialization.
+          Choose how the instance is meant to be used, then finalize initialization.
         </p>
       </div>
 

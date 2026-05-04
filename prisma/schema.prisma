@@ -103,6 +103,7 @@ model APIKey {
   keyPrefix      String
   status         APIKeyStatus @default(ACTIVE)
   quotaRemaining BigInt?
+  metadata       Json?
   lastUsedAt     DateTime?
   expiresAt      DateTime?
   revokedAt      DateTime?

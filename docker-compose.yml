@@ -17,5 +17,27 @@ services:
       timeout: 5s
       retries: 10
 
+  mysql:
+    image: mysql:8.4
+    container_name: nodew-api-mysql
+    profiles:
+      - mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: nodew_api
+      MYSQL_USER: nodew_api
+      MYSQL_PASSWORD: nodew_api
+      MYSQL_ROOT_PASSWORD: nodew_api_root
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -unodew_api -pnodew_api --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   postgres_data:
+  mysql_data:

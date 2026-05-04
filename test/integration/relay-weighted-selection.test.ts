@@ -1,9 +1,46 @@
+import { orderRelayChannels, weightedRandomPermutation } from '../../src/modules/relay/balancer.js';
+import type { RelayChannel } from '../../src/modules/relay/types.js';
 import { closeTestApp, createTestApp } from '../helpers/app.js';
 import { createApiKey, createChannel, createUser } from '../helpers/factories.js';
 import { mockFetchSequence } from '../helpers/fetch.js';
 
 describe('relay weighted channel selection', () => {
-  it('rotates same-model channels according to weight', async () => {
+  const channel = (overrides: Partial<RelayChannel>): RelayChannel => ({
+    id: overrides.id ?? overrides.name ?? 'channel',
+    name: overrides.name ?? overrides.id ?? 'channel',
+    provider: overrides.provider ?? 'openai',
+    baseUrl: overrides.baseUrl ?? 'https://example.test/v1',
+    model: overrides.model ?? 'gpt-weighted',
+    encryptedKey: overrides.encryptedKey ?? 'encrypted',
+    priority: overrides.priority ?? 0,
+    weight: overrides.weight ?? 1,
+    rateLimitPerMin: overrides.rateLimitPerMin ?? null,
+    metadata: overrides.metadata ?? null,
+  });
+
+  it('orders one priority group with weighted random choices', () => {
+    const ordered = weightedRandomPermutation([
+      channel({ id: 'a', name: 'Channel A', weight: 3 }),
+      channel({ id: 'b', name: 'Channel B', weight: 2 }),
+      channel({ id: 'c', name: 'Channel C', weight: 1 }),
+    ], vi.fn()
+      .mockReturnValueOnce(0.4)
+      .mockReturnValueOnce(0.8)
+      .mockReturnValueOnce(0));
+
+    expect(ordered.map((item) => item.id)).toEqual(['a', 'c', 'b']);
+  });
+
+  it('keeps higher priority groups ahead of lower priority groups', () => {
+    const ordered = orderRelayChannels([
+      channel({ id: 'low-heavy', priority: 0, weight: 100 }),
+      channel({ id: 'high-light', priority: 10, weight: 1 }),
+    ], vi.fn().mockReturnValue(0.99));
+
+    expect(ordered.map((item) => item.id)).toEqual(['high-light', 'low-heavy']);
+  });
+
+  it('selects same-model channels through the relay path', async () => {
     const user = await createUser();
     const { apiKey } = await createApiKey(user.id);
     await createChannel({ name: 'Channel A', baseUrl: 'https://a.example.test/v1', model: 'gpt-weighted', weight: 3 });
@@ -50,14 +87,10 @@ describe('relay weighted channel selection', () => {
       }
 
       expect(fetchMock).toHaveBeenCalledTimes(6);
-      expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
-        'https://a.example.test/v1/chat/completions',
-        'https://a.example.test/v1/chat/completions',
-        'https://a.example.test/v1/chat/completions',
-        'https://b.example.test/v1/chat/completions',
-        'https://b.example.test/v1/chat/completions',
-        'https://c.example.test/v1/chat/completions',
-      ]);
+      expect(fetchMock.mock.calls.every((call) =>
+        typeof call[0] === 'string' &&
+        /^https:\/\/[abc]\.example\.test\/v1\/chat\/completions$/.test(call[0]),
+      )).toBe(true);
     } finally {
       await closeTestApp(app);
     }

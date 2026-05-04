@@ -2,8 +2,8 @@ import { Prisma } from '@prisma/client';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 
-import { generateAccessToken, hashPassword } from '../../../../src/lib/crypto.js';
-import { prisma } from '../../../../src/lib/prisma.js';
+import { generateAccessToken, hashPassword } from '../../../lib/crypto.js';
+import { prisma } from '../../../lib/prisma.js';
 import { updateUserPassword } from '../../auth/password-reset.js';
 
 const userParamsSchema = z.object({

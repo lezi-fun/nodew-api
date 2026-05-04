@@ -10,9 +10,81 @@ const usageQuerySchema = z.object({
   success: z.enum(['true', 'false']).optional(),
 });
 
+const usageSummaryQuerySchema = z.object({
+  from: z.coerce.date().optional(),
+  to: z.coerce.date().optional(),
+});
+
 const tokenUsageParamsSchema = z.object({
   id: z.string().cuid(),
 });
+
+const buildDateWhere = (query: z.infer<typeof usageSummaryQuerySchema>) => ({
+  ...(query.from || query.to
+    ? {
+        createdAt: {
+          ...(query.from ? { gte: query.from } : {}),
+          ...(query.to ? { lte: query.to } : {}),
+        },
+      }
+    : {}),
+});
+
+const summarizeUsage = async (where: Prisma.UsageLogWhereInput) => {
+  const [totals, successGroups, providerGroups] = await Promise.all([
+    prisma.usageLog.aggregate({
+      where,
+      _count: { _all: true },
+      _sum: {
+        promptTokens: true,
+        completionTokens: true,
+        totalTokens: true,
+        estimatedCostCents: true,
+      },
+      _avg: {
+        latencyMs: true,
+      },
+    }),
+    prisma.usageLog.groupBy({
+      by: ['success'],
+      where,
+      _count: { _all: true },
+    }),
+    prisma.usageLog.groupBy({
+      by: ['provider'],
+      where,
+      _count: { _all: true },
+      _sum: {
+        totalTokens: true,
+        estimatedCostCents: true,
+      },
+      orderBy: {
+        _count: {
+          provider: 'desc',
+        },
+      },
+    }),
+  ]);
+  const successCount = successGroups.find((group) => group.success)?._count._all ?? 0;
+  const failedCount = successGroups.find((group) => !group.success)?._count._all ?? 0;
+
+  return {
+    requests: totals._count._all,
+    success: successCount,
+    failed: failedCount,
+    promptTokens: totals._sum.promptTokens ?? 0,
+    completionTokens: totals._sum.completionTokens ?? 0,
+    totalTokens: totals._sum.totalTokens ?? 0,
+    estimatedCostCents: totals._sum.estimatedCostCents ?? 0,
+    averageLatencyMs: totals._avg.latencyMs ? Math.round(totals._avg.latencyMs) : 0,
+    byProvider: providerGroups.map((group) => ({
+      provider: group.provider,
+      requests: group._count._all,
+      totalTokens: group._sum.totalTokens ?? 0,
+      estimatedCostCents: group._sum.estimatedCostCents ?? 0,
+    })),
+  };
+};
 
 const paginateLogs = async (params: {
   where: Prisma.UsageLogWhereInput;
@@ -115,6 +187,17 @@ const serializeUsageLog = (log: {
 });
 
 const usageRoutes: FastifyPluginAsync = async (app) => {
+  app.get('/usage/self/summary', {
+    preHandler: app.requireUser,
+  }, async (request) => {
+    const query = usageSummaryQuerySchema.parse(request.query);
+
+    return summarizeUsage({
+      userId: request.currentUser!.id,
+      ...buildDateWhere(query),
+    });
+  });
+
   app.get('/usage/self', {
     preHandler: app.requireUser,
   }, async (request) => {
@@ -178,6 +261,14 @@ const usageRoutes: FastifyPluginAsync = async (app) => {
       },
       ...usage,
     };
+  });
+
+  app.get('/usage/summary', {
+    preHandler: app.requireAdminUser,
+  }, async (request) => {
+    const query = usageSummaryQuerySchema.parse(request.query);
+
+    return summarizeUsage(buildDateWhere(query));
   });
 
   app.get('/usage', {

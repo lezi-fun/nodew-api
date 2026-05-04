@@ -9,6 +9,7 @@ import {
   readChannelKeyPreview,
 } from '../../lib/crypto.js';
 import { prisma } from '../../lib/prisma.js';
+import { getOpenAICompatibleBaseUrl, getProviderExtraHeaders, openAICompatibleProviders } from '../relay/providers.js';
 
 const channelSelect = {
   id: true,
@@ -35,6 +36,7 @@ const channelTestSelect = {
   baseUrl: true,
   model: true,
   encryptedKey: true,
+  metadata: true,
 } satisfies Prisma.ChannelSelect;
 
 const channelModelDiscoverySelect = {
@@ -42,6 +44,7 @@ const channelModelDiscoverySelect = {
   provider: true,
   baseUrl: true,
   encryptedKey: true,
+  metadata: true,
 } satisfies Prisma.ChannelSelect;
 
 const channelKeyLookupSelect = {
@@ -264,21 +267,21 @@ const batchResult = (count: number) => ({
 });
 
 const ensureOpenAIChannel = (provider: string, message: string) => {
-  if (provider !== 'openai') {
+  if (!openAICompatibleProviders.includes(provider as (typeof openAICompatibleProviders)[number])) {
     throw new Error(message);
   }
 };
 
-const getNormalizedBaseUrl = (baseUrl: string | null) => (baseUrl ?? 'https://api.openai.com/v1').replace(/\/+$/, '');
+const getNormalizedBaseUrl = (channel: { provider: string; baseUrl: string | null }) => getOpenAICompatibleBaseUrl(channel).replace(/\/+$/, '');
 
 const getChannelModelsUrl = (channel: { provider: string; baseUrl: string | null }) => {
   ensureOpenAIChannel(channel.provider, modelDiscoverySupportMessage);
-  const normalizedBase = getNormalizedBaseUrl(channel.baseUrl);
+  const normalizedBase = getNormalizedBaseUrl(channel);
   return normalizedBase.endsWith('/models') ? normalizedBase : `${normalizedBase}/models`;
 };
 
-const getChannelChatCompletionsUrl = (channel: { baseUrl: string | null }) => {
-  const normalizedBase = getNormalizedBaseUrl(channel.baseUrl);
+const getChannelChatCompletionsUrl = (channel: { provider: string; baseUrl: string | null }) => {
+  const normalizedBase = getNormalizedBaseUrl(channel);
   return normalizedBase.endsWith('/chat/completions') ? normalizedBase : `${normalizedBase}/chat/completions`;
 };
 
@@ -383,11 +386,13 @@ const testChannelConnection = async (channel: {
   provider: string;
   baseUrl: string | null;
   encryptedKey: string;
+  metadata?: Prisma.JsonValue | null;
 }) => {
   ensureOpenAIChannel(channel.provider, channelTestSupportMessage);
 
   const response = await fetch(getChannelModelsUrl(channel), {
     headers: {
+      ...getProviderExtraHeaders(channel),
       authorization: `Bearer ${decryptChannelKey(channel.encryptedKey)}`,
     },
   });
@@ -404,6 +409,7 @@ const readModelDiscovery = async (channel: {
   provider: string;
   baseUrl: string | null;
   encryptedKey: string;
+  metadata?: Prisma.JsonValue | null;
 }, requestedModel: string | null) => {
   ensureOpenAIChannel(channel.provider, modelDiscoverySupportMessage);
   const result = await testChannelConnection(channel);
@@ -433,6 +439,7 @@ const runChannelChatTest = async (channel: {
   provider: string;
   baseUrl: string | null;
   encryptedKey: string;
+  metadata?: Prisma.JsonValue | null;
   model: string | null;
 }, model: string | null) => {
   ensureOpenAIChannel(channel.provider, channelTestSupportMessage);
@@ -444,6 +451,7 @@ const runChannelChatTest = async (channel: {
   const response = await fetch(getChannelChatCompletionsUrl(channel), {
     method: 'POST',
     headers: {
+      ...getProviderExtraHeaders(channel),
       'content-type': 'application/json',
       authorization: `Bearer ${decryptChannelKey(channel.encryptedKey)}`,
     },
@@ -619,6 +627,36 @@ const channelRoutes: FastifyPluginAsync = async (app) => {
     try {
       const channel = await findChannelForModelsOrThrow(parseChannelId(request.params));
       const { result, models } = await readModelDiscovery(channel, parseChannelModelQuery(request.query).model ?? null);
+      return channelModelsResponse(result, models);
+    } catch (error) {
+      return throwKnownChannelError(app, error);
+    }
+  });
+
+  app.post('/channels/:id/models/sync', {
+    preHandler: app.requireAdminUser,
+  }, async (request) => {
+    try {
+      const id = parseChannelId(request.params);
+      const channel = await findChannelForModelsOrThrow(id);
+      const { result, models } = await readModelDiscovery(channel, parseChannelModelQuery(request.query).model ?? null);
+
+      if (result.statusCode < 200 || result.statusCode >= 300) {
+        return channelModelsResponse(result, models);
+      }
+
+      const existing = await findChannelDetailOrThrow(id);
+      const metadata = {
+        ...toMetadataObject(existing.metadata),
+        models: models.map((model) => model.id),
+        modelsSyncedAt: new Date().toISOString(),
+      };
+
+      await prisma.channel.update({
+        where: { id },
+        data: { metadata: metadata as Prisma.InputJsonValue },
+      });
+
       return channelModelsResponse(result, models);
     } catch (error) {
       return throwKnownChannelError(app, error);

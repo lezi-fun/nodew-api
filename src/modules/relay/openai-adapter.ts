@@ -1,8 +1,14 @@
+import { Readable } from 'node:stream';
+import { TextDecoder } from 'node:util';
+
 import { decryptChannelKey } from '../../lib/crypto.js';
-import type { ChatCompletionsBody, EmbeddingsBody, RelayChannel, RelayResult, ResponsesBody } from './types.js';
+import { resolveUpstreamModel } from './model-routing.js';
+import { writeMultipartField } from './multipart.js';
+import { getOpenAICompatibleBaseUrl, getProviderExtraHeaders } from './providers.js';
+import type { ChatCompletionsBody, EmbeddingsBody, ModelRoutedBody, RelayChannel, RelayResult, ResponsesBody } from './types.js';
 
 const getOpenAIEndpointUrl = (channel: RelayChannel, path: string) => {
-  const normalizedBase = (channel.baseUrl ?? 'https://api.openai.com/v1').replace(/\/+$/, '');
+  const normalizedBase = getOpenAICompatibleBaseUrl(channel).replace(/\/+$/, '');
 
   return normalizedBase.endsWith(path) ? normalizedBase : `${normalizedBase}/${path}`;
 };
@@ -12,13 +18,25 @@ const getOpenAIEmbeddingsUrl = (channel: RelayChannel) => getOpenAIEndpointUrl(c
 const getOpenAIResponsesUrl = (channel: RelayChannel) => getOpenAIEndpointUrl(channel, 'responses');
 
 const buildOpenAIHeaders = (channel: RelayChannel) => ({
+  ...getProviderExtraHeaders(channel),
   'content-type': 'application/json',
+  authorization: `Bearer ${decryptChannelKey(channel.encryptedKey)}`,
+});
+
+const buildOpenAIRawHeaders = (channel: RelayChannel, contentType: string) => ({
+  ...getProviderExtraHeaders(channel),
+  'content-type': contentType,
   authorization: `Bearer ${decryptChannelKey(channel.encryptedKey)}`,
 });
 
 const buildModelBody = <T extends { model: string }>(body: T, channel: RelayChannel) => ({
   ...body,
-  model: channel.model ?? body.model,
+  model: resolveUpstreamModel(channel, body.model),
+});
+
+const buildOptionalModelBody = (body: ModelRoutedBody, channel: RelayChannel) => ({
+  ...body,
+  ...(body.model ? { model: resolveUpstreamModel(channel, body.model) } : {}),
 });
 
 const normalizeStreamResult = (statusCode: number, responseBody: string) => {
@@ -41,12 +59,100 @@ const normalizeStreamResult = (statusCode: number, responseBody: string) => {
   } satisfies RelayResult;
 };
 
+const readRemainingStreamText = async (
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  decoder: TextDecoder,
+  initialText: string,
+) => {
+  let responseBody = initialText;
+
+  while (true) {
+    const next = await reader.read();
+
+    if (next.done) {
+      break;
+    }
+
+    responseBody += decoder.decode(next.value, { stream: true });
+  }
+
+  responseBody += decoder.decode();
+
+  return responseBody;
+};
+
+const streamFromFirstChunk = (
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  firstChunk: Uint8Array,
+) => Readable.from((async function* streamChunks() {
+  yield Buffer.from(firstChunk);
+
+  while (true) {
+    const next = await reader.read();
+
+    if (next.done) {
+      break;
+    }
+
+    yield Buffer.from(next.value);
+  }
+})());
+
+const normalizeSuccessfulEventStream = async (statusCode: number, body: ReadableStream<Uint8Array>): Promise<RelayResult> => {
+  const reader = body.getReader();
+  const first = await reader.read();
+
+  if (first.done) {
+    return normalizeStreamResult(statusCode, '');
+  }
+
+  const decoder = new TextDecoder();
+  const firstText = decoder.decode(first.value, { stream: true });
+
+  if (/^event:\s*error$/m.test(firstText)) {
+    const responseBody = await readRemainingStreamText(reader, decoder, firstText);
+
+    return normalizeStreamResult(statusCode, responseBody);
+  }
+
+  return {
+    statusCode,
+    body: streamFromFirstChunk(reader, first.value),
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+  };
+};
+
 const sendOpenAIRequest = async (channel: RelayChannel, url: string, body: object): Promise<RelayResult> => {
   const response = await fetch(url, {
     method: 'POST',
     headers: buildOpenAIHeaders(channel),
     body: JSON.stringify(body),
   });
+
+  return normalizeOpenAIResponse(response);
+};
+
+const normalizeOpenAIResponse = async (response: Response): Promise<RelayResult> => {
+  const contentType = response.headers.get('content-type') ?? undefined;
+  const isEventStream = contentType?.includes('text/event-stream') ?? false;
+  const isJson = contentType?.includes('application/json') ?? false;
+
+  if (response.ok && isEventStream && response.body) {
+    return normalizeSuccessfulEventStream(response.status, response.body);
+  }
+
+  if (response.ok && response.body && !isJson) {
+    return {
+      statusCode: response.status,
+      body: Readable.fromWeb(response.body),
+      contentType,
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+    };
+  }
 
   const responseBody = await readResponseBody(response);
 
@@ -174,3 +280,26 @@ export const sendOpenAIResponses = async (
   channel: RelayChannel,
   body: ResponsesBody,
 ): Promise<RelayResult> => sendOpenAIRequest(channel, getOpenAIResponsesUrl(channel), buildModelBody(body, channel));
+
+export const sendOpenAIJsonEndpoint = async (
+  channel: RelayChannel,
+  path: string,
+  body: ModelRoutedBody,
+): Promise<RelayResult> => sendOpenAIRequest(channel, getOpenAIEndpointUrl(channel, path), buildOptionalModelBody(body, channel));
+
+export const sendOpenAIMultipartEndpoint = async (
+  channel: RelayChannel,
+  path: string,
+  body: Buffer,
+  contentType: string,
+  requestedModel: string,
+): Promise<RelayResult> => {
+  const upstreamModel = resolveUpstreamModel(channel, requestedModel);
+  const response = await fetch(getOpenAIEndpointUrl(channel, path), {
+    method: 'POST',
+    headers: buildOpenAIRawHeaders(channel, contentType),
+    body: writeMultipartField(body, contentType, 'model', upstreamModel),
+  });
+
+  return normalizeOpenAIResponse(response);
+};

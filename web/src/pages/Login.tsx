@@ -1,89 +1,47 @@
-import { useState } from 'react';
+import { Button, Card, Form, Typography } from '@douyinfe/semi-ui';
+import { useContext, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 
+import { UserContext } from '../context/User';
 import { api } from '../lib/api';
 
-type LoginPageProps = {
-  onSuccess: () => void;
-};
-
-function LoginPage({ onSuccess }: LoginPageProps) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setSubmitting(true);
-    setError(null);
-
-    try {
-      await api.login({ email, password });
-      onSuccess();
-    } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Login failed');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+export default function LoginPage() {
+  const navigate = useNavigate();
+  const { refresh } = useContext(UserContext);
+  const [loading, setLoading] = useState(false);
 
   return (
-    <main className="page page-login">
-      <section className="hero-card auth-hero-card accent-card">
-        <div className="eyebrow">Sign in</div>
-        <h1>Welcome back to nodew-api</h1>
-        <p>
-          Sign in to continue into the unified gateway console, inspect runtime health, and manage
-          the first administrator workspace.
-        </p>
-      </section>
-
-      <section className="auth-layout">
-        <section className="panel auth-panel">
-          <h2>Administrator login</h2>
-          <form className="stack-form" onSubmit={handleSubmit}>
-            <label>
-              <span>Email</span>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            </label>
-            <label>
-              <span>Password</span>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </label>
-
-            {error ? <div className="message error">{error}</div> : null}
-
-            <button type="submit" disabled={submitting}>
-              {submitting ? 'Signing in...' : 'Login'}
-            </button>
-          </form>
-        </section>
-
-        <aside className="panel auth-side-panel">
-          <h2>Console entry checklist</h2>
-          <div className="auth-side-list">
-            <div>
-              <strong>Single origin</strong>
-              <p>The dashboard and API now share the same backend port.</p>
-            </div>
-            <div>
-              <strong>Bootstrap complete</strong>
-              <p>Use your initialized administrator account to unlock the console.</p>
-            </div>
-            <div>
-              <strong>Next stop</strong>
-              <p>After sign-in, review service health and continue token management from home.</p>
-            </div>
+    <main className="auth-page">
+      <Card className="auth-card" bordered={false}>
+        <Typography.Title heading={3}>登录</Typography.Title>
+        <Typography.Paragraph type="tertiary">使用本地账号进入 nodew-api 控制台。</Typography.Paragraph>
+        <Form<{ email: string; password: string }>
+          onSubmit={async (values) => {
+            setLoading(true);
+            try {
+              await api.login({ email: values.email, password: values.password });
+              await refresh();
+              toast.success('登录成功');
+              navigate('/console');
+            } catch (error) {
+              toast.error(error instanceof Error ? error.message : '登录失败');
+            } finally {
+              setLoading(false);
+            }
+          }}
+        >
+          <Form.Input field="email" label="邮箱" placeholder="test@test.com" rules={[{ required: true }]} />
+          <Form.Input field="password" label="密码" mode="password" rules={[{ required: true }]} />
+          <div className="auth-actions">
+            <Button htmlType="submit" theme="solid" loading={loading} block>登录</Button>
           </div>
-        </aside>
-      </section>
+        </Form>
+        <div className="auth-links">
+          <Link to="/register">注册</Link>
+          <Link to="/reset">忘记密码</Link>
+        </div>
+      </Card>
     </main>
   );
 }
-
-export default LoginPage;

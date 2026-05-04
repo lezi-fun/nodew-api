@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 
-import { prisma } from '../../../../src/lib/prisma.js';
+import { prisma } from '../../../lib/prisma.js';
 
 const optionKeySchema = z.enum([
   'registration_enabled',

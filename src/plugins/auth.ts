@@ -4,6 +4,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { verifyApiKey } from '../lib/crypto.js';
 import { prisma } from '../lib/prisma.js';
+import { readMultipartField } from '../modules/relay/multipart.js';
 
 const SESSION_COOKIE_NAME = 'nodew_session';
 const BEARER_PREFIX = 'Bearer ';
@@ -15,6 +16,8 @@ type CurrentUser = {
   displayName: string | null;
   role: 'USER' | 'ADMIN';
   status: 'ACTIVE' | 'DISABLED';
+  quotaRemaining: bigint;
+  quotaUsed: bigint;
 };
 
 type CurrentApiKey = {
@@ -22,8 +25,14 @@ type CurrentApiKey = {
   userId: string;
   keyPrefix: string;
   quotaRemaining: bigint | null;
+  metadata: unknown;
   expiresAt: Date | null;
   revokedAt: Date | null;
+};
+
+type TokenAccessMetadata = {
+  allowedModels?: string[];
+  blockedModels?: string[];
 };
 
 const resolveBearerToken = (authorization?: string) => {
@@ -61,6 +70,83 @@ const resolveRelayApiToken = (request: FastifyRequest) => {
   return queryKey || null;
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value && typeof value === 'object' && !Array.isArray(value));
+
+const readStringList = (value: unknown) =>
+  Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    : undefined;
+
+const readTokenAccessMetadata = (metadata: unknown): TokenAccessMetadata => {
+  if (!isRecord(metadata)) {
+    return {};
+  }
+
+  return {
+    allowedModels: readStringList(metadata.allowedModels),
+    blockedModels: readStringList(metadata.blockedModels),
+  };
+};
+
+const wildcardToRegExp = (pattern: string) =>
+  new RegExp(`^${pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')}$`);
+
+const modelMatches = (patterns: string[] | undefined, model: string) =>
+  Boolean(patterns?.some((pattern) => wildcardToRegExp(pattern).test(model)));
+
+const getContentType = (request: FastifyRequest) => {
+  const contentType = request.headers['content-type'];
+
+  return typeof contentType === 'string' ? contentType : '';
+};
+
+const getBodyModel = (body: unknown) => {
+  if (isRecord(body) && typeof body.model === 'string' && body.model.trim()) {
+    return body.model.trim();
+  }
+
+  return null;
+};
+
+const getRelayRequestedModel = (request: FastifyRequest) => {
+  const bodyModel = getBodyModel(request.body);
+
+  if (bodyModel) {
+    return bodyModel;
+  }
+
+  if (Buffer.isBuffer(request.body)) {
+    const model = readMultipartField(request.body, getContentType(request), 'model');
+
+    if (model) {
+      return model;
+    }
+  }
+
+  const geminiModel = request.url.match(/^\/v1beta\/models\/([^:/?]+):/)?.[1];
+
+  return geminiModel ?? null;
+};
+
+const isApiKeyAllowedForModel = (apiKey: CurrentApiKey, model: string | null) => {
+  if (!model) {
+    return true;
+  }
+
+  const metadata = readTokenAccessMetadata(apiKey.metadata);
+
+  if (modelMatches(metadata.blockedModels, model)) {
+    return false;
+  }
+
+  if (metadata.allowedModels && metadata.allowedModels.length > 0 && !modelMatches(metadata.allowedModels, model)) {
+    return false;
+  }
+
+  return true;
+};
+
 const authenticateApiKey = async (token: string) => {
   const keyPrefix = token.slice(0, 12);
 
@@ -75,6 +161,7 @@ const authenticateApiKey = async (token: string) => {
       keyHash: true,
       keyPrefix: true,
       quotaRemaining: true,
+      metadata: true,
       expiresAt: true,
       revokedAt: true,
       user: {
@@ -85,6 +172,8 @@ const authenticateApiKey = async (token: string) => {
           displayName: true,
           role: true,
           status: true,
+          quotaRemaining: true,
+          quotaUsed: true,
         },
       },
     },
@@ -107,6 +196,7 @@ const authenticateApiKey = async (token: string) => {
       userId: matchedApiKey.userId,
       keyPrefix: matchedApiKey.keyPrefix,
       quotaRemaining: matchedApiKey.quotaRemaining,
+      metadata: matchedApiKey.metadata,
       expiresAt: matchedApiKey.expiresAt,
       revokedAt: matchedApiKey.revokedAt,
     } satisfies CurrentApiKey,
@@ -141,6 +231,8 @@ const authenticateSession = async (request: FastifyRequest) => {
       displayName: true,
       role: true,
       status: true,
+      quotaRemaining: true,
+      quotaUsed: true,
     },
   });
 
@@ -189,6 +281,34 @@ const authPlugin = fp(async (app) => {
   app.decorate('requireRelayApiKey', async (request: FastifyRequest, reply: FastifyReply) => {
     if (!request.currentUser || !request.currentApiKey) {
       return reply.unauthorized('API key required');
+    }
+
+    if (request.currentUser.quotaRemaining <= 0n) {
+      return reply.code(402).send({
+        statusCode: 402,
+        error: 'Payment Required',
+        message: 'User quota exhausted',
+      });
+    }
+
+    if (request.currentApiKey.quotaRemaining !== null && request.currentApiKey.quotaRemaining <= 0n) {
+      return reply.code(402).send({
+        statusCode: 402,
+        error: 'Payment Required',
+        message: 'API key quota exhausted',
+      });
+    }
+
+    const requestedModel = getRelayRequestedModel(request);
+
+    if (!isApiKeyAllowedForModel(request.currentApiKey, requestedModel)) {
+      return reply.code(403).send({
+        statusCode: 403,
+        error: 'Forbidden',
+        message: requestedModel
+          ? `API key is not allowed to access model ${requestedModel}`
+          : 'API key is not allowed to access this model',
+      });
     }
   });
 

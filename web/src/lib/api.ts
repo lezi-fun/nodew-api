@@ -1,3 +1,5 @@
+import axios from 'axios';
+
 export type SetupStatus = {
   isInitialized: boolean;
   hasAdmin: boolean;
@@ -7,6 +9,10 @@ export type ServiceStatus = {
   status: string;
   service: string;
   version: string;
+};
+
+export type AppStatus = ServiceStatus & {
+  setup?: boolean;
 };
 
 export type CurrentUser = {
@@ -23,82 +29,225 @@ export type CurrentUser = {
   createdAt: string;
 };
 
-const formatErrorMessage = (message: unknown): string => {
-  if (typeof message === 'string') {
-    try {
-      const parsed = JSON.parse(message) as Array<{ message?: string; path?: string[] }>;
+export type ChannelItem = {
+  id: string;
+  name: string;
+  provider: string;
+  baseUrl: string | null;
+  model: string | null;
+  status: 'ACTIVE' | 'DISABLED';
+  priority: number;
+  weight: number;
+  rateLimitPerMin: number | null;
+  metadata: Record<string, unknown> | null;
+  keyPreview: string;
+  createdAt: string;
+  updatedAt: string;
+};
 
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed
-          .map((issue) => {
-            const field = issue.path?.[0];
+export type TokenItem = {
+  id: string;
+  name: string;
+  keyPrefix: string;
+  maskedKey: string;
+  status: 'ACTIVE' | 'REVOKED';
+  quotaRemaining: string | null;
+  metadata: Record<string, unknown> | null;
+  lastUsedAt: string | null;
+  expiresAt: string | null;
+  revokedAt?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+};
 
-            if (field === 'password') {
-              return 'Password must contain at least 8 characters';
-            }
+export type UserItem = CurrentUser & {
+  group?: { id: string; name: string } | null;
+  updatedAt?: string;
+};
 
-            if (field === 'username') {
-              return 'Username must be 3-32 characters and use only letters, numbers, underscores, or dashes';
-            }
+export type RedemptionItem = {
+  id: string;
+  codePrefix: string;
+  quotaAmount: string;
+  status: 'ACTIVE' | 'REDEEMED' | 'REVOKED';
+  expiresAt: string | null;
+  redeemedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  maskedCode: string;
+  createdBy: { id: string; email: string; username: string };
+  redeemedByUser: { id: string; email: string; username: string } | null;
+};
 
-            if (field === 'email') {
-              return 'Email address is invalid';
-            }
+export type UsageLogItem = {
+  id: string;
+  requestId: string | null;
+  provider: string;
+  model: string | null;
+  endpoint: string;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  estimatedCostCents: number | null;
+  statusCode: number | null;
+  success: boolean;
+  errorCode: string | null;
+  errorMessage: string | null;
+  latencyMs: number | null;
+  createdAt: string;
+  apiKey: { id: string; name: string; keyPrefix: string } | null;
+  channel: { id: string; name: string; provider: string; model: string | null } | null;
+  user: { id: string; email: string; username: string };
+};
 
-            if (field === 'displayName') {
-              return 'Display name must be between 1 and 64 characters';
-            }
+export type ListResponse<T> = {
+  success?: boolean;
+  items?: T[];
+  item?: T;
+  total?: number;
+  page?: number;
+  pageSize?: number;
+  nextCursor?: string | null;
+  message?: string;
+};
 
-            return issue.message ?? 'Request failed';
-          })
-          .join('\n');
-      }
-    } catch {
-      return message;
+export type ChannelPayload = {
+  name: string;
+  provider: string;
+  baseUrl?: string | null;
+  model?: string | null;
+  apiKey?: string;
+  status?: 'ACTIVE' | 'DISABLED';
+  priority?: number;
+  weight?: number;
+  rateLimitPerMin?: number | null;
+  metadata?: Record<string, unknown> | null;
+};
+
+export type ChannelTestResult = {
+  channelId: string;
+  channelName: string;
+  provider: string;
+  model: string | null;
+  statusCode: number;
+  success: boolean;
+  errorMessage: string | null;
+};
+
+export type ChannelModelsResult = {
+  statusCode: number;
+  success: boolean;
+  errorMessage: string | null;
+  items: Array<{ id: string; ownedBy: string | null }>;
+  total: number;
+};
+
+export type TokenCreatePayload = {
+  name: string;
+  expiresAt?: string;
+  quotaRemaining?: string;
+  metadata?: Record<string, unknown>;
+};
+
+export type TokenUpdatePayload = {
+  name?: string;
+  status?: 'ACTIVE' | 'REVOKED';
+  expiresAt?: string | null;
+  quotaRemaining?: string | null;
+  metadata?: Record<string, unknown> | null;
+};
+
+export type CreatedTokenItem = TokenItem & {
+  key: string;
+};
+
+export type UsageQuery = {
+  limit?: number;
+  cursor?: string;
+  success?: 'true' | 'false';
+};
+
+export type UsageSummary = {
+  requests: number;
+  success: number;
+  failed: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  estimatedCostCents: number;
+  averageLatencyMs: number;
+  byProvider: Array<{
+    provider: string;
+    requests: number;
+    totalTokens: number;
+    estimatedCostCents: number;
+  }>;
+};
+
+const client = axios.create({
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+client.interceptors.response.use(
+  (response) => response,
+  (error: unknown) => {
+    if (axios.isAxiosError(error)) {
+      const message = error.response?.data?.message;
+      throw new Error(typeof message === 'string' ? message : error.message);
     }
 
-    return message;
-  }
-
-  return 'Request failed';
-};
-
-const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
-  const response = await fetch(path, {
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init?.headers ?? {}),
-    },
-    ...init,
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(formatErrorMessage(data.message));
-  }
-
-  return data as T;
-};
+    throw error;
+  },
+);
 
 export const api = {
-  getSetupStatus: () => request<SetupStatus>('/api/setup'),
-  initialize: (payload: {
+  getSetupStatus: async () => (await client.get<SetupStatus>('/api/setup')).data,
+  initialize: async (payload: {
     email: string;
     username: string;
     password: string;
     displayName?: string;
-  }) => request<{ user: CurrentUser; isInitialized: boolean }>('/api/setup', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  }),
-  login: (payload: { email: string; password: string }) =>
-    request<{ user: CurrentUser }>('/api/user/login', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }),
-  logout: () => request<{ success: boolean }>('/api/user/logout', { method: 'POST' }),
-  getCurrentUser: () => request<{ user: CurrentUser }>('/api/user/self'),
-  getStatus: () => request<ServiceStatus>('/api/status'),
+  }) => (await client.post<{ user: CurrentUser; isInitialized: boolean }>('/api/setup', payload)).data,
+  login: async (payload: { email: string; password: string }) =>
+    (await client.post<{ user: CurrentUser }>('/api/user/login', payload)).data,
+  register: async (payload: {
+    email: string;
+    username: string;
+    password: string;
+    displayName?: string;
+  }) => (await client.post('/api/user/register', payload)).data,
+  forgotPassword: async (payload: { email: string }) =>
+    (await client.post('/api/user/password/forgot', payload)).data,
+  resetPassword: async (payload: { token: string; password: string }) =>
+    (await client.post('/api/user/password/reset', payload)).data,
+  logout: async () => (await client.post<{ success: boolean }>('/api/user/logout')).data,
+  getCurrentUser: async () => (await client.get<{ user: CurrentUser }>('/api/user/self')).data,
+  getStatus: async () => (await client.get<AppStatus>('/api/status')).data,
+  listChannels: async () => (await client.get<ListResponse<ChannelItem>>('/api/channels')).data,
+  createChannel: async (payload: ChannelPayload & { apiKey: string }) =>
+    (await client.post<{ item: ChannelItem }>('/api/channels', payload)).data,
+  updateChannel: async (id: string, payload: ChannelPayload) =>
+    (await client.patch<{ item: ChannelItem }>(`/api/channels/${id}`, payload)).data,
+  deleteChannel: async (id: string) => (await client.delete<{ success: boolean }>(`/api/channels/${id}`)).data,
+  copyChannel: async (id: string, payload?: { name?: string; suffix?: string }) =>
+    (await client.post<{ item: ChannelItem }>(`/api/channels/${id}/copy`, payload ?? {})).data,
+  testChannel: async (id: string, payload?: { model?: string }) =>
+    (await client.post<{ item: ChannelTestResult }>(`/api/channels/${id}/test`, payload ?? {})).data,
+  syncChannelModels: async (id: string, model?: string) =>
+    (await client.post<{ item: ChannelModelsResult }>(`/api/channels/${id}/models/sync`, undefined, { params: model ? { model } : undefined })).data,
+  listTokens: async () => (await client.get<ListResponse<TokenItem>>('/api/token')).data,
+  createToken: async (payload: TokenCreatePayload) =>
+    (await client.post<{ item: CreatedTokenItem }>('/api/token', payload)).data,
+  updateToken: async (id: string, payload: TokenUpdatePayload) =>
+    (await client.put<{ item: TokenItem }>(`/api/token/${id}`, payload)).data,
+  deleteToken: async (id: string) => (await client.delete<{ success: boolean }>(`/api/token/${id}`)).data,
+  listRedemptions: async () => (await client.get<ListResponse<RedemptionItem>>('/api/redemptions')).data,
+  listUsers: async () => (await client.get<ListResponse<UserItem>>('/api/users')).data,
+  listUsageLogs: async (params?: UsageQuery) => (await client.get<ListResponse<UsageLogItem>>('/api/usage', { params })).data,
+  listSelfUsageLogs: async (params?: UsageQuery) => (await client.get<ListResponse<UsageLogItem>>('/api/usage/self', { params })).data,
+  getUsageSummary: async () => (await client.get<UsageSummary>('/api/usage/summary')).data,
+  getSelfUsageSummary: async () => (await client.get<UsageSummary>('/api/usage/self/summary')).data,
 };

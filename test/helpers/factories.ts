@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { APIKeyStatus, ChannelStatus, RedemptionStatus, UserRole, UserStatus } from '@prisma/client';
+import { APIKeyStatus, ChannelStatus, Prisma, RedemptionStatus, UserRole, UserStatus } from '@prisma/client';
 
 import {
   encryptChannelKey,
@@ -41,7 +41,7 @@ export const createUser = async (overrides: Partial<{
       status: overrides.status ?? 'ACTIVE',
       accessToken: overrides.accessToken ?? null,
       groupId: overrides.groupId === undefined ? undefined : overrides.groupId,
-      quotaRemaining: overrides.quotaRemaining ?? undefined,
+      quotaRemaining: overrides.quotaRemaining ?? 10_000n,
     },
   });
 };
@@ -136,8 +136,10 @@ export const createUsageLog = async (overrides: {
   promptTokens?: number;
   completionTokens?: number;
   totalTokens?: number;
+  estimatedCostCents?: number | null;
   statusCode?: number | null;
   success?: boolean;
+  latencyMs?: number | null;
 }) => prisma.usageLog.create({
   data: {
     userId: overrides.userId,
@@ -150,8 +152,10 @@ export const createUsageLog = async (overrides: {
     promptTokens: overrides.promptTokens ?? 1,
     completionTokens: overrides.completionTokens ?? 2,
     totalTokens: overrides.totalTokens ?? 3,
+    estimatedCostCents: overrides.estimatedCostCents ?? null,
     statusCode: overrides.statusCode ?? 200,
     success: overrides.success ?? true,
+    latencyMs: overrides.latencyMs ?? null,
   },
 });
 
@@ -182,6 +186,8 @@ export const createSessionForUser = async (userId: string) => {
 export const createApiKey = async (userId: string, overrides: Partial<{
   name: string;
   status: APIKeyStatus;
+  quotaRemaining: bigint | null;
+  metadata: Prisma.InputJsonValue;
   expiresAt: Date | null;
   revokedAt: Date | null;
 }> = {}) => {
@@ -194,6 +200,8 @@ export const createApiKey = async (userId: string, overrides: Partial<{
       keyHash: hashApiKey(apiKey),
       keyPrefix: getApiKeyPrefix(apiKey),
       status: overrides.status ?? 'ACTIVE',
+      quotaRemaining: overrides.quotaRemaining,
+      metadata: overrides.metadata,
       expiresAt: overrides.expiresAt ?? null,
       revokedAt: overrides.revokedAt ?? null,
     },
@@ -213,16 +221,20 @@ export const createChannel = async (overrides: Partial<{
   status: ChannelStatus;
   priority: number;
   weight: number;
+  rateLimitPerMin: number | null;
   apiKey: string;
+  metadata: Prisma.InputJsonValue;
 }> = {}) => prisma.channel.create({
   data: {
     name: overrides.name ?? `Channel ${Date.now()}`,
     provider: overrides.provider ?? 'openai',
-    baseUrl: overrides.baseUrl ?? 'https://example.test/v1',
-    model: overrides.model ?? 'gpt-4o-mini',
+    baseUrl: overrides.baseUrl === undefined ? 'https://example.test/v1' : overrides.baseUrl,
+    model: overrides.model === undefined ? 'gpt-4o-mini' : overrides.model,
     encryptedKey: encryptChannelKey(overrides.apiKey ?? 'channel-secret-key'),
     status: overrides.status ?? 'ACTIVE',
     priority: overrides.priority ?? 0,
     weight: overrides.weight ?? 1,
+    rateLimitPerMin: overrides.rateLimitPerMin ?? null,
+    metadata: overrides.metadata,
   },
 });

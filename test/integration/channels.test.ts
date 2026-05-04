@@ -66,6 +66,11 @@ describe('channels integration', () => {
         url: `/api/channels/${channel.id}/models`,
         cookies,
       });
+      const modelsSyncResponse = await app.inject({
+        method: 'POST',
+        url: `/api/channels/${channel.id}/models/sync`,
+        cookies,
+      });
       const testResponse = await app.inject({
         method: 'POST',
         url: `/api/channels/${channel.id}/test`,
@@ -108,6 +113,7 @@ describe('channels integration', () => {
       expect(deleteResponse.statusCode).toBe(403);
       expect(keyResponse.statusCode).toBe(403);
       expect(modelsResponse.statusCode).toBe(403);
+      expect(modelsSyncResponse.statusCode).toBe(403);
       expect(testResponse.statusCode).toBe(403);
       expect(copyResponse.statusCode).toBe(403);
       expect(batchStatusResponse.statusCode).toBe(403);
@@ -411,6 +417,96 @@ describe('channels integration', () => {
       expect(response.json().item.items[0].id).toBe('gpt-4o-mini');
       expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(fetchMock.mock.calls[0]?.[0]).toBe('https://models.example.test/v1/models');
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
+  it('lets an admin sync discovered OpenAI models into channel metadata', async () => {
+    const admin = await createAdminUser();
+    const token = await createSessionForUser(admin.id);
+    const channel = await createChannel({
+      baseUrl: 'https://sync-models.example.test/v1',
+      metadata: { region: 'us' },
+    });
+    mockFetchOnce({
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+      body: {
+        data: [
+          { id: 'gpt-4o-mini', owned_by: 'openai' },
+          { id: 'gpt-4.1-mini', owned_by: 'openai' },
+        ],
+      },
+    });
+    const app = await createTestApp();
+
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: `/api/channels/${channel.id}/models/sync`,
+        cookies: {
+          nodew_session: app.signCookie(token),
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json().item.total).toBe(2);
+
+      const stored = await prisma.channel.findUnique({
+        where: { id: channel.id },
+        select: { metadata: true },
+      });
+
+      expect(stored?.metadata).toMatchObject({
+        region: 'us',
+        models: ['gpt-4o-mini', 'gpt-4.1-mini'],
+      });
+      expect((stored?.metadata as { modelsSyncedAt?: string }).modelsSyncedAt).toEqual(expect.any(String));
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
+  it('discovers models for OpenAI-compatible providers with default base urls and metadata headers', async () => {
+    const admin = await createAdminUser();
+    const token = await createSessionForUser(admin.id);
+    const channel = await createChannel({
+      provider: 'openrouter',
+      baseUrl: null,
+      metadata: {
+        headers: {
+          'HTTP-Referer': 'https://nodew-api.local',
+        },
+      },
+    });
+    const fetchMock = mockFetchOnce({
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+      body: {
+        data: [
+          { id: 'openai/gpt-4o-mini', owned_by: 'openai' },
+        ],
+      },
+    });
+    const app = await createTestApp();
+
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: `/api/channels/${channel.id}/models`,
+        cookies: {
+          nodew_session: app.signCookie(token),
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json().item.items[0].id).toBe('openai/gpt-4o-mini');
+      expect(fetchMock.mock.calls[0]?.[0]).toBe('https://openrouter.ai/api/v1/models');
+      expect(fetchMock.mock.calls[0]?.[1]?.headers).toMatchObject({
+        authorization: 'Bearer channel-secret-key',
+        'HTTP-Referer': 'https://nodew-api.local',
+      });
     } finally {
       await closeTestApp(app);
     }
