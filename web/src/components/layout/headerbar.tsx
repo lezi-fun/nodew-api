@@ -1,5 +1,5 @@
 import { Avatar, Button, Dropdown, Space, Tag, Typography } from '@douyinfe/semi-ui';
-import { IconChevronDown, IconMenu, IconMoon, IconSun } from '@douyinfe/semi-icons';
+import { IconBell, IconChevronDown, IconMenu, IconMoon, IconSun } from '@douyinfe/semi-icons';
 import { useContext } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -18,8 +18,20 @@ export default function HeaderBar({
   const { user, logout } = useContext(UserContext);
   const location = useLocation();
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { i18n, t } = useTranslation();
   const isConsoleRoute = location.pathname.startsWith('/console');
+  const navLinks = [
+    { to: '/', label: '首页' },
+    { to: user ? '/console' : '/login', label: '控制台' },
+    { to: '/pricing', label: '模型广场' },
+    { to: '/about', label: '关于' },
+  ];
+
+  const switchLanguage = async () => {
+    const next = i18n.language.startsWith('zh') ? 'en' : 'zh-CN';
+    await i18n.changeLanguage(next);
+    localStorage.setItem('i18nextLng', next);
+  };
 
   return (
     <header className="headerbar-shell">
@@ -42,9 +54,23 @@ export default function HeaderBar({
             </div>
           </Link>
         </div>
+        <nav className="headerbar-nav" aria-label="Primary">
+          {navLinks.map((link) => (
+            <Link
+              key={link.to}
+              to={link.to}
+              className={location.pathname === link.to ? 'headerbar-link active' : 'headerbar-link'}
+            >
+              {t(link.label)}
+            </Link>
+          ))}
+          <a className="headerbar-link" href="/v1/models" target="_blank" rel="noreferrer">
+            API
+          </a>
+        </nav>
         <Space className="headerbar-actions">
-          {!isConsoleRoute ? <Link to="/pricing" className="headerbar-link">Pricing</Link> : null}
-          {!isConsoleRoute ? <Link to="/about" className="headerbar-link">About</Link> : null}
+          <Button theme="borderless" icon={<IconBell />} onClick={() => navigate('/console/log')} />
+          <Button theme="borderless" onClick={() => void switchLanguage()}>{i18n.language.startsWith('zh') ? '中' : 'EN'}</Button>
           <Button theme="borderless" icon={theme === 'dark' ? <IconSun /> : <IconMoon />} onClick={toggleTheme} />
           {user ? (
             <Dropdown
@@ -53,6 +79,9 @@ export default function HeaderBar({
               render={
                 <Dropdown.Menu>
                   <Dropdown.Item onClick={() => navigate('/console')}>控制台</Dropdown.Item>
+                  <Dropdown.Item onClick={() => navigate('/console/personal')}>个人设置</Dropdown.Item>
+                  <Dropdown.Item onClick={() => navigate('/console/token')}>令牌管理</Dropdown.Item>
+                  <Dropdown.Item onClick={() => navigate('/console/topup')}>钱包管理</Dropdown.Item>
                   <Dropdown.Divider />
                   <Dropdown.Item
                     type="danger"

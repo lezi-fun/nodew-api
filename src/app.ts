@@ -102,7 +102,6 @@ export const createApp = async (appEnv: AppEnv = parseEnv()) => {
   await app.register(fastifyStatic, {
     root: frontendRoot,
     prefix: '/',
-    wildcard: false,
   });
 
   app.setNotFoundHandler(async (request, reply) => {

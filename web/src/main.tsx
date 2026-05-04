@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
+import '@douyinfe/semi-ui/react19-adapter';
 import { LocaleProvider } from '@douyinfe/semi-ui';
 import zhCN from '@douyinfe/semi-ui/lib/es/locale/source/zh_CN';
 import enGB from '@douyinfe/semi-ui/lib/es/locale/source/en_GB';

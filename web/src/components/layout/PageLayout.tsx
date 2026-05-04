@@ -39,7 +39,7 @@ export default function PageLayout() {
             <SiderBar onNavigate={() => setDrawerOpen(false)} />
           </Sider>
         ) : null}
-        <Layout className="app-content-layout" style={{ marginLeft: !isMobile && showSider ? '232px' : '0' }}>
+        <Layout className={`app-content-layout ${!isMobile && showSider ? 'with-sider' : ''}`}>
           <Content className="app-content">
             <App />
           </Content>

@@ -11,7 +11,7 @@ export default function SetupCheck({ children }: { children: React.ReactNode }) 
     return <div className="screen-state">Loading nodew-api...</div>;
   }
 
-  if (status?.setup === false && location.pathname !== '/setup') {
+  if (status?.setup?.isInitialized === false && location.pathname !== '/setup') {
     return <Navigate to="/setup" replace />;
   }
 

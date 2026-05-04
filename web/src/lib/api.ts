@@ -12,7 +12,17 @@ export type ServiceStatus = {
 };
 
 export type AppStatus = ServiceStatus & {
-  setup?: boolean;
+  setup?: {
+    isInitialized: boolean;
+    initializedAt: string | null;
+  };
+  counts?: {
+    users: number;
+    admins: number;
+    apiKeys: number;
+    activeApiKeys: number;
+    channels: number;
+  };
 };
 
 export type CurrentUser = {
@@ -77,6 +87,19 @@ export type RedemptionItem = {
   maskedCode: string;
   createdBy: { id: string; email: string; username: string };
   redeemedByUser: { id: string; email: string; username: string } | null;
+};
+
+export type CreatedRedemptionItem = RedemptionItem & {
+  code: string;
+};
+
+export type GroupItem = {
+  id: string;
+  name: string;
+  description: string | null;
+  userCount: number;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type UsageLogItem = {
@@ -155,6 +178,38 @@ export type TokenUpdatePayload = {
   expiresAt?: string | null;
   quotaRemaining?: string | null;
   metadata?: Record<string, unknown> | null;
+};
+
+export type UserCreatePayload = {
+  email: string;
+  username: string;
+  password: string;
+  displayName?: string;
+  role?: 'USER' | 'ADMIN';
+  status?: 'ACTIVE' | 'DISABLED';
+  groupId?: string | null;
+  quotaRemaining?: string;
+};
+
+export type UserUpdatePayload = {
+  email?: string;
+  username?: string;
+  displayName?: string | null;
+  role?: 'USER' | 'ADMIN';
+  status?: 'ACTIVE' | 'DISABLED';
+  groupId?: string | null;
+  quotaRemaining?: string;
+};
+
+export type RedemptionCreatePayload = {
+  quotaAmount: string;
+  expiresAt?: string;
+};
+
+export type RedemptionUpdatePayload = {
+  quotaAmount?: string;
+  status?: 'ACTIVE' | 'REDEEMED' | 'REVOKED';
+  expiresAt?: string | null;
 };
 
 export type CreatedTokenItem = TokenItem & {
@@ -244,8 +299,28 @@ export const api = {
   updateToken: async (id: string, payload: TokenUpdatePayload) =>
     (await client.put<{ item: TokenItem }>(`/api/token/${id}`, payload)).data,
   deleteToken: async (id: string) => (await client.delete<{ success: boolean }>(`/api/token/${id}`)).data,
-  listRedemptions: async () => (await client.get<ListResponse<RedemptionItem>>('/api/redemptions')).data,
-  listUsers: async () => (await client.get<ListResponse<UserItem>>('/api/users')).data,
+  listRedemptions: async (params?: { limit?: number; cursor?: string; status?: RedemptionItem['status'] }) =>
+    (await client.get<ListResponse<RedemptionItem>>('/api/redemptions', { params })).data,
+  createRedemption: async (payload: RedemptionCreatePayload) =>
+    (await client.post<{ item: CreatedRedemptionItem }>('/api/redemptions', payload)).data,
+  updateRedemption: async (id: string, payload: RedemptionUpdatePayload) =>
+    (await client.patch<{ item: RedemptionItem }>(`/api/redemptions/${id}`, payload)).data,
+  deleteRedemption: async (id: string) => (await client.delete<{ success: boolean }>(`/api/redemptions/${id}`)).data,
+  listUsers: async (params?: { limit?: number; cursor?: string; role?: UserItem['role']; status?: UserItem['status']; keyword?: string }) =>
+    (await client.get<ListResponse<UserItem>>('/api/users', { params })).data,
+  createUser: async (payload: UserCreatePayload) =>
+    (await client.post<{ user: UserItem }>('/api/users', payload)).data,
+  updateUser: async (id: string, payload: UserUpdatePayload) =>
+    (await client.patch<{ user: UserItem }>(`/api/users/${id}`, payload)).data,
+  deleteUser: async (id: string) => (await client.delete<{ success: boolean }>(`/api/users/${id}`)).data,
+  resetUserPassword: async (id: string, payload: { password: string; revokeSession?: boolean }) =>
+    (await client.post<{ success: boolean }>(`/api/users/${id}/password`, payload)).data,
+  revokeUserSession: async (id: string) =>
+    (await client.post<{ success: boolean }>(`/api/users/${id}/session/revoke`)).data,
+  generateUserAccessToken: async (id: string) =>
+    (await client.post<{ accessToken: string }>(`/api/users/${id}/access-token`)).data,
+  listGroups: async (params?: { limit?: number; cursor?: string; keyword?: string }) =>
+    (await client.get<ListResponse<GroupItem>>('/api/groups', { params })).data,
   listUsageLogs: async (params?: UsageQuery) => (await client.get<ListResponse<UsageLogItem>>('/api/usage', { params })).data,
   listSelfUsageLogs: async (params?: UsageQuery) => (await client.get<ListResponse<UsageLogItem>>('/api/usage/self', { params })).data,
   getUsageSummary: async () => (await client.get<UsageSummary>('/api/usage/summary')).data,

@@ -1,6 +1,7 @@
-import { createContext, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { api, type CurrentUser } from '../lib/api';
+import { StatusContext } from './Status';
 
 type UserContextValue = {
   user: CurrentUser | null;
@@ -19,6 +20,7 @@ export const UserContext = createContext<UserContextValue>({
 });
 
 export function UserProvider({ children }: { children: ReactNode }) {
+  const { status, loading: statusLoading } = useContext(StatusContext);
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -40,8 +42,18 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (statusLoading) {
+      return;
+    }
+
+    if (status?.setup?.isInitialized === false) {
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+
     void refresh();
-  }, [refresh]);
+  }, [refresh, status?.setup?.isInitialized, statusLoading]);
 
   const value = useMemo(
     () => ({ user, loading, refresh, logout, setUser }),

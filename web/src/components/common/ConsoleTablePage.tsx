@@ -1,7 +1,7 @@
 import { Button, Card, Empty, Input, Space, Table, Tag, Typography } from '@douyinfe/semi-ui';
 import { IllustrationNoResult } from '@douyinfe/semi-illustrations';
 import { IconPlus, IconRefresh, IconSearch } from '@douyinfe/semi-icons';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 
 export type ConsoleColumn<T> = {
   title: string;
@@ -57,6 +57,19 @@ export default function ConsoleTablePage<T extends Record<string, unknown>>({
   toolbarExtra,
 }: ConsoleTablePageProps<T>) {
   const [keyword, setKeyword] = useState('');
+  const [compact, setCompact] = useState(localStorage.getItem('nodew-table-compact') === 'true');
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const update = () => setIsMobile(window.innerWidth < 768);
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('nodew-table-compact', String(compact));
+  }, [compact]);
 
   const filteredRows = useMemo(() => {
     if (!keyword.trim()) {
@@ -104,6 +117,9 @@ export default function ConsoleTablePage<T extends Record<string, unknown>>({
           </div>
           <Space wrap>
             {toolbarExtra}
+            <Button type="tertiary" theme={compact ? 'solid' : 'outline'} onClick={() => setCompact((value) => !value)}>
+              {compact ? '紧凑' : '舒适'}
+            </Button>
             <Input
               showClear
               prefix={<IconSearch />}
@@ -114,17 +130,44 @@ export default function ConsoleTablePage<T extends Record<string, unknown>>({
             <Tag color="blue" size="large">{filteredRows.length}</Tag>
           </Space>
         </div>
-        <Table
-          columns={columns}
-          dataSource={filteredRows}
-          loading={loading}
-          size="small"
-          pagination={{ pageSize: 12, showSizeChanger: true }}
-          empty={
-            <Empty description="暂无数据" image={<IllustrationNoResult style={{ width: 120, height: 120 }} />} />
-          }
-          rowKey={(record) => String((record?.id as string | undefined) ?? (record?.requestId as string | undefined) ?? 'row')}
-        />
+        {isMobile ? (
+          <div className={`mobile-card-table ${compact ? 'compact' : ''}`}>
+            {filteredRows.map((record, rowIndex) => (
+              <Card
+                key={String((record?.id as string | undefined) ?? (record?.requestId as string | undefined) ?? rowIndex)}
+                bordered={false}
+                className="mobile-row-card"
+              >
+                {columns.map((column, columnIndex) => {
+                  const value = record[column.dataIndex as keyof T];
+                  const rendered = column.render ? column.render(value, record, rowIndex) : stringifyCell(value);
+
+                  return (
+                    <div className="mobile-row-field" key={`${column.dataIndex}-${columnIndex}`}>
+                      <span>{column.title}</span>
+                      <div>{rendered || '-'}</div>
+                    </div>
+                  );
+                })}
+              </Card>
+            ))}
+            {!loading && filteredRows.length === 0 ? (
+              <Empty description="暂无数据" image={<IllustrationNoResult style={{ width: 120, height: 120 }} />} />
+            ) : null}
+          </div>
+        ) : (
+          <Table
+            columns={columns}
+            dataSource={filteredRows}
+            loading={loading}
+            size={compact ? 'small' : 'default'}
+            pagination={{ pageSize: compact ? 16 : 12, showSizeChanger: true }}
+            empty={
+              <Empty description="暂无数据" image={<IllustrationNoResult style={{ width: 120, height: 120 }} />} />
+            }
+            rowKey={(record) => String((record?.id as string | undefined) ?? (record?.requestId as string | undefined) ?? 'row')}
+          />
+        )}
       </Card>
     </main>
   );

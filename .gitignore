@@ -1,5 +1,6 @@
 .gitignore
 .DS_Store
+.playwright-cli/
 .claude/
 .env
 clean-room-d/
