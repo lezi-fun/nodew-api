@@ -1,14 +1,16 @@
 # nodew-api
 
-nodew-api is an independent Node.js and TypeScript LLM gateway for OpenAI-compatible relay, multi-provider channel routing, token management, usage logging, and web-based administration.
+nodew-api is a Node.js and TypeScript edition of the One API gateway, focused on OpenAI-compatible relay, multi-provider channel routing, token management, usage logging, and web-based administration.
 
 Repository: <https://github.com/lezi-fun/nodew-api>
+
+Based on One API: <https://github.com/songquanpeng/one-api>
 
 Copyright 2026 nodew-api Team. Licensed under the Apache License, Version 2.0.
 
 ## Status
 
-This project is a clean-room Node.js implementation of a modern large-model gateway. It is not a modified Go project. The codebase is built around Fastify, Prisma, TypeScript, React, Vite, and Semi UI.
+This project is a Node.js/TypeScript adaptation of One API. The codebase is built around Fastify, Prisma, TypeScript, React, Vite, and Semi UI.
 
 Current capabilities include:
 
