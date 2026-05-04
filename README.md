@@ -25,7 +25,7 @@ Copyright 2026 lezi-fun Team. Licensed under the Apache License, Version 2.0.
 
 ## Status
 
-> nodew-api is still in early-stage development. It is not recommended for production use yet.
+> nodew-api is still in early-stage development. It is not recommended for production use yet. A Serverless deployment path is currently under active development.
 
 This project is a Node.js/TypeScript adaptation of One API. The codebase is built around Fastify, Prisma, TypeScript, React, Vite, and Semi UI.
 

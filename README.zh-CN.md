@@ -25,7 +25,7 @@ Copyright 2026 lezi-fun Team. Licensed under the Apache License, Version 2.0.
 
 ## 项目状态
 
-> nodew-api 仍处于初步开发阶段，目前不建议用于生产环境。
+> nodew-api 仍处于初步开发阶段，目前不建议用于生产环境。Serverless 部署方案正在开发中。
 
 nodew-api 使用 Fastify、Prisma、TypeScript、React、Vite 和 Semi UI 构建，目标是提供现代化的大模型中转网关与管理后台。
 
