@@ -3,6 +3,7 @@
 .playwright-cli/
 .claude/
 .env
+pnpm-lock.yaml
 clean-room-d/
 dist/
 node_modules/

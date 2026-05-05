@@ -111,6 +111,37 @@ npm run start
 
 `npm run start` 会使用配置的 `HOST` 和 `PORT` 启动编译后的后端，并从 `web/dist` 提供前端静态资源。
 
+## Vercel 部署
+
+Vercel 支持目前仍是实验性的，Serverless 部署方案正在持续开发中。
+
+仓库已包含：
+
+- `api/server.js`：编译后 Fastify 应用的 Vercel Function 入口。
+- `vercel.json`：构建、函数和路由重写配置。
+- `installCommand`：同时安装根目录后端依赖和 `web` 前端依赖。
+- `npm run vercel-build`：生成 Prisma Client，构建后端，并构建 Web 控制台。
+
+需要在 Vercel 中配置的环境变量：
+
+```bash
+NODE_ENV=production
+LOG_LEVEL=info
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=public"
+SESSION_SECRET="replace-with-a-long-random-secret"
+CHANNEL_SECRET="replace-with-a-long-random-secret"
+```
+
+请使用 Neon、Supabase、RDS、Railway 或其他托管 PostgreSQL 数据库。Vercel 上不能使用 localhost 数据库。
+
+部署前请先对生产数据库执行迁移：
+
+```bash
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=public" npm run prisma:migrate:deploy
+```
+
+Vercel 会把 `/api/*`、`/v1/*`、`/v1beta/*`、`/health` 和 `/ready` 转发到 Fastify Function。其他路径由 `web/dist` 中的 SPA 静态文件提供。
+
 ## 数据库
 
 PostgreSQL 是默认数据库：

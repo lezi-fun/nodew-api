@@ -1,0 +1,10 @@
+.env
+.DS_Store
+.playwright-cli/
+.claude/
+node_modules/
+web/node_modules/
+dist/
+web/dist/
+pnpm-lock.yaml
+test/

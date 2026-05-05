@@ -111,6 +111,37 @@ npm run start
 
 `npm run start` serves the compiled backend and the built frontend from `web/dist` on the configured `HOST` and `PORT`.
 
+## Vercel Deployment
+
+Vercel support is experimental while the Serverless deployment path is under active development.
+
+The repository includes:
+
+- `vercel.json`: build, function, and rewrite configuration.
+- `api/server.js`: Vercel Function entrypoint for the compiled Fastify app.
+- `installCommand`: installs both root backend dependencies and `web` frontend dependencies.
+- `npm run vercel-build`: generates Prisma Client, builds the backend, and builds the web console.
+
+Required Vercel environment variables:
+
+```bash
+NODE_ENV=production
+LOG_LEVEL=info
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=public"
+SESSION_SECRET="replace-with-a-long-random-secret"
+CHANNEL_SECRET="replace-with-a-long-random-secret"
+```
+
+Use an external PostgreSQL provider such as Neon, Supabase, RDS, Railway, or another managed database. Do not use a localhost database on Vercel.
+
+Run migrations against the production database before deploying:
+
+```bash
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=public" npm run prisma:migrate:deploy
+```
+
+Vercel routes `/api/*`, `/v1/*`, `/v1beta/*`, `/health`, and `/ready` to the Fastify function. Other paths are served by the built SPA from `web/dist`.
+
 ## Database Providers
 
 PostgreSQL is the default provider:
