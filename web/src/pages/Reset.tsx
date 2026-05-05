@@ -1,6 +1,5 @@
-import { Button, Card, Form, Typography } from '@douyinfe/semi-ui';
+import { Button, Card, Form, Toast, Typography } from '@douyinfe/semi-ui';
 import { useState } from 'react';
-import { toast } from 'react-toastify';
 
 import { api } from '../lib/api';
 
@@ -17,9 +16,9 @@ export default function ResetPage() {
             setLoading(true);
             try {
               await api.forgotPassword({ email: values.email });
-              toast.success('如果邮箱存在，重置说明已发送');
+              Toast.success('如果邮箱存在，重置说明已发送');
             } catch (error) {
-              toast.error(error instanceof Error ? error.message : '提交失败');
+              Toast.error(error instanceof Error ? error.message : '提交失败');
             } finally {
               setLoading(false);
             }

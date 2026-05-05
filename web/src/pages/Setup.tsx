@@ -1,7 +1,6 @@
-import { Button, Card, Form, Typography } from '@douyinfe/semi-ui';
+import { Button, Card, Form, Toast, Typography } from '@douyinfe/semi-ui';
 import { useContext, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
 
 import { StatusContext } from '../context/Status';
 import { UserContext } from '../context/User';
@@ -32,10 +31,10 @@ export default function SetupPage() {
               });
               await refreshStatus();
               await refreshUser();
-              toast.success('初始化成功');
+              Toast.success('初始化成功');
               navigate('/console');
             } catch (error) {
-              toast.error(error instanceof Error ? error.message : '初始化失败');
+              Toast.error(error instanceof Error ? error.message : '初始化失败');
             } finally {
               setLoading(false);
             }

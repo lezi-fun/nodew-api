@@ -1,5 +1,4 @@
 import { Layout } from '@douyinfe/semi-ui';
-import { ToastContainer } from 'react-toastify';
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 
@@ -49,7 +48,6 @@ export default function PageLayout() {
           {!isConsoleRoute ? <FooterBar /> : null}
         </Layout>
       </Layout>
-      <ToastContainer position="top-right" theme="colored" />
     </Layout>
   );
 }

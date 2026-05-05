@@ -1,7 +1,6 @@
-import { Button, Card, Form, Typography } from '@douyinfe/semi-ui';
+import { Button, Card, Form, Toast, Typography } from '@douyinfe/semi-ui';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
 
 import { api } from '../lib/api';
 
@@ -24,10 +23,10 @@ export default function RegisterPage() {
                 password: values.password,
                 displayName: values.displayName,
               });
-              toast.success('注册成功');
+              Toast.success('注册成功');
               navigate('/login');
             } catch (error) {
-              toast.error(error instanceof Error ? error.message : '注册失败');
+              Toast.error(error instanceof Error ? error.message : '注册失败');
             } finally {
               setLoading(false);
             }

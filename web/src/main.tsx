@@ -8,7 +8,6 @@ import enGB from '@douyinfe/semi-ui/lib/es/locale/source/en_GB';
 import { useTranslation } from 'react-i18next';
 
 import '@douyinfe/semi-ui/dist/css/semi.css';
-import 'react-toastify/dist/ReactToastify.css';
 import './i18n/i18n';
 import './styles.css';
 import { StatusProvider } from './context/Status';

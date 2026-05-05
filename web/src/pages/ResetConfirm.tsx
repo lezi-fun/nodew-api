@@ -1,7 +1,6 @@
-import { Button, Card, Form, Typography } from '@douyinfe/semi-ui';
+import { Button, Card, Form, Toast, Typography } from '@douyinfe/semi-ui';
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { toast } from 'react-toastify';
 
 import { api } from '../lib/api';
 
@@ -21,9 +20,9 @@ export default function ResetConfirmPage() {
             setLoading(true);
             try {
               await api.resetPassword({ token: values.token, password: values.password });
-              toast.success('密码已更新');
+              Toast.success('密码已更新');
             } catch (error) {
-              toast.error(error instanceof Error ? error.message : '更新失败');
+              Toast.error(error instanceof Error ? error.message : '更新失败');
             } finally {
               setLoading(false);
             }

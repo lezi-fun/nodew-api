@@ -1,7 +1,6 @@
-import { Button, Card, Form, Typography } from '@douyinfe/semi-ui';
+import { Button, Card, Form, Toast, Typography } from '@douyinfe/semi-ui';
 import { useContext, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
 
 import { UserContext } from '../context/User';
 import { api } from '../lib/api';
@@ -22,10 +21,10 @@ export default function LoginPage() {
             try {
               await api.login({ email: values.email, password: values.password });
               await refresh();
-              toast.success('登录成功');
+              Toast.success('登录成功');
               navigate('/console');
             } catch (error) {
-              toast.error(error instanceof Error ? error.message : '登录失败');
+              Toast.error(error instanceof Error ? error.message : '登录失败');
             } finally {
               setLoading(false);
             }
