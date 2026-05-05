@@ -17,6 +17,7 @@ import optionsRoutes from './modules/admin/options/routes.js';
 import redemptionsRoutes from './modules/admin/redemptions/routes.js';
 import usersRoutes from './modules/admin/users/routes.js';
 import channelRoutes from './modules/channels/routes.js';
+import compatibilityRoutes from './modules/compatibility/routes.js';
 import dashboardRoutes from './modules/dashboard/routes.js';
 import relayRoutes from './modules/relay/routes.js';
 import selfRoutes from './modules/self/routes.js';
@@ -97,6 +98,7 @@ export const createApp = async (appEnv: AppEnv = parseEnv()) => {
     await api.register(redemptionsRoutes);
     await api.register(channelRoutes);
     await api.register(usageRoutes);
+    await api.register(compatibilityRoutes);
   }, { prefix: '/api' });
 
   await app.register(relayRoutes, { prefix: '/v1' });
