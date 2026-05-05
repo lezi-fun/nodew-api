@@ -15,6 +15,10 @@
 
 Languages: [English](./README.md) | [简体中文](./README.zh-CN.md)
 
+Preview: <https://nodew.lezi.chat>
+
+> The preview link points to a temporary test deployment for trying the current UI and API flow. It is not a production service.
+
 nodew-api is a Node.js and TypeScript edition of the One API gateway, focused on OpenAI-compatible relay, multi-provider channel routing, token management, usage logging, and web-based administration.
 
 Repository: <https://github.com/lezi-fun/nodew-api>

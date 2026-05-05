@@ -15,6 +15,10 @@
 
 语言：[English](./README.md) | [简体中文](./README.zh-CN.md)
 
+预览地址：<https://nodew.lezi.chat>
+
+> 这是一个临时测试部署链接，用于预览当前 UI 和 API 流程，不是生产环境服务。
+
 nodew-api 是 One API 网关的 Node.js / TypeScript 版本，面向 OpenAI 兼容中转、多供应商渠道路由、令牌管理、用量日志和 Web 管理控制台。
 
 项目仓库：<https://github.com/lezi-fun/nodew-api>
