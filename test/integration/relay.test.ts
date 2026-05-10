@@ -479,6 +479,204 @@ describe('relay integration', () => {
     }
   });
 
+  it('proxies legacy engine embeddings, response compact, and edits endpoints', async () => {
+    const user = await createUser();
+    const { apiKey } = await createApiKey(user.id);
+    await createChannel({
+      model: null,
+      metadata: {
+        models: ['public-embedding', 'public-response', 'public-edit'],
+        modelMap: {
+          'public-embedding': 'text-embedding-3-small',
+          'public-response': 'gpt-4o-mini',
+          'public-edit': 'text-davinci-edit-001',
+        },
+      },
+    });
+    const fetchMock = mockFetchSequence([
+      {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+        body: {
+          object: 'list',
+          data: [{ object: 'embedding', index: 0, embedding: [0.1, 0.2] }],
+          usage: { prompt_tokens: 1, total_tokens: 1 },
+        },
+      },
+      {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+        body: {
+          id: 'resp_compact_test',
+          object: 'response',
+          output_text: 'compact ok',
+          usage: { input_tokens: 2, output_tokens: 3, total_tokens: 5 },
+        },
+      },
+      {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+        body: {
+          object: 'edit',
+          choices: [{ text: 'edit ok', index: 0 }],
+          usage: { prompt_tokens: 2, completion_tokens: 2, total_tokens: 4 },
+        },
+      },
+    ]);
+    const app = await createTestApp();
+
+    try {
+      const embeddingsResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/engines/public-embedding/embeddings',
+        headers: {
+          authorization: `Bearer ${apiKey}`,
+          'x-request-id': 'relay-engines-embeddings-request',
+        },
+        payload: {
+          input: 'hello',
+        },
+      });
+      const compactResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/responses/compact',
+        headers: {
+          authorization: `Bearer ${apiKey}`,
+          'x-request-id': 'relay-responses-compact-request',
+        },
+        payload: {
+          model: 'public-response',
+          input: 'hello',
+        },
+      });
+      const editsResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/edits',
+        headers: {
+          authorization: `Bearer ${apiKey}`,
+          'x-request-id': 'relay-edits-request',
+        },
+        payload: {
+          model: 'public-edit',
+          input: 'helo',
+          instruction: 'fix spelling',
+        },
+      });
+
+      expect(embeddingsResponse.statusCode).toBe(200);
+      expect(compactResponse.statusCode).toBe(200);
+      expect(editsResponse.statusCode).toBe(200);
+      expect(fetchMock.mock.calls[0]?.[0]).toBe('https://example.test/v1/embeddings');
+      expect(JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string).model).toBe('text-embedding-3-small');
+      expect(fetchMock.mock.calls[1]?.[0]).toBe('https://example.test/v1/responses/compact');
+      expect(JSON.parse(fetchMock.mock.calls[1]?.[1]?.body as string).model).toBe('gpt-4o-mini');
+      expect(fetchMock.mock.calls[2]?.[0]).toBe('https://example.test/v1/edits');
+      expect(JSON.parse(fetchMock.mock.calls[2]?.[1]?.body as string).model).toBe('text-davinci-edit-001');
+
+      const logs = await prisma.usageLog.findMany({
+        where: {
+          requestId: {
+            in: [
+              'relay-engines-embeddings-request',
+              'relay-responses-compact-request',
+              'relay-edits-request',
+            ],
+          },
+        },
+        orderBy: { requestId: 'asc' },
+      });
+
+      expect(logs.map((log) => log.endpoint).sort()).toEqual([
+        '/v1/edits',
+        '/v1/embeddings',
+        '/v1/responses/compact',
+      ]);
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
+  it('proxies image edit and variation multipart requests', async () => {
+    const user = await createUser();
+    const { apiKey } = await createApiKey(user.id);
+    await createChannel({
+      model: null,
+      metadata: {
+        models: ['public-image'],
+        modelMap: {
+          'public-image': 'gpt-image-1',
+        },
+      },
+    });
+    const fetchMock = mockFetchSequence([
+      {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+        body: {
+          created: 1,
+          data: [{ b64_json: 'fixed-image' }],
+        },
+      },
+      {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+        body: {
+          created: 2,
+          data: [{ b64_json: 'fixed-variation' }],
+        },
+      },
+    ]);
+    const boundary = 'nodew-image-boundary';
+    const app = await createTestApp();
+
+    try {
+      const editResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/images/edits',
+        headers: {
+          authorization: `Bearer ${apiKey}`,
+          'content-type': `multipart/form-data; boundary=${boundary}`,
+          'x-request-id': 'relay-image-edits-request',
+        },
+        payload: buildMultipartBody(boundary, {
+          model: 'public-image',
+          prompt: 'edit image',
+        }),
+      });
+      const variationResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/images/variations',
+        headers: {
+          authorization: `Bearer ${apiKey}`,
+          'content-type': `multipart/form-data; boundary=${boundary}`,
+          'x-request-id': 'relay-image-variations-request',
+        },
+        payload: buildMultipartBody(boundary, {
+          model: 'public-image',
+        }),
+      });
+
+      expect(editResponse.statusCode).toBe(200);
+      expect(variationResponse.statusCode).toBe(200);
+      expect(fetchMock.mock.calls[0]?.[0]).toBe('https://example.test/v1/images/edits');
+      expect(fetchMock.mock.calls[1]?.[0]).toBe('https://example.test/v1/images/variations');
+      expect(Buffer.from(fetchMock.mock.calls[0]?.[1]?.body as Buffer).toString()).toContain('\r\ngpt-image-1\r\n');
+      expect(Buffer.from(fetchMock.mock.calls[1]?.[1]?.body as Buffer).toString()).toContain('\r\ngpt-image-1\r\n');
+
+      const editLog = await prisma.usageLog.findUnique({
+        where: { requestId: 'relay-image-edits-request' },
+      });
+      const variationLog = await prisma.usageLog.findUnique({
+        where: { requestId: 'relay-image-variations-request' },
+      });
+
+      expect(editLog?.endpoint).toBe('/v1/images/edits');
+      expect(variationLog?.endpoint).toBe('/v1/images/variations');
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
   it('proxies OpenAI speech responses with the upstream content type', async () => {
     const user = await createUser();
     const { apiKey } = await createApiKey(user.id);

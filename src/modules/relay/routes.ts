@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
+import { z } from 'zod';
 
 import { prisma } from '../../lib/prisma.js';
 import { relayClaudeMessages } from './claude-service.js';
@@ -257,6 +258,25 @@ const relayRoutes: FastifyPluginAsync = async (app) => {
     return reply.code(relayExecution.result.statusCode).send(relayExecution.result.body);
   });
 
+  app.post('/engines/:model/embeddings', {
+    preHandler: app.requireRelayApiKey,
+  }, async (request, reply) => {
+    const params = z.object({ model: z.string().min(1).max(128) }).parse(request.params);
+    const body = embeddingsBodySchema.omit({ model: true }).parse(request.body);
+    const relayExecution = await relayEmbeddings({
+      userId: request.currentUser!.id,
+      apiKeyId: request.currentApiKey!.id,
+      requestId: getRequestId(request),
+      body: {
+        ...body,
+        model: params.model,
+      },
+    });
+
+    applyRelayAttemptHeaders(reply, relayExecution);
+    return reply.code(relayExecution.result.statusCode).send(relayExecution.result.body);
+  });
+
   app.post('/responses', {
     preHandler: app.requireRelayApiKey,
   }, async (request, reply) => {
@@ -270,6 +290,43 @@ const relayRoutes: FastifyPluginAsync = async (app) => {
 
     applyRelayAttemptHeaders(reply, relayExecution);
     return sendRelayResult(reply, relayExecution, body.stream);
+  });
+
+  app.post('/responses/compact', {
+    preHandler: app.requireRelayApiKey,
+  }, async (request, reply) => {
+    const body = responsesBodySchema.parse(request.body);
+    const relayExecution = await relayOpenAIJsonEndpoint({
+      userId: request.currentUser!.id,
+      apiKeyId: request.currentApiKey!.id,
+      requestId: getRequestId(request),
+      endpoint: '/v1/responses/compact',
+      upstreamPath: 'responses/compact',
+      model: body.model,
+      body,
+    });
+
+    applyRelayAttemptHeaders(reply, relayExecution);
+    return sendRelayResult(reply, relayExecution, body.stream);
+  });
+
+  app.post('/edits', {
+    preHandler: app.requireRelayApiKey,
+  }, async (request, reply) => {
+    const body = modelOptionalBodySchema.parse(request.body);
+    const model = body.model ?? 'text-davinci-edit-001';
+    const relayExecution = await relayOpenAIJsonEndpoint({
+      userId: request.currentUser!.id,
+      apiKeyId: request.currentApiKey!.id,
+      requestId: getRequestId(request),
+      endpoint: '/v1/edits',
+      upstreamPath: 'edits',
+      model,
+      body: { ...body, model },
+    });
+
+    applyRelayAttemptHeaders(reply, relayExecution);
+    return reply.code(relayExecution.result.statusCode).send(relayExecution.result.body);
   });
 
   app.post('/images/generations', {
@@ -289,6 +346,58 @@ const relayRoutes: FastifyPluginAsync = async (app) => {
 
     applyRelayAttemptHeaders(reply, relayExecution);
     return reply.code(relayExecution.result.statusCode).send(relayExecution.result.body);
+  });
+
+  app.post('/images/edits', {
+    preHandler: app.requireRelayApiKey,
+  }, async (request, reply) => {
+    const contentType = getContentType(request);
+    const body = getMultipartBody(request);
+
+    if (!body || !contentType.includes('multipart/form-data')) {
+      throw app.httpErrors.badRequest('multipart/form-data request body required');
+    }
+
+    const model = getMultipartModel(body, contentType, 'gpt-image-1');
+    const relayExecution = await relayOpenAIMultipartEndpoint({
+      userId: request.currentUser!.id,
+      apiKeyId: request.currentApiKey!.id,
+      requestId: getRequestId(request),
+      endpoint: '/v1/images/edits',
+      upstreamPath: 'images/edits',
+      model,
+      body,
+      contentType,
+    });
+
+    applyRelayAttemptHeaders(reply, relayExecution);
+    return sendRelayResult(reply, relayExecution, false);
+  });
+
+  app.post('/images/variations', {
+    preHandler: app.requireRelayApiKey,
+  }, async (request, reply) => {
+    const contentType = getContentType(request);
+    const body = getMultipartBody(request);
+
+    if (!body || !contentType.includes('multipart/form-data')) {
+      throw app.httpErrors.badRequest('multipart/form-data request body required');
+    }
+
+    const model = getMultipartModel(body, contentType, 'gpt-image-1');
+    const relayExecution = await relayOpenAIMultipartEndpoint({
+      userId: request.currentUser!.id,
+      apiKeyId: request.currentApiKey!.id,
+      requestId: getRequestId(request),
+      endpoint: '/v1/images/variations',
+      upstreamPath: 'images/variations',
+      model,
+      body,
+      contentType,
+    });
+
+    applyRelayAttemptHeaders(reply, relayExecution);
+    return sendRelayResult(reply, relayExecution, false);
   });
 
   app.post('/moderations', {
