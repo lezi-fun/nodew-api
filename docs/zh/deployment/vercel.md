@@ -1,0 +1,47 @@
+# Vercel 部署
+
+::: warning 实验性支持
+Vercel 支持仍处于实验阶段。Serverless 部署路径正在开发中，不应视为生产就绪方案。
+:::
+
+主应用使用仓库根目录的 `vercel.json` 构建 Fastify 后端和 Vite Web 控制台。
+
+## 必需环境变量
+
+```bash
+NODE_ENV=production
+LOG_LEVEL=info
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=public"
+SESSION_SECRET="replace-with-a-long-random-secret"
+CHANNEL_SECRET="replace-with-a-long-random-secret"
+```
+
+请使用托管 PostgreSQL。localhost 数据库无法在 Vercel 上工作。
+
+## 构建流程
+
+当前构建命令：
+
+```bash
+npm run vercel-build
+```
+
+该命令会生成 Prisma Client、构建 TypeScript 后端，并构建 Web 控制台。
+
+## 路由
+
+Vercel 会把以下路径转发到 Fastify Function：
+
+- `/api/*`
+- `/v1/*`
+- `/v1beta/*`
+- `/health`
+- `/ready`
+
+其他路径由构建后的单页 Web 控制台提供。
+
+## 预览
+
+临时测试部署：
+
+<https://nodew.lezi.chat>
