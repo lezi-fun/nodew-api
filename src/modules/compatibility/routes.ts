@@ -513,7 +513,123 @@ const summarizeUsage = async (where: Prisma.UsageLogWhereInput) => {
   };
 };
 
+const buildModelRows = async (query: z.infer<typeof listQuerySchema>) => {
+  const channels = await prisma.channel.findMany({
+    orderBy: [{ priority: 'desc' }, { weight: 'desc' }, { createdAt: 'desc' }],
+    select: {
+      id: true,
+      name: true,
+      provider: true,
+      model: true,
+      status: true,
+      weight: true,
+      metadata: true,
+    },
+  });
+  const modelMap = new Map<string, {
+    id: string;
+    model: string;
+    providers: Set<string>;
+    channels: number;
+    activeChannels: number;
+    weight: number;
+    channelIds: string[];
+  }>();
+
+  for (const channel of channels) {
+    for (const model of getChannelSupportedModels(channel)) {
+      const row = modelMap.get(model) ?? {
+        id: model,
+        model,
+        providers: new Set<string>(),
+        channels: 0,
+        activeChannels: 0,
+        weight: 0,
+        channelIds: [],
+      };
+
+      row.providers.add(channel.provider);
+      row.channels += 1;
+      row.activeChannels += channel.status === 'ACTIVE' ? 1 : 0;
+      row.weight += channel.weight;
+      row.channelIds.push(channel.id);
+      modelMap.set(model, row);
+    }
+  }
+
+  const keyword = query.keyword?.toLowerCase();
+  const rows = [...modelMap.values()]
+    .map((row) => ({
+      id: row.id,
+      model: row.model,
+      provider: [...row.providers].sort().join(', '),
+      providers: [...row.providers].sort(),
+      channels: row.channels,
+      activeChannels: row.activeChannels,
+      weight: row.weight,
+      channelIds: row.channelIds,
+      enabled: row.activeChannels > 0,
+    }))
+    .filter((row) => keyword
+      ? row.model.toLowerCase().includes(keyword) || row.provider.toLowerCase().includes(keyword)
+      : true)
+    .sort((first, second) => first.model.localeCompare(second.model));
+
+  const start = query.cursor ? Math.max(0, rows.findIndex((row) => row.id === query.cursor) + 1) : (query.page - 1) * query.limit;
+  const visibleRows = rows.slice(start, start + query.limit);
+  const nextRow = rows[start + query.limit];
+
+  return {
+    items: visibleRows,
+    total: rows.length,
+    nextCursor: nextRow?.id ?? null,
+  };
+};
+
+const emptyTaskRows = async (type: 'task' | 'mj') => ({
+  items: [] as Array<Record<string, unknown>>,
+  total: 0,
+  type,
+  message: `${type === 'mj' ? 'Image task' : 'Task'} persistence is not enabled yet.`,
+});
+
 const compatibilityRoutes: FastifyPluginAsync = async (app) => {
+  app.get('/models/search', { preHandler: app.requireAdminUser }, async (request) => {
+    const query = listQuerySchema.parse(request.query);
+    const result = await buildModelRows(query);
+
+    return ok(result.items, {
+      items: result.items,
+      total: result.total,
+      nextCursor: result.nextCursor,
+    });
+  });
+
+  app.get('/models/missing', { preHandler: app.requireAdminUser }, async () => ok([], {
+    items: [],
+    total: 0,
+  }));
+
+  app.get('/models/:id', { preHandler: app.requireAdminUser }, async (request) => {
+    const { id } = idParamsSchema.parse(request.params);
+    const result = await buildModelRows({ limit: 100, page: 1 });
+    const item = result.items.find((row) => row.model === id);
+
+    if (!item) {
+      throw app.httpErrors.notFound('Model not found');
+    }
+
+    return ok(item, { item });
+  });
+
+  app.get('/task', { preHandler: app.requireAdminUser }, async () => ok(await emptyTaskRows('task')));
+
+  app.get('/task/self', { preHandler: app.requireUser }, async () => ok(await emptyTaskRows('task')));
+
+  app.get('/mj', { preHandler: app.requireAdminUser }, async () => ok(await emptyTaskRows('mj')));
+
+  app.get('/mj/self', { preHandler: app.requireUser }, async () => ok(await emptyTaskRows('mj')));
+
   app.get('/option', { preHandler: app.requireAdminUser }, async () => {
     const options = await prisma.systemOption.findMany({
       orderBy: { key: 'asc' },

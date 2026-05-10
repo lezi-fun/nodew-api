@@ -278,6 +278,79 @@ describe('legacy compatibility routes', () => {
     }
   });
 
+  it('serves public content, pricing, model metadata, and task compatibility routes', async () => {
+    const admin = await createAdminUser();
+    const user = await createUser();
+    const adminToken = await createSessionForUser(admin.id);
+    const userToken = await createSessionForUser(user.id);
+    await createChannel({
+      name: 'Model Compat Channel',
+      provider: 'openai',
+      model: 'gpt-primary',
+      metadata: {
+        models: ['gpt-primary', 'gpt-sidecar'],
+      },
+    });
+    const app = await createTestApp();
+
+    try {
+      const adminCookies = { nodew_session: app.signCookie(adminToken) };
+      const userCookies = { nodew_session: app.signCookie(userToken) };
+      const noticeResponse = await app.inject({
+        method: 'GET',
+        url: '/api/notice',
+      });
+      const aboutResponse = await app.inject({
+        method: 'GET',
+        url: '/api/about',
+      });
+      const pricingResponse = await app.inject({
+        method: 'GET',
+        url: '/api/pricing',
+      });
+      const modelsResponse = await app.inject({
+        method: 'GET',
+        url: '/api/models',
+        cookies: adminCookies,
+      });
+      const modelResponse = await app.inject({
+        method: 'GET',
+        url: '/api/models/gpt-sidecar',
+        cookies: adminCookies,
+      });
+      const taskResponse = await app.inject({
+        method: 'GET',
+        url: '/api/task/self',
+        cookies: userCookies,
+      });
+      const imageTaskResponse = await app.inject({
+        method: 'GET',
+        url: '/api/mj',
+        cookies: adminCookies,
+      });
+
+      expect(noticeResponse.statusCode).toBe(200);
+      expect(noticeResponse.json()).toHaveProperty('data');
+      expect(aboutResponse.statusCode).toBe(200);
+      expect(aboutResponse.json().data).toContain('nodew-api');
+      expect(pricingResponse.statusCode).toBe(200);
+      expect(pricingResponse.json().stats.activeChannels).toBe(1);
+      expect(modelsResponse.statusCode).toBe(200);
+      expect(modelsResponse.json().data.map((row: { model: string }) => row.model)).toEqual(['gpt-primary', 'gpt-sidecar']);
+      expect(modelResponse.statusCode).toBe(200);
+      expect(modelResponse.json().data).toMatchObject({
+        model: 'gpt-sidecar',
+        activeChannels: 1,
+      });
+      expect(taskResponse.statusCode).toBe(200);
+      expect(taskResponse.json().data.items).toEqual([]);
+      expect(imageTaskResponse.statusCode).toBe(200);
+      expect(imageTaskResponse.json().data.items).toEqual([]);
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
   it('serves legacy quota data routes', async () => {
     const user = await createUser();
     const admin = await createAdminUser();

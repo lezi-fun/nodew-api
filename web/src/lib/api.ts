@@ -138,6 +138,56 @@ export type UsageLogItem = {
   user: { id: string; email: string; username: string };
 };
 
+export type ModelItem = {
+  id: string;
+  model: string;
+  provider: string;
+  providers: string[];
+  channels: number;
+  activeChannels: number;
+  weight: number;
+  channelIds: string[];
+  enabled: boolean;
+};
+
+export type PricingInfo = {
+  currency: string;
+  plans: Array<{
+    id: string;
+    name: string;
+    price: number;
+    quota: string;
+    features: string[];
+    current?: boolean;
+  }>;
+  stats: {
+    channels: number;
+    activeChannels: number;
+    models: number;
+  };
+  note: string;
+};
+
+export type TaskItem = {
+  id: string;
+  type?: string;
+  action?: string;
+  prompt?: string;
+  status: string;
+  model?: string | null;
+  createdAt: string;
+};
+
+export type LegacyDataResponse<T> = {
+  success?: boolean;
+  message?: string;
+  data: T;
+  items?: T extends Array<infer U> ? U[] : never;
+  item?: T;
+  total?: number;
+  nextCursor?: string | null;
+};
+
 export type ListResponse<T> = {
   success?: boolean;
   items?: T[];
@@ -349,4 +399,11 @@ export const api = {
   listSelfUsageLogs: async (params?: UsageQuery) => (await client.get<ListResponse<UsageLogItem>>('/api/usage/self', { params })).data,
   getUsageSummary: async () => (await client.get<UsageSummary>('/api/usage/summary')).data,
   getSelfUsageSummary: async () => (await client.get<UsageSummary>('/api/usage/self/summary')).data,
+  getPricing: async () => (await client.get<LegacyDataResponse<PricingInfo>>('/api/pricing')).data,
+  listModels: async (params?: { limit?: number; cursor?: string; keyword?: string }) =>
+    (await client.get<ListResponse<ModelItem>>('/api/models', { params })).data,
+  listTasks: async () => (await client.get<LegacyDataResponse<{ items: TaskItem[]; total: number; message?: string }>>('/api/task')).data,
+  listSelfTasks: async () => (await client.get<LegacyDataResponse<{ items: TaskItem[]; total: number; message?: string }>>('/api/task/self')).data,
+  listImageTasks: async () => (await client.get<LegacyDataResponse<{ items: TaskItem[]; total: number; message?: string }>>('/api/mj')).data,
+  listSelfImageTasks: async () => (await client.get<LegacyDataResponse<{ items: TaskItem[]; total: number; message?: string }>>('/api/mj/self')).data,
 };

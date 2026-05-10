@@ -1,41 +1,21 @@
 import { Button, Space, Tag, Toast } from '@douyinfe/semi-ui';
 import { IconRefresh } from '@douyinfe/semi-icons';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import ConsoleTablePage from '../components/common/ConsoleTablePage';
-import { api, type ChannelItem } from '../lib/api';
-
-type ModelRow = {
-  id: string;
-  provider: string;
-  channels: number;
-  activeChannels: number;
-  routeMode: string;
-  weight: number;
-};
-
-const readModels = (channel: ChannelItem) => {
-  const metadataModels = channel.metadata?.models;
-  const models = Array.isArray(metadataModels)
-    ? metadataModels.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
-    : [];
-
-  if (models.length > 0) {
-    return models;
-  }
-
-  return channel.model ? [channel.model] : ['*'];
-};
+import { api, type ModelItem } from '../lib/api';
 
 export default function ModelsPage() {
-  const [channels, setChannels] = useState<ChannelItem[]>([]);
+  const [rows, setRows] = useState<ModelItem[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await api.listChannels();
-      setChannels(response.items ?? []);
+      const response = await api.listModels({ limit: 100 });
+      setRows(response.items ?? []);
+      setTotal(response.total ?? response.items?.length ?? 0);
     } catch (error) {
       Toast.error(error instanceof Error ? error.message : '加载模型失败');
     } finally {
@@ -47,57 +27,31 @@ export default function ModelsPage() {
     void load();
   }, [load]);
 
-  const rows = useMemo(() => {
-    const map = new Map<string, ModelRow>();
-
-    for (const channel of channels) {
-      for (const model of readModels(channel)) {
-        const current = map.get(model) ?? {
-          id: model,
-          provider: channel.provider,
-          channels: 0,
-          activeChannels: 0,
-          routeMode: model === '*' ? 'wildcard' : 'explicit',
-          weight: 0,
-        };
-        current.channels += 1;
-        current.activeChannels += channel.status === 'ACTIVE' ? 1 : 0;
-        current.weight += channel.weight;
-        current.provider = current.provider.includes(channel.provider)
-          ? current.provider
-          : `${current.provider}, ${channel.provider}`;
-        map.set(model, current);
-      }
-    }
-
-    return [...map.values()].sort((a, b) => a.id.localeCompare(b.id));
-  }, [channels]);
-
   return (
     <ConsoleTablePage
       title="模型管理"
-      description="从渠道配置与同步 metadata 中汇总模型，用于检查路由覆盖、可用渠道和权重分布。"
-      note="当前模型列表由渠道数据推导。后续接入独立模型倍率/别名 API 时，可保持本页路由不变。"
+      description="从后端模型兼容 API 汇总路由覆盖、可用渠道和权重分布。"
+      note="模型数据当前由渠道配置与 metadata.models 推导；后续独立倍率/别名表可继续复用本接口。"
       eyebrow="Models"
       rows={rows}
       loading={loading}
       onRefresh={load}
       stats={[
-        { label: '模型数', value: rows.length, tone: 'blue' },
+        { label: '模型数', value: total, tone: 'blue' },
         { label: '活跃覆盖', value: rows.filter((row) => row.activeChannels > 0).length, tone: 'green' },
-        { label: 'Wildcard', value: rows.filter((row) => row.id === '*').length, tone: 'orange' },
-        { label: '渠道数', value: channels.length, tone: 'grey' },
+        { label: 'Wildcard', value: rows.filter((row) => row.model === '*').length, tone: 'orange' },
+        { label: '渠道覆盖', value: rows.reduce((sum, row) => sum + row.channels, 0), tone: 'grey' },
       ]}
       toolbarExtra={<Button icon={<IconRefresh />} onClick={() => void load()}>重新汇总</Button>}
-      searchKeys={['id', 'provider', 'routeMode']}
+      searchKeys={['model', 'provider']}
       columns={[
         {
           title: '模型',
-          dataIndex: 'id',
+          dataIndex: 'model',
           render: (value, record) => (
             <div className="table-primary-cell">
               <strong>{String(value)}</strong>
-              <span>{record.routeMode}</span>
+              <span>{record.model === '*' ? 'wildcard' : 'explicit'}</span>
             </div>
           ),
         },

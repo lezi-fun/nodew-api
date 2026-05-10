@@ -9,6 +9,8 @@ type ModelSource = {
   name: string;
   provider: string;
   model: string | null;
+  status: string;
+  weight: number;
   metadata: Prisma.JsonValue | null;
 };
 
@@ -57,6 +59,19 @@ const readOwnedBy = (metadata: Prisma.JsonValue | null, fallback: string) => {
   return readString(data.ownedBy ?? data.owned_by ?? data.vendor) ?? fallback;
 };
 
+const getModelSources = () => prisma.channel.findMany({
+  orderBy: [{ provider: 'asc' }, { name: 'asc' }],
+  select: {
+    id: true,
+    name: true,
+    provider: true,
+    model: true,
+    status: true,
+    weight: true,
+    metadata: true,
+  },
+});
+
 const getEnabledModelSources = () => prisma.channel.findMany({
   where: {
     status: 'ACTIVE',
@@ -67,6 +82,8 @@ const getEnabledModelSources = () => prisma.channel.findMany({
     name: true,
     provider: true,
     model: true,
+    status: true,
+    weight: true,
     metadata: true,
   },
 });
@@ -78,8 +95,15 @@ const buildModelCatalog = (channels: ModelSource[]) => {
     created: number;
     owned_by: string;
     ownedBy: string;
+    model: string;
+    provider: string;
     providers: string[];
+    channels: number;
+    activeChannels: number;
     channelCount: number;
+    weight: number;
+    channelIds: string[];
+    enabled: boolean;
     promptTokenCost: number | null;
     completionTokenCost: number | null;
     currency: string;
@@ -96,7 +120,13 @@ const buildModelCatalog = (channels: ModelSource[]) => {
           existing.providers.push(channel.provider);
         }
 
+        existing.provider = existing.providers.sort().join(', ');
+        existing.channels += 1;
+        existing.activeChannels += channel.status === 'ACTIVE' ? 1 : 0;
         existing.channelCount += 1;
+        existing.weight += channel.weight;
+        existing.channelIds.push(channel.id);
+        existing.enabled = existing.activeChannels > 0;
         existing.promptTokenCost ??= price.promptTokenCost;
         existing.completionTokenCost ??= price.completionTokenCost;
         continue;
@@ -104,12 +134,19 @@ const buildModelCatalog = (channels: ModelSource[]) => {
 
       modelMap.set(model, {
         id: model,
+        model,
         object: 'model',
         created: 0,
         owned_by: ownedBy,
         ownedBy,
+        provider: channel.provider,
         providers: [channel.provider],
+        channels: 1,
+        activeChannels: channel.status === 'ACTIVE' ? 1 : 0,
         channelCount: 1,
+        weight: channel.weight,
+        channelIds: [channel.id],
+        enabled: channel.status === 'ACTIVE',
         promptTokenCost: price.promptTokenCost,
         completionTokenCost: price.completionTokenCost,
         currency: price.currency,
@@ -155,12 +192,33 @@ const dashboardRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.get('/pricing', async () => {
-    const models = buildModelCatalog(await getEnabledModelSources());
+    const [models, channels, activeChannels] = await Promise.all([
+      getModelSources().then(buildModelCatalog),
+      prisma.channel.count(),
+      prisma.channel.count({ where: { status: 'ACTIVE' } }),
+    ]);
 
     return {
       success: true,
       data: models,
       items: models,
+      plans: [
+        {
+          id: 'self-hosted',
+          name: 'Self-hosted',
+          price: 0,
+          quota: 'Bring your own providers',
+          features: ['OpenAI-compatible relay', 'Weighted channel routing', 'Usage logs'],
+          current: true,
+        },
+      ],
+      stats: {
+        channels,
+        activeChannels,
+        models: models.length,
+      },
+      currency: 'quota',
+      note: 'Billing plan management is not enabled yet; quota is controlled by user and token balances.',
       vendors: [...new Set(models.flatMap((model) => model.providers))].sort(),
       group_ratio: {
         default: 1,

@@ -1,39 +1,57 @@
-import { Tag } from '@douyinfe/semi-ui';
+import { Tag, Toast } from '@douyinfe/semi-ui';
+import { useCallback, useContext, useEffect, useState } from 'react';
 
 import ConsoleTablePage from '../components/common/ConsoleTablePage';
-
-type DrawingLogRow = {
-  id: string;
-  action: string;
-  prompt: string;
-  status: string;
-  createdAt: string;
-};
+import { UserContext } from '../context/User';
+import { api, type TaskItem } from '../lib/api';
+import { formatDateTime } from '../lib/format';
 
 export default function MidjourneyPage() {
-  const rows: DrawingLogRow[] = [];
+  const { user } = useContext(UserContext);
+  const [rows, setRows] = useState<TaskItem[]>([]);
+  const [message, setMessage] = useState('当前图片 Relay 端点可用，独立绘图任务持久化接口已预留。');
+  const [loading, setLoading] = useState(true);
+  const isAdmin = user?.role === 'ADMIN';
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = isAdmin ? await api.listImageTasks() : await api.listSelfImageTasks();
+      setRows(response.data.items ?? []);
+      setMessage(response.data.message ?? message);
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : '加载绘图日志失败');
+    } finally {
+      setLoading(false);
+    }
+  }, [isAdmin, message]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   return (
     <ConsoleTablePage
       title="绘图日志"
       description="预留绘图、多模态和图片生成任务日志入口。"
-      note="当前 nodew-api Relay 已包含图片生成端点，独立绘图任务日志 API 后续接入。"
+      note={message}
       eyebrow="Images"
       rows={rows}
-      loading={false}
+      loading={loading}
+      onRefresh={load}
       stats={[
-        { label: '任务数', value: 0, tone: 'blue' },
-        { label: '排队中', value: 0, tone: 'orange' },
-        { label: '完成', value: 0, tone: 'green' },
-        { label: '失败', value: 0, tone: 'red' },
+        { label: '任务数', value: rows.length, tone: 'blue' },
+        { label: '排队中', value: rows.filter((row) => row.status === 'pending').length, tone: 'orange' },
+        { label: '完成', value: rows.filter((row) => row.status === 'success').length, tone: 'green' },
+        { label: '失败', value: rows.filter((row) => row.status === 'failed').length, tone: 'red' },
       ]}
       searchKeys={['id', 'action', 'prompt', 'status']}
       columns={[
         { title: '任务 ID', dataIndex: 'id' },
-        { title: '动作', dataIndex: 'action' },
-        { title: '提示词', dataIndex: 'prompt' },
+        { title: '动作', dataIndex: 'action', render: (value) => value ? String(value) : '-' },
+        { title: '提示词', dataIndex: 'prompt', render: (value) => value ? String(value) : '-' },
         { title: '状态', dataIndex: 'status', render: (value) => <Tag>{String(value)}</Tag> },
-        { title: '创建时间', dataIndex: 'createdAt' },
+        { title: '创建时间', dataIndex: 'createdAt', render: (value) => formatDateTime(value as string | null) },
       ]}
     />
   );
