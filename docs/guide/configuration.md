@@ -14,6 +14,24 @@ nodew-api reads runtime configuration from environment variables.
 | `CHANNEL_SECRET` | Recommended | Secret material used for channel credential handling. |
 | `LOG_LEVEL` | No | Pino log level, for example `info` or `debug`. |
 
+## Object storage
+
+Object storage is optional and disabled by default. Enable it when generated images, videos, task files, or future upload assets must survive Serverless function restarts.
+
+| Variable | Required when enabled | Description |
+| --- | --- | --- |
+| `STORAGE_DRIVER` | Yes | `disabled` or `s3`. |
+| `STORAGE_ENDPOINT` | Yes | S3-compatible endpoint, for example AWS S3, Cloudflare R2, MinIO, or Tencent COS S3. |
+| `STORAGE_REGION` | No | Region used for request signing. Use `auto` for Cloudflare R2. |
+| `STORAGE_BUCKET` | Yes | Bucket name. |
+| `STORAGE_ACCESS_KEY_ID` | Yes | Access key ID. |
+| `STORAGE_SECRET_ACCESS_KEY` | Yes | Secret access key. |
+| `STORAGE_PUBLIC_BASE_URL` | No | Public CDN or bucket URL used when returning stored object URLs. |
+| `STORAGE_FORCE_PATH_STYLE` | No | Set `true` for MinIO and endpoints that require path-style URLs. |
+| `STORAGE_PREFIX` | No | Object key prefix. Defaults to `nodew`; every stored object is forced under the `nodew/` directory. |
+
+The backend exposes `GET /api/storage/status` for administrators. It returns only non-sensitive storage status and never returns access keys.
+
 ## Production guidance
 
 Use long random values for `SESSION_SECRET` and `CHANNEL_SECRET`. Do not reuse development secrets in production-like environments.
