@@ -1,4 +1,4 @@
-import { Button, Card, Input, Space, Switch, Toast, Typography } from '@douyinfe/semi-ui';
+import { Button, Card, Input, Space, Switch, TextArea, Toast, Typography } from '@douyinfe/semi-ui';
 import { IconSave, IconRefresh } from '@douyinfe/semi-icons';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -8,11 +8,16 @@ const optionMeta: Array<{
   key: SystemOptionKey;
   title: string;
   description: string;
-  type: 'text' | 'boolean';
+  type: 'text' | 'textarea' | 'boolean';
 }> = [
   { key: 'site_name', title: '站点名称', description: '显示在浏览器标题、顶栏和公开页面。', type: 'text' },
   { key: 'site_description', title: '站点描述', description: '公开首页与控制台说明文案。', type: 'text' },
   { key: 'default_model', title: '默认模型', description: '操练场和示例请求的默认模型。', type: 'text' },
+  { key: 'notice', title: '站点公告', description: '公开首页、关于页和控制台提示使用。', type: 'textarea' },
+  { key: 'home_page_content', title: '首页补充内容', description: '展示在公开首页的补充 Markdown/纯文本内容。', type: 'textarea' },
+  { key: 'about', title: '关于内容', description: '关于页面展示的项目或站点介绍。', type: 'textarea' },
+  { key: 'user_agreement', title: '用户协议', description: '预留给注册和合规页面使用。', type: 'textarea' },
+  { key: 'privacy_policy', title: '隐私政策', description: '预留给注册和合规页面使用。', type: 'textarea' },
   { key: 'registration_enabled', title: '允许注册', description: '关闭后仅管理员可创建用户。', type: 'boolean' },
   { key: 'self_use_mode_enabled', title: '自用模式', description: '隐藏注册和部分公开入口。', type: 'boolean' },
   { key: 'demo_site_enabled', title: '演示站点', description: '用于标记演示环境。', type: 'boolean' },
@@ -83,6 +88,13 @@ export default function SettingPage() {
                 <Switch
                   checked={values[option.key] === 'true'}
                   onChange={(checked) => setValues((current) => ({ ...current, [option.key]: String(checked) }))}
+                />
+              ) : option.type === 'textarea' ? (
+                <TextArea
+                  rows={5}
+                  value={values[option.key] ?? ''}
+                  placeholder={option.key}
+                  onChange={(value) => setValues((current) => ({ ...current, [option.key]: value }))}
                 />
               ) : (
                 <Input

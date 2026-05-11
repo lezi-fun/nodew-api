@@ -348,6 +348,11 @@ body.sidebar-collapsed .sidebar-status-card > div:last-child {
   margin: 0 auto;
 }
 
+.about-page {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
 .console-hero {
   display: flex;
   justify-content: space-between;
@@ -724,6 +729,22 @@ body[theme-mode='dark'] .dashboard-timeline-item {
   background: rgba(100, 116, 139, 0.06);
 }
 
+.site-notice-card .semi-card-body {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.site-notice-card strong {
+  color: var(--brand-blue);
+}
+
+.site-notice-card span,
+.content-card p {
+  white-space: pre-wrap;
+}
+
 .faq-list summary {
   cursor: pointer;
   font-weight: 800;
@@ -778,6 +799,10 @@ body[theme-mode='dark'] .dashboard-timeline-item {
   border-radius: 18px;
   border: 1px solid var(--console-border);
   background: rgba(100, 116, 139, 0.06);
+}
+
+.setting-field:has(textarea) {
+  grid-column: 1 / -1;
 }
 
 .setting-field > span,

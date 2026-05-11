@@ -10,6 +10,11 @@ const optionKeySchema = z.enum([
   'site_name',
   'site_description',
   'default_model',
+  'notice',
+  'user_agreement',
+  'privacy_policy',
+  'about',
+  'home_page_content',
 ]);
 
 const updateOptionBodySchema = z.object({

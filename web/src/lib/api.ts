@@ -108,7 +108,12 @@ export type SystemOptionKey =
   | 'demo_site_enabled'
   | 'site_name'
   | 'site_description'
-  | 'default_model';
+  | 'default_model'
+  | 'notice'
+  | 'user_agreement'
+  | 'privacy_policy'
+  | 'about'
+  | 'home_page_content';
 
 export type SystemOptionItem = {
   key: SystemOptionKey;
@@ -166,6 +171,28 @@ export type PricingInfo = {
     models: number;
   };
   note: string;
+};
+
+export type SiteInfo = {
+  siteName: string;
+  siteDescription: string;
+  defaultModel: string;
+  notice: string;
+  userAgreement: string;
+  privacyPolicy: string;
+  about: string;
+  homePageContent: string;
+  links: {
+    github: string;
+    preview: string;
+    upstream: string;
+  };
+  stats: {
+    users: number;
+    activeApiKeys: number;
+    channels: number;
+    activeChannels: number;
+  };
 };
 
 export type TaskItem = {
@@ -399,6 +426,9 @@ export const api = {
   listSelfUsageLogs: async (params?: UsageQuery) => (await client.get<ListResponse<UsageLogItem>>('/api/usage/self', { params })).data,
   getUsageSummary: async () => (await client.get<UsageSummary>('/api/usage/summary')).data,
   getSelfUsageSummary: async () => (await client.get<UsageSummary>('/api/usage/self/summary')).data,
+  getSiteInfo: async () => (await client.get<LegacyDataResponse<SiteInfo>>('/api/site')).data,
+  getAboutContent: async () => (await client.get<LegacyDataResponse<string>>('/api/about')).data,
+  getNoticeContent: async () => (await client.get<LegacyDataResponse<string>>('/api/notice')).data,
   getPricing: async () => (await client.get<LegacyDataResponse<PricingInfo>>('/api/pricing')).data,
   listModels: async (params?: { limit?: number; cursor?: string; keyword?: string }) =>
     (await client.get<ListResponse<ModelItem>>('/api/models', { params })).data,

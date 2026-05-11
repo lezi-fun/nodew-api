@@ -26,9 +26,20 @@ const defaultContent = {
   notice: '',
   userAgreement: '',
   privacyPolicy: '',
-  about: 'nodew-api is a Node.js and TypeScript LLM gateway.',
+  about: 'nodew-api is a Node.js and TypeScript edition of the One API gateway.',
   homePageContent: '',
 } as const;
+
+const publicOptionKeys = [
+  'site_name',
+  'site_description',
+  'default_model',
+  contentOptionKeys.notice,
+  contentOptionKeys.userAgreement,
+  contentOptionKeys.privacyPolicy,
+  contentOptionKeys.about,
+  contentOptionKeys.homePageContent,
+] as const;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value && typeof value === 'object' && !Array.isArray(value));
@@ -177,6 +188,51 @@ const optionContent = async (key: keyof typeof contentOptionKeys, fallback: stri
   };
 };
 
+const readPublicSiteConfig = async () => {
+  const [options, status] = await Promise.all([
+    prisma.systemOption.findMany({
+      where: {
+        key: {
+          in: [...publicOptionKeys],
+        },
+      },
+    }),
+    Promise.all([
+      prisma.user.count(),
+      prisma.aPIKey.count({ where: { status: 'ACTIVE' } }),
+      prisma.channel.count(),
+      prisma.channel.count({ where: { status: 'ACTIVE' } }),
+    ]),
+  ]);
+  const map = new Map(options.map((option) => [option.key, option.value]));
+  const [users, activeApiKeys, channels, activeChannels] = status;
+
+  return {
+    success: true,
+    data: {
+      siteName: map.get('site_name') ?? 'nodew-api',
+      siteDescription: map.get('site_description') ?? 'Node.js and TypeScript edition of the One API gateway.',
+      defaultModel: map.get('default_model') ?? 'gpt-4o-mini',
+      notice: map.get(contentOptionKeys.notice) ?? defaultContent.notice,
+      userAgreement: map.get(contentOptionKeys.userAgreement) ?? defaultContent.userAgreement,
+      privacyPolicy: map.get(contentOptionKeys.privacyPolicy) ?? defaultContent.privacyPolicy,
+      about: map.get(contentOptionKeys.about) ?? defaultContent.about,
+      homePageContent: map.get(contentOptionKeys.homePageContent) ?? defaultContent.homePageContent,
+      links: {
+        github: 'https://github.com/lezi-fun/nodew-api',
+        preview: 'https://nodew.lezi.chat',
+        upstream: 'https://github.com/songquanpeng/one-api',
+      },
+      stats: {
+        users,
+        activeApiKeys,
+        channels,
+        activeChannels,
+      },
+    },
+  };
+};
+
 const dashboardRoutes: FastifyPluginAsync = async (app) => {
   app.get('/models', {
     preHandler: app.requireUser,
@@ -253,6 +309,7 @@ const dashboardRoutes: FastifyPluginAsync = async (app) => {
   app.get('/privacy-policy', async () => optionContent('privacyPolicy', defaultContent.privacyPolicy));
   app.get('/about', async () => optionContent('about', defaultContent.about));
   app.get('/home_page_content', async () => optionContent('homePageContent', defaultContent.homePageContent));
+  app.get('/site', async () => readPublicSiteConfig());
 };
 
 export default dashboardRoutes;

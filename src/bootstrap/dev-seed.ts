@@ -17,6 +17,11 @@ const defaultOptions = {
   site_name: 'nodew-api',
   site_description: 'Modern Node.js LLM gateway',
   default_model: 'gpt-4o-mini',
+  notice: 'nodew-api is in early development. Do not use this preview for production workloads.',
+  about: 'nodew-api is a Node.js and TypeScript edition of the One API gateway.',
+  user_agreement: '',
+  privacy_policy: '',
+  home_page_content: '',
 } as const;
 
 const ensureSetupState = async (tx: Prisma.TransactionClient) => {

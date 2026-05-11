@@ -102,6 +102,10 @@ describe('dashboard compatibility routes', () => {
         method: 'GET',
         url: '/api/about',
       });
+      const siteResponse = await app.inject({
+        method: 'GET',
+        url: '/api/site',
+      });
 
       expect(noticeResponse.statusCode).toBe(200);
       expect(noticeResponse.json()).toMatchObject({
@@ -111,6 +115,12 @@ describe('dashboard compatibility routes', () => {
       });
       expect(aboutResponse.statusCode).toBe(200);
       expect(aboutResponse.json().content).toContain('nodew-api');
+      expect(siteResponse.statusCode).toBe(200);
+      expect(siteResponse.json().data).toMatchObject({
+        siteName: 'nodew-api',
+        notice: 'Maintenance window tonight.',
+      });
+      expect(siteResponse.json().data.links.github).toBe('https://github.com/lezi-fun/nodew-api');
     } finally {
       await closeTestApp(app);
     }

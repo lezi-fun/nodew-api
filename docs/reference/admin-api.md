@@ -13,6 +13,23 @@ Console and administration routes are exposed under `/api`.
 | Models | Inspect model availability inferred from active channels. |
 | Settings | Configure runtime and console-facing behavior. |
 
+## Public site content
+
+The console exposes a small content layer through system options. Admin users can update these values from `/console/setting`; public pages read them from `/api/site`.
+
+| Option key | Used by |
+| --- | --- |
+| `site_name` | Public hero, metadata, and setup configuration. |
+| `site_description` | Public home and about pages. |
+| `default_model` | Playground defaults and API examples. |
+| `notice` | Public announcements and preview warnings. |
+| `home_page_content` | Extra home page text. |
+| `about` | About page body. |
+| `user_agreement` | User agreement content placeholder. |
+| `privacy_policy` | Privacy policy content placeholder. |
+
+`GET /api/site` returns the public site metadata, links, content options, and a small status summary.
+
 ## Session authentication
 
 The web console uses the backend authentication APIs for login, registration, setup, and user profile retrieval.

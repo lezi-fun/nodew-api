@@ -13,6 +13,23 @@
 | Models | 查看从可用渠道推导出的模型列表。 |
 | Settings | 配置运行时和控制台展示行为。 |
 
+## 公开站点内容
+
+控制台提供一层轻量内容配置。管理员可以在 `/console/setting` 修改这些值，公开页面通过 `/api/site` 读取。
+
+| 配置键 | 用途 |
+| --- | --- |
+| `site_name` | 公开首页、元信息和初始化配置。 |
+| `site_description` | 公开首页和关于页面。 |
+| `default_model` | 操练场默认值和 API 示例。 |
+| `notice` | 公开公告和预览环境提示。 |
+| `home_page_content` | 首页补充内容。 |
+| `about` | 关于页面正文。 |
+| `user_agreement` | 用户协议内容预留。 |
+| `privacy_policy` | 隐私政策内容预留。 |
+
+`GET /api/site` 会返回公开站点元信息、链接、内容配置和简要运行状态。
+
 ## Session 鉴权
 
 Web 控制台使用后端认证接口完成登录、注册、初始化和用户信息读取。
