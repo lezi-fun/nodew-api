@@ -1,7 +1,7 @@
 import { prisma } from '../../src/lib/prisma.js';
 import { closeTestApp, createTestApp } from '../helpers/app.js';
 import { createApiKey, createChannel, createUser } from '../helpers/factories.js';
-import { mockFetchOnce, mockFetchSequence } from '../helpers/fetch.js';
+import { createMockResponse, mockFetchOnce, mockFetchSequence } from '../helpers/fetch.js';
 
 const buildMultipartBody = (boundary: string, fields: Record<string, string>) => Buffer.from([
   ...Object.entries(fields).flatMap(([name, value]) => [
@@ -674,6 +674,130 @@ describe('relay integration', () => {
       expect(variationLog?.endpoint).toBe('/v1/images/variations');
     } finally {
       await closeTestApp(app);
+    }
+  });
+
+  it('persists base64 image relay results when object storage is enabled', async () => {
+    const originalEnv = { ...process.env };
+
+    vi.resetModules();
+    process.env.NODE_ENV = 'test';
+    process.env.DATABASE_URL = originalEnv.DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:5432/nodew_api';
+    process.env.SESSION_SECRET = 'nodew-test-session-secret';
+    process.env.CHANNEL_SECRET = 'nodew-test-channel-secret';
+    process.env.STORAGE_DRIVER = 's3';
+    process.env.STORAGE_ENDPOINT = 'https://storage.example.test';
+    process.env.STORAGE_BUCKET = 'nodew-bucket';
+    process.env.STORAGE_ACCESS_KEY_ID = 'test-access-key';
+    process.env.STORAGE_SECRET_ACCESS_KEY = 'test-secret-key';
+    process.env.STORAGE_PUBLIC_BASE_URL = 'https://assets.example.test/';
+    process.env.STORAGE_PREFIX = 'nodew';
+
+    try {
+      const { createTestApp: createStorageTestApp, closeTestApp: closeStorageTestApp } = await import('../helpers/app.js');
+      const user = await createUser();
+      const { apiKey } = await createApiKey(user.id);
+      await createChannel({ model: 'gpt-image-1' });
+      const fetchMock = vi.spyOn(globalThis, 'fetch')
+        .mockResolvedValueOnce(createMockResponse({
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+          body: {
+            created: 1,
+            data: [{ b64_json: Buffer.from('fake-png').toString('base64'), url: '/assets/fixed.png' }],
+          },
+        }))
+        .mockResolvedValueOnce(createMockResponse({
+          status: 200,
+          headers: { etag: '"stored-image"' },
+          body: '',
+        }));
+      const app = await createStorageTestApp();
+
+      try {
+        const response = await app.inject({
+          method: 'POST',
+          url: '/v1/images/generations',
+          headers: {
+            authorization: `Bearer ${apiKey}`,
+            'x-request-id': 'relay-image-storage-request',
+          },
+          payload: {
+            model: 'gpt-image-1',
+            prompt: 'persist image',
+          },
+        });
+
+        expect(response.statusCode).toBe(200);
+        expect(fetchMock.mock.calls[1]?.[0]?.toString()).toContain('https://nodew-bucket.storage.example.test/nodew/relay/images-generations/relay-image-storage-request/');
+        expect(fetchMock.mock.calls[1]?.[1]?.method).toBe('PUT');
+        expect(response.json().data[0].url).toContain('https://assets.example.test/nodew/relay/images-generations/relay-image-storage-request/');
+        expect(response.json().data[0].nodew_upstream_url).toBe('/assets/fixed.png');
+        expect(response.json().data[0].nodew_storage_key).toContain('nodew/relay/images-generations/relay-image-storage-request/');
+      } finally {
+        await closeStorageTestApp(app);
+      }
+    } finally {
+      process.env = originalEnv;
+      vi.resetModules();
+    }
+  });
+
+  it('keeps image relay responses usable when object storage upload fails', async () => {
+    const originalEnv = { ...process.env };
+
+    vi.resetModules();
+    process.env.NODE_ENV = 'test';
+    process.env.DATABASE_URL = originalEnv.DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:5432/nodew_api';
+    process.env.SESSION_SECRET = 'nodew-test-session-secret';
+    process.env.CHANNEL_SECRET = 'nodew-test-channel-secret';
+    process.env.STORAGE_DRIVER = 's3';
+    process.env.STORAGE_ENDPOINT = 'https://storage.example.test';
+    process.env.STORAGE_BUCKET = 'nodew-bucket';
+    process.env.STORAGE_ACCESS_KEY_ID = 'test-access-key';
+    process.env.STORAGE_SECRET_ACCESS_KEY = 'test-secret-key';
+    process.env.STORAGE_PREFIX = 'nodew';
+
+    try {
+      const { createTestApp: createStorageTestApp, closeTestApp: closeStorageTestApp } = await import('../helpers/app.js');
+      const user = await createUser();
+      const { apiKey } = await createApiKey(user.id);
+      await createChannel({ model: 'gpt-image-1' });
+      vi.spyOn(globalThis, 'fetch')
+        .mockResolvedValueOnce(createMockResponse({
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+          body: {
+            created: 1,
+            data: [{ b64_json: Buffer.from('fake-png').toString('base64'), url: '/assets/fixed.png' }],
+          },
+        }))
+        .mockRejectedValueOnce(new Error('storage unreachable'));
+      const app = await createStorageTestApp();
+
+      try {
+        const response = await app.inject({
+          method: 'POST',
+          url: '/v1/images/generations',
+          headers: {
+            authorization: `Bearer ${apiKey}`,
+            'x-request-id': 'relay-image-storage-failure-request',
+          },
+          payload: {
+            model: 'gpt-image-1',
+            prompt: 'persist image',
+          },
+        });
+
+        expect(response.statusCode).toBe(200);
+        expect(response.json().data[0].url).toBe('/assets/fixed.png');
+        expect(response.json().data[0].nodew_storage_error).toBe('storage unreachable');
+      } finally {
+        await closeStorageTestApp(app);
+      }
+    } finally {
+      process.env = originalEnv;
+      vi.resetModules();
     }
   });
 

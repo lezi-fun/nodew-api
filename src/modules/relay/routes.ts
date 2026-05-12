@@ -7,6 +7,7 @@ import { prisma } from '../../lib/prisma.js';
 import { relayClaudeMessages } from './claude-service.js';
 import { relayEmbeddings } from './embeddings-service.js';
 import { relayGeminiGenerateContent } from './gemini-service.js';
+import { persistImageRelayResult } from './media-storage.js';
 import { getChannelSupportedModels } from './model-routing.js';
 import { readMultipartField } from './multipart.js';
 import { relayOpenAIJsonEndpoint, relayOpenAIMultipartEndpoint } from './openai-service.js';
@@ -74,6 +75,23 @@ const sendRelayResult = (reply: FastifyReply, relayExecution: { result: { status
   }
 
   return reply.code(relayExecution.result.statusCode).send(relayExecution.result.body);
+};
+
+const sendPersistedImageRelayResult = async (
+  reply: FastifyReply,
+  relayExecution: { result: { statusCode: number; body: unknown; contentType?: string } },
+  endpoint: string,
+  requestId: string,
+) => {
+  if (relayExecution.result.contentType) {
+    reply.header('content-type', relayExecution.result.contentType);
+  }
+
+  const body = relayExecution.result.statusCode >= 200 && relayExecution.result.statusCode < 300
+    ? await persistImageRelayResult({ body: relayExecution.result.body, endpoint, requestId })
+    : relayExecution.result.body;
+
+  return reply.code(relayExecution.result.statusCode).send(body);
 };
 
 const getContentType = (request: FastifyRequest) => {
@@ -334,10 +352,11 @@ const relayRoutes: FastifyPluginAsync = async (app) => {
   }, async (request, reply) => {
     const body = modelOptionalBodySchema.parse(request.body);
     const model = body.model ?? 'gpt-image-1';
+    const requestId = getRequestId(request);
     const relayExecution = await relayOpenAIJsonEndpoint({
       userId: request.currentUser!.id,
       apiKeyId: request.currentApiKey!.id,
-      requestId: getRequestId(request),
+      requestId,
       endpoint: '/v1/images/generations',
       upstreamPath: 'images/generations',
       model,
@@ -345,7 +364,7 @@ const relayRoutes: FastifyPluginAsync = async (app) => {
     });
 
     applyRelayAttemptHeaders(reply, relayExecution);
-    return reply.code(relayExecution.result.statusCode).send(relayExecution.result.body);
+    return sendPersistedImageRelayResult(reply, relayExecution, '/v1/images/generations', requestId);
   });
 
   app.post('/images/edits', {
@@ -359,10 +378,11 @@ const relayRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const model = getMultipartModel(body, contentType, 'gpt-image-1');
+    const requestId = getRequestId(request);
     const relayExecution = await relayOpenAIMultipartEndpoint({
       userId: request.currentUser!.id,
       apiKeyId: request.currentApiKey!.id,
-      requestId: getRequestId(request),
+      requestId,
       endpoint: '/v1/images/edits',
       upstreamPath: 'images/edits',
       model,
@@ -371,7 +391,7 @@ const relayRoutes: FastifyPluginAsync = async (app) => {
     });
 
     applyRelayAttemptHeaders(reply, relayExecution);
-    return sendRelayResult(reply, relayExecution, false);
+    return sendPersistedImageRelayResult(reply, relayExecution, '/v1/images/edits', requestId);
   });
 
   app.post('/images/variations', {
@@ -385,10 +405,11 @@ const relayRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const model = getMultipartModel(body, contentType, 'gpt-image-1');
+    const requestId = getRequestId(request);
     const relayExecution = await relayOpenAIMultipartEndpoint({
       userId: request.currentUser!.id,
       apiKeyId: request.currentApiKey!.id,
-      requestId: getRequestId(request),
+      requestId,
       endpoint: '/v1/images/variations',
       upstreamPath: 'images/variations',
       model,
@@ -397,7 +418,7 @@ const relayRoutes: FastifyPluginAsync = async (app) => {
     });
 
     applyRelayAttemptHeaders(reply, relayExecution);
-    return sendRelayResult(reply, relayExecution, false);
+    return sendPersistedImageRelayResult(reply, relayExecution, '/v1/images/variations', requestId);
   });
 
   app.post('/moderations', {

@@ -23,6 +23,17 @@ describe('object storage configuration', () => {
     })).toThrow(/STORAGE_BUCKET/);
   });
 
+  it('parses false boolean strings correctly', () => {
+    const env = parseEnv({
+      NODE_ENV: 'test',
+      DATABASE_URL: 'postgresql://postgres:postgres@127.0.0.1:5432/nodew_api',
+      SESSION_SECRET: 'nodew-test-session-secret',
+      STORAGE_FORCE_PATH_STYLE: 'false',
+    });
+
+    expect(env.STORAGE_FORCE_PATH_STYLE).toBe(false);
+  });
+
   it('returns non-sensitive storage status to admins only', async () => {
     const admin = await createAdminUser();
     const user = await createUser();

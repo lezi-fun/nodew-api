@@ -1,5 +1,21 @@
 import { z } from 'zod';
 
+const booleanStringSchema = z.preprocess((value) => {
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+
+    if (['true', '1', 'yes', 'on'].includes(normalized)) {
+      return true;
+    }
+
+    if (['false', '0', 'no', 'off', ''].includes(normalized)) {
+      return false;
+    }
+  }
+
+  return value;
+}, z.boolean());
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   HOST: z.string().default('0.0.0.0'),
@@ -15,7 +31,7 @@ const envSchema = z.object({
   STORAGE_ACCESS_KEY_ID: z.string().min(1).optional(),
   STORAGE_SECRET_ACCESS_KEY: z.string().min(1).optional(),
   STORAGE_PUBLIC_BASE_URL: z.string().url().optional(),
-  STORAGE_FORCE_PATH_STYLE: z.coerce.boolean().default(false),
+  STORAGE_FORCE_PATH_STYLE: booleanStringSchema.default(false),
   STORAGE_PREFIX: z.string().default('nodew'),
 });
 
