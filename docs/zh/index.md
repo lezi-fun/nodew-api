@@ -30,7 +30,7 @@ features:
 ---
 
 ::: warning 初步开发中
-nodew-api 仍处于初步开发阶段，目前不建议用于生产环境。Serverless 部署方案正在持续开发中。
+nodew-api 仍处于初步开发阶段，目前不建议用于生产环境。API、数据库结构、配置项和部署行为都可能在没有提前通知的情况下发生破坏性变更。欢迎贡献代码、测试反馈和 issue。
 :::
 
 nodew-api 是 [One API](https://github.com/songquanpeng/one-api) 的 Node.js / TypeScript 版本，使用 Fastify、Prisma、React、Vite 和 Semi UI 构建。

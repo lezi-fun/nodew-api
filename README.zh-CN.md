@@ -54,6 +54,8 @@ nodew-api 使用 Fastify、Prisma、TypeScript、React、Vite 和 Semi UI 构建
 
 ## 快速开始
 
+> 早期开发提示：nodew-api 目前不建议用于生产环境。API、数据库结构、配置项和部署行为都可能在没有提前通知的情况下发生破坏性变更。
+
 安装依赖：
 
 ```bash

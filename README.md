@@ -54,6 +54,8 @@ Current capabilities include:
 
 ## Quick Start
 
+> Early-stage warning: nodew-api is not recommended for production use yet. APIs, database schemas, configuration, and deployment behavior may receive breaking changes at any time without prior notice.
+
 Install dependencies:
 
 ```bash

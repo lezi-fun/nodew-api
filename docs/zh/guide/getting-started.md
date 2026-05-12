@@ -3,7 +3,7 @@
 nodew-api 是 [One API](https://github.com/songquanpeng/one-api) 的 Node.js / TypeScript 版本，提供 OpenAI 兼容中转、数据库渠道系统、令牌管理、用量日志和 Web 管理控制台。
 
 ::: warning 初步开发中
-项目仍处于初步开发阶段。在 Serverless 部署路径和运维文档稳定前，不建议用于生产环境。
+项目仍处于初步开发阶段，目前不建议用于生产环境。API、数据库结构、配置项和部署行为都可能在没有提前通知的情况下发生破坏性变更。
 :::
 
 ## 环境要求
