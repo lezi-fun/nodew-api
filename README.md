@@ -123,8 +123,8 @@ The repository includes:
 
 - `vercel.json`: build, function, and rewrite configuration.
 - `api/server.js`: Vercel Function entrypoint for the compiled Fastify app.
-- `installCommand`: installs both root backend dependencies and `web` frontend dependencies.
-- `npm run vercel-build`: generates Prisma Client, builds the backend, and builds the web console.
+- `installCommand`: uses Bun to install both root backend dependencies and `web` frontend dependencies.
+- `bun run vercel-build`: generates Prisma Client, builds the backend, and builds the web console.
 
 Required Vercel environment variables:
 

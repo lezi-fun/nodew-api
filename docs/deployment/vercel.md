@@ -41,7 +41,7 @@ All stored objects are forced under the `nodew/` directory in the bucket.
 The configured build command is:
 
 ```bash
-npm run vercel-build
+bun run vercel-build
 ```
 
 That command generates Prisma Client, builds the TypeScript backend, and builds the web console.
