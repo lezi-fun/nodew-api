@@ -29,7 +29,7 @@ export default function PlaygroundPage() {
   const [channels, setChannels] = useState<ChannelItem[]>([]);
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('gpt-4o-mini');
-  const [message, setMessage] = useState('Say hello from nodew-api.');
+  const [message, setMessage] = useState('Say hello from NodEW-api.');
   const [stream, setStream] = useState(true);
   const [running, setRunning] = useState(false);
   const [output, setOutput] = useState('');

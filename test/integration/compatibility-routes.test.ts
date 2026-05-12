@@ -332,7 +332,7 @@ describe('legacy compatibility routes', () => {
       expect(noticeResponse.statusCode).toBe(200);
       expect(noticeResponse.json()).toHaveProperty('data');
       expect(aboutResponse.statusCode).toBe(200);
-      expect(aboutResponse.json().data).toContain('nodew-api');
+      expect(aboutResponse.json().data).toContain('NodEW-api');
       expect(pricingResponse.statusCode).toBe(200);
       expect(pricingResponse.json().stats.activeChannels).toBe(1);
       expect(modelsResponse.statusCode).toBe(200);

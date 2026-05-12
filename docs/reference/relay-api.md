@@ -4,7 +4,7 @@ Relay endpoints are exposed under `/v1` and are designed to be compatible with O
 
 ## Authentication
 
-Use a nodew-api token as a bearer token:
+Use a NodEW-api token as a bearer token:
 
 ```http
 Authorization: Bearer sk-...

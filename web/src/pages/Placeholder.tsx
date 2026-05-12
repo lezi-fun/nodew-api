@@ -47,7 +47,7 @@ export default function PlaceholderPage({
         </div>
         <Typography.Title heading={4}>前端入口已对齐，后端能力按模块接入</Typography.Title>
         <Typography.Paragraph type="tertiary">
-          这个页面用于保持与原版控制台信息架构一致。当前 nodew-api 后端尚未提供该模块的完整 API，
+          这个页面用于保持与原版控制台信息架构一致。当前 NodEW-api 后端尚未提供该模块的完整 API，
           因此先提供可导航、可扩展的前端壳，后续接入真实数据时不会再调整路由。
         </Typography.Paragraph>
         <Space wrap>

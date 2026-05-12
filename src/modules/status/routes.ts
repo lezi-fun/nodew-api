@@ -20,7 +20,7 @@ const statusRoutes: FastifyPluginAsync = async (app) => {
 
     return {
       status: 'ok',
-      service: 'nodew-api',
+      service: 'NodEW-api',
       version: '0.1.0',
       setup: {
         isInitialized: setupState?.isInitialized ?? false,

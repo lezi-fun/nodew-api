@@ -172,7 +172,7 @@ const relayRoutes: FastifyPluginAsync = async (app) => {
           id: model,
           object: 'model',
           created: 0,
-          owned_by: 'nodew-api',
+          owned_by: 'NodEW-api',
         })),
     };
   });
@@ -203,7 +203,7 @@ const relayRoutes: FastifyPluginAsync = async (app) => {
       id: model,
       object: 'model',
       created: 0,
-      owned_by: 'nodew-api',
+      owned_by: 'NodEW-api',
     };
   });
 

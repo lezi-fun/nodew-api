@@ -26,7 +26,7 @@ const defaultContent = {
   notice: '',
   userAgreement: '',
   privacyPolicy: '',
-  about: 'nodew-api is a Node.js and TypeScript edition of the One API gateway.',
+  about: 'NodEW-api is a Node.js and TypeScript edition of the One API gateway.',
   homePageContent: '',
 } as const;
 
@@ -210,7 +210,7 @@ const readPublicSiteConfig = async () => {
   return {
     success: true,
     data: {
-      siteName: map.get('site_name') ?? 'nodew-api',
+      siteName: map.get('site_name') ?? 'NodEW-api',
       siteDescription: map.get('site_description') ?? 'Node.js and TypeScript edition of the One API gateway.',
       defaultModel: map.get('default_model') ?? 'gpt-4o-mini',
       notice: map.get(contentOptionKeys.notice) ?? defaultContent.notice,
@@ -288,7 +288,7 @@ const dashboardRoutes: FastifyPluginAsync = async (app) => {
         embeddings: ['/v1/embeddings'],
         models: ['/v1/models'],
       },
-      pricing_version: 'nodew-api-channel-catalog-v1',
+        pricing_version: 'NodEW-api-channel-catalog-v1',
     };
   });
 

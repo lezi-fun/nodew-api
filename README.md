@@ -1,4 +1,4 @@
-# nodew-api
+# NodEW-api
 
 [![GitHub repo](https://img.shields.io/badge/GitHub-lezi--fun%2Fnodew--api-181717?logo=github)](https://github.com/lezi-fun/nodew-api)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
@@ -20,7 +20,7 @@ Preview: <https://nodew.lezi.chat>
 
 > The preview link points to a temporary test deployment for trying the current UI and API flow. It is not a production service.
 
-nodew-api is a Node.js and TypeScript edition of the One API gateway, focused on OpenAI-compatible relay, multi-provider channel routing, token management, usage logging, and web-based administration.
+NodEW-api is a Node.js and TypeScript edition of the One API gateway, focused on OpenAI-compatible relay, multi-provider channel routing, token management, usage logging, and web-based administration.
 
 Repository: <https://github.com/lezi-fun/nodew-api>
 
@@ -30,7 +30,7 @@ Copyright 2026 lezi-fun Team. Licensed under the Apache License, Version 2.0.
 
 ## Status
 
-> nodew-api is still in early-stage development. It is not recommended for production use yet. APIs, database schemas, configuration, and deployment behavior may receive breaking changes at any time without prior notice. Contributions, testing feedback, and issue reports are welcome.
+> NodEW-api is still in early-stage development. It is not recommended for production use yet. APIs, database schemas, configuration, and deployment behavior may receive breaking changes at any time without prior notice. Contributions, testing feedback, and issue reports are welcome.
 
 Serverless deployment support is under active development.
 
@@ -54,7 +54,7 @@ Current capabilities include:
 
 ## Quick Start
 
-> Early-stage warning: nodew-api is not recommended for production use yet. APIs, database schemas, configuration, and deployment behavior may receive breaking changes at any time without prior notice.
+> Early-stage warning: NodEW-api is not recommended for production use yet. APIs, database schemas, configuration, and deployment behavior may receive breaking changes at any time without prior notice.
 
 Install dependencies:
 

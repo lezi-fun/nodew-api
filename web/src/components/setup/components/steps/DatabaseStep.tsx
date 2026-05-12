@@ -8,7 +8,7 @@ function DatabaseStep({ hasAdmin }: DatabaseStepProps) {
       <div className="setup-banner success">
         <strong>Database check</strong>
         <p>
-          nodew-api is currently configured to use PostgreSQL. The backend database is already
+          NodEW-api is currently configured to use PostgreSQL. The backend database is already
           reachable and ready for initialization.
         </p>
       </div>

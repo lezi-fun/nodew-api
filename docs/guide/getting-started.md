@@ -1,6 +1,6 @@
 # Getting Started
 
-nodew-api is a Node.js and TypeScript adaptation of [One API](https://github.com/songquanpeng/one-api). It provides an OpenAI-compatible relay service, a database-backed channel system, token management, usage logs, and a web admin console.
+NodEW-api is a Node.js and TypeScript adaptation of [One API](https://github.com/songquanpeng/one-api). It provides an OpenAI-compatible relay service, a database-backed channel system, token management, usage logs, and a web admin console.
 
 ::: warning Early development
 The project is still in early-stage development. Do not use it for production workloads yet. APIs, database schemas, configuration, and deployment behavior may receive breaking changes at any time without prior notice.

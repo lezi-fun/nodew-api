@@ -104,7 +104,7 @@ export default function DashboardPage() {
         <Card title="服务状态" bordered={false} className="dashboard-card">
           <Space vertical align="start">
             <Tag color={status?.status === 'ok' ? 'green' : 'orange'} size="large">{status?.status ?? 'unknown'}</Tag>
-            <Typography.Text type="tertiary">service: {status?.service ?? 'nodew-api'}</Typography.Text>
+            <Typography.Text type="tertiary">service: {status?.service ?? 'NodEW-api'}</Typography.Text>
             <Typography.Text type="tertiary">version: {status?.version ?? 'unknown'}</Typography.Text>
           </Space>
         </Card>
@@ -152,7 +152,7 @@ export default function DashboardPage() {
         <Card title={<span><IconBell /> 公告</span>} bordered={false} className="dashboard-card">
           <div className="announcement-list">
             <div>
-              <strong>nodew-api relay 已启用</strong>
+              <strong>NodEW-api relay 已启用</strong>
               <span>请先配置至少一个 ACTIVE 渠道和一个令牌。</span>
             </div>
             <div>

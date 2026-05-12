@@ -8,7 +8,7 @@ export default function FooterBar() {
   return (
     <footer className="footer-bar">
       <div className="footer-bar-inner">
-        <Typography.Text>{`© ${year} nodew-api. ${t('版权所有')}`}</Typography.Text>
+        <Typography.Text>{`© ${year} NodEW-api. ${t('版权所有')}`}</Typography.Text>
         <span>
           Copyright 2026 lezi-fun Team. Licensed under the Apache License, Version 2.0.
         </span>

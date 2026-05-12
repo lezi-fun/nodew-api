@@ -114,10 +114,10 @@ describe('dashboard compatibility routes', () => {
         content: 'Maintenance window tonight.',
       });
       expect(aboutResponse.statusCode).toBe(200);
-      expect(aboutResponse.json().content).toContain('nodew-api');
+      expect(aboutResponse.json().content).toContain('NodEW-api');
       expect(siteResponse.statusCode).toBe(200);
       expect(siteResponse.json().data).toMatchObject({
-        siteName: 'nodew-api',
+        siteName: 'NodEW-api',
         notice: 'Maintenance window tonight.',
       });
       expect(siteResponse.json().data.links.github).toBe('https://github.com/lezi-fun/nodew-api');

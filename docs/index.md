@@ -1,12 +1,12 @@
 ---
 layout: home
 hero:
-  name: nodew-api
+  name: NodEW-api
   text: Node.js edition of One API
   tagline: A TypeScript gateway for OpenAI-compatible relay, channel routing, token management, and usage logging.
   image:
     src: /logo.svg
-    alt: nodew-api
+    alt: NodEW-api
   actions:
     - theme: brand
       text: Get Started
@@ -30,9 +30,9 @@ features:
 ---
 
 ::: warning Early development
-nodew-api is still in early-stage development and is not recommended for production use yet. APIs, database schemas, configuration, and deployment behavior may receive breaking changes at any time without prior notice. Contributions, testing feedback, and issue reports are welcome.
+NodEW-api is still in early-stage development and is not recommended for production use yet. APIs, database schemas, configuration, and deployment behavior may receive breaking changes at any time without prior notice. Contributions, testing feedback, and issue reports are welcome.
 :::
 
-nodew-api is a Node.js and TypeScript adaptation of [One API](https://github.com/songquanpeng/one-api), built with Fastify, Prisma, React, Vite, and Semi UI.
+NodEW-api is a Node.js and TypeScript adaptation of [One API](https://github.com/songquanpeng/one-api), built with Fastify, Prisma, React, Vite, and Semi UI.
 
 Copyright 2026 lezi-fun Team. Licensed under the Apache License, Version 2.0.

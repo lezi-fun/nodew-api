@@ -4,7 +4,7 @@ Relay 接口位于 `/v1`，设计目标是兼容 OpenAI 风格客户端。
 
 ## 鉴权
 
-使用 nodew-api 令牌作为 bearer token：
+使用 NodEW-api 令牌作为 bearer token：
 
 ```http
 Authorization: Bearer sk-...

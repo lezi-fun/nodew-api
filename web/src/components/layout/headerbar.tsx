@@ -49,7 +49,7 @@ export default function HeaderBar({
           <Link to={user ? '/console' : '/'} className="headerbar-brand">
             <span className="headerbar-brand-mark">N</span>
             <div>
-              <Typography.Title heading={6} style={{ margin: 0 }}>nodew-api</Typography.Title>
+              <Typography.Title heading={6} style={{ margin: 0 }}>NodEW-api</Typography.Title>
               <Typography.Text type="tertiary">LLM Gateway Console</Typography.Text>
             </div>
           </Link>

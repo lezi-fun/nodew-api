@@ -5,13 +5,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { api, type SiteInfo } from '../lib/api';
 
 const fallbackSite: SiteInfo = {
-  siteName: 'nodew-api',
+  siteName: 'NodEW-api',
   siteDescription: 'Node.js and TypeScript edition of the One API gateway.',
   defaultModel: 'gpt-4o-mini',
   notice: '',
   userAgreement: '',
   privacyPolicy: '',
-  about: 'nodew-api is a Node.js and TypeScript edition of the One API gateway.',
+  about: 'NodEW-api is a Node.js and TypeScript edition of the One API gateway.',
   homePageContent: '',
   links: {
     github: 'https://github.com/lezi-fun/nodew-api',
@@ -71,7 +71,7 @@ export default function AboutPage() {
         <Typography.Title heading={4}>项目说明</Typography.Title>
         <Typography.Paragraph>{site.about || fallbackSite.about}</Typography.Paragraph>
         <Typography.Paragraph type="tertiary">
-          nodew-api 是 One API 的 Node.js / TypeScript 版本，当前仍处于初步开发阶段，不建议直接用于生产环境。
+          NodEW-api 是 One API 的 Node.js / TypeScript 版本，当前仍处于初步开发阶段，不建议直接用于生产环境。
         </Typography.Paragraph>
         <Space wrap>
           <Button as="a" href={site.links.upstream} target="_blank" rel="noreferrer">One API</Button>

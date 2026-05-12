@@ -156,7 +156,7 @@ function SetupWizard({ setup, onSuccess }: SetupWizardProps) {
         <header className="setup-header">
           <div>
             <div className="eyebrow">System initialization</div>
-            <h1>Set up your nodew-api deployment</h1>
+            <h1>Set up your NodEW-api deployment</h1>
             <p>
               Verify the environment, create the first administrator, choose the usage mode, and
               complete the bootstrap process.

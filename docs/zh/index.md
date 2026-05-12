@@ -1,12 +1,12 @@
 ---
 layout: home
 hero:
-  name: nodew-api
+  name: NodEW-api
   text: One API 的 Node.js 版本
   tagline: 面向 OpenAI 兼容中转、渠道路由、令牌管理和用量日志的 TypeScript 网关。
   image:
     src: /logo.svg
-    alt: nodew-api
+    alt: NodEW-api
   actions:
     - theme: brand
       text: 快速开始
@@ -30,9 +30,9 @@ features:
 ---
 
 ::: warning 初步开发中
-nodew-api 仍处于初步开发阶段，目前不建议用于生产环境。API、数据库结构、配置项和部署行为都可能在没有提前通知的情况下发生破坏性变更。欢迎贡献代码、测试反馈和 issue。
+NodEW-api 仍处于初步开发阶段，目前不建议用于生产环境。API、数据库结构、配置项和部署行为都可能在没有提前通知的情况下发生破坏性变更。欢迎贡献代码、测试反馈和 issue。
 :::
 
-nodew-api 是 [One API](https://github.com/songquanpeng/one-api) 的 Node.js / TypeScript 版本，使用 Fastify、Prisma、React、Vite 和 Semi UI 构建。
+NodEW-api 是 [One API](https://github.com/songquanpeng/one-api) 的 Node.js / TypeScript 版本，使用 Fastify、Prisma、React、Vite 和 Semi UI 构建。
 
 Copyright 2026 lezi-fun Team. Licensed under the Apache License, Version 2.0.

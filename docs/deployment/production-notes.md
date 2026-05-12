@@ -1,6 +1,6 @@
 # Production Notes
 
-nodew-api is not currently recommended for production use. Treat the current deployment path as an integration preview.
+NodEW-api is not currently recommended for production use. Treat the current deployment path as an integration preview.
 
 ## Before production use
 

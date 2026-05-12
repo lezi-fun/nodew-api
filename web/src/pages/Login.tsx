@@ -14,7 +14,7 @@ export default function LoginPage() {
     <main className="auth-page">
       <Card className="auth-card" bordered={false}>
         <Typography.Title heading={3}>登录</Typography.Title>
-        <Typography.Paragraph type="tertiary">使用本地账号进入 nodew-api 控制台。</Typography.Paragraph>
+        <Typography.Paragraph type="tertiary">使用本地账号进入 NodEW-api 控制台。</Typography.Paragraph>
         <Form<{ email: string; password: string }>
           onSubmit={async (values) => {
             setLoading(true);

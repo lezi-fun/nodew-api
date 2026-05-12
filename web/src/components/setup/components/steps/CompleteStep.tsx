@@ -19,7 +19,7 @@ function CompleteStep({ email, username, displayName, usageMode }: CompleteStepP
       <div className="complete-step-badge">✓</div>
       <h3>Ready to initialize</h3>
       <p>
-        Review the summary below. Once submitted, nodew-api will create the first administrator and
+        Review the summary below. Once submitted, NodEW-api will create the first administrator and
         complete the initial setup flow.
       </p>
 

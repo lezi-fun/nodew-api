@@ -19,7 +19,7 @@ function AdminStep({ form, error, validationErrors, onChange }: AdminStepProps) 
       <div className="setup-helper-text compact">
         <h3>Administrator account</h3>
         <p>
-          Create the first administrator to unlock the nodew-api console. This account will own
+          Create the first administrator to unlock the NodEW-api console. This account will own
           the initial system configuration and token management.
         </p>
       </div>

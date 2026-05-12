@@ -1,12 +1,12 @@
-# Contributing to nodew-api
+# Contributing to NodEW-api
 
-Thank you for helping improve nodew-api.
+Thank you for helping improve NodEW-api.
 
 Repository: <https://github.com/lezi-fun/nodew-api>
 
 ## Project Principles
 
-- nodew-api is an independent Node.js and TypeScript implementation.
+- NodEW-api is an independent Node.js and TypeScript implementation.
 - Keep the codebase Apache-2.0 compatible.
 - Do not add copied source code, copied license headers, or brand references from unrelated projects.
 - Prefer clear, maintainable TypeScript over clever abstractions.

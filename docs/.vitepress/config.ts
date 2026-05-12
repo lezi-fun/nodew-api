@@ -115,7 +115,7 @@ const zhThemeConfig = {
 };
 
 export default defineConfig({
-  title: 'nodew-api',
+  title: 'NodEW-api',
   description: 'Node.js and TypeScript edition of the One API gateway.',
   cleanUrls: true,
   lastUpdated: true,
@@ -127,14 +127,14 @@ export default defineConfig({
     root: {
       label: 'English',
       lang: 'en-US',
-      title: 'nodew-api',
+      title: 'NodEW-api',
       description: 'Node.js and TypeScript edition of the One API gateway.',
       themeConfig: enThemeConfig,
     },
     zh: {
       label: '简体中文',
       lang: 'zh-CN',
-      title: 'nodew-api',
+      title: 'NodEW-api',
       description: 'One API 的 Node.js / TypeScript 版本。',
       link: '/zh/',
       themeConfig: zhThemeConfig,

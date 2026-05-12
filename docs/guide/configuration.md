@@ -1,6 +1,6 @@
 # Configuration
 
-nodew-api reads runtime configuration from environment variables.
+NodEW-api reads runtime configuration from environment variables.
 
 ## Core variables
 

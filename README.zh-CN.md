@@ -1,4 +1,4 @@
-# nodew-api
+# NodEW-api
 
 [![GitHub repo](https://img.shields.io/badge/GitHub-lezi--fun%2Fnodew--api-181717?logo=github)](https://github.com/lezi-fun/nodew-api)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
@@ -20,7 +20,7 @@
 
 > 这是一个临时测试部署链接，用于预览当前 UI 和 API 流程，不是生产环境服务。
 
-nodew-api 是 One API 网关的 Node.js / TypeScript 版本，面向 OpenAI 兼容中转、多供应商渠道路由、令牌管理、用量日志和 Web 管理控制台。
+NodEW-api 是 One API 网关的 Node.js / TypeScript 版本，面向 OpenAI 兼容中转、多供应商渠道路由、令牌管理、用量日志和 Web 管理控制台。
 
 项目仓库：<https://github.com/lezi-fun/nodew-api>
 
@@ -30,11 +30,11 @@ Copyright 2026 lezi-fun Team. Licensed under the Apache License, Version 2.0.
 
 ## 项目状态
 
-> nodew-api 仍处于初步开发阶段，目前不建议用于生产环境。API、数据库结构、配置项和部署行为都可能在没有提前通知的情况下发生破坏性变更。欢迎贡献代码、测试反馈和 issue。
+> NodEW-api 仍处于初步开发阶段，目前不建议用于生产环境。API、数据库结构、配置项和部署行为都可能在没有提前通知的情况下发生破坏性变更。欢迎贡献代码、测试反馈和 issue。
 
 Serverless 部署方案正在持续开发中。
 
-nodew-api 使用 Fastify、Prisma、TypeScript、React、Vite 和 Semi UI 构建，目标是提供现代化的大模型中转网关与管理后台。
+NodEW-api 使用 Fastify、Prisma、TypeScript、React、Vite 和 Semi UI 构建，目标是提供现代化的大模型中转网关与管理后台。
 
 当前能力包括：
 
@@ -54,7 +54,7 @@ nodew-api 使用 Fastify、Prisma、TypeScript、React、Vite 和 Semi UI 构建
 
 ## 快速开始
 
-> 早期开发提示：nodew-api 目前不建议用于生产环境。API、数据库结构、配置项和部署行为都可能在没有提前通知的情况下发生破坏性变更。
+> 早期开发提示：NodEW-api 目前不建议用于生产环境。API、数据库结构、配置项和部署行为都可能在没有提前通知的情况下发生破坏性变更。
 
 安装依赖：
 

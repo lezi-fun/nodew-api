@@ -8,7 +8,7 @@ export default function SetupCheck({ children }: { children: React.ReactNode }) 
   const location = useLocation();
 
   if (loading) {
-    return <div className="screen-state">Loading nodew-api...</div>;
+    return <div className="screen-state">Loading NodEW-api...</div>;
   }
 
   if (status?.setup?.isInitialized === false && location.pathname !== '/setup') {

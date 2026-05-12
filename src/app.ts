@@ -74,7 +74,7 @@ export const createApp = async (appEnv: AppEnv = parseEnv()) => {
 
   app.get('/health', async () => ({
     status: 'ok',
-    service: 'nodew-api',
+    service: 'NodEW-api',
     timestamp: new Date().toISOString(),
   }));
 
