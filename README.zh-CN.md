@@ -12,6 +12,7 @@
 ![MySQL](https://img.shields.io/badge/MySQL-supported-4479A1?logo=mysql&logoColor=white)
 ![OpenAI compatible](https://img.shields.io/badge/OpenAI-compatible-412991?logo=openai&logoColor=white)
 ![One API](https://img.shields.io/badge/One%20API-Node.js%20edition-10B981)
+[![使用 Vercel 部署](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Flezi-fun%2Fnodew-api)
 
 语言：[English](./README.md) | [简体中文](./README.zh-CN.md)
 
@@ -29,7 +30,9 @@ Copyright 2026 lezi-fun Team. Licensed under the Apache License, Version 2.0.
 
 ## 项目状态
 
-> nodew-api 仍处于初步开发阶段，目前不建议用于生产环境。Serverless 部署方案正在开发中。
+> nodew-api 仍处于初步开发阶段，目前不建议用于生产环境。API、数据库结构、配置项和部署行为都可能在没有提前通知的情况下发生破坏性变更。欢迎贡献代码、测试反馈和 issue。
+
+Serverless 部署方案正在持续开发中。
 
 nodew-api 使用 Fastify、Prisma、TypeScript、React、Vite 和 Semi UI 构建，目标是提供现代化的大模型中转网关与管理后台。
 
@@ -118,6 +121,8 @@ npm run start
 ## Vercel 部署
 
 Vercel 支持目前仍是实验性的，Serverless 部署方案正在持续开发中。
+
+[![使用 Vercel 部署](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Flezi-fun%2Fnodew-api)
 
 仓库已包含：
 

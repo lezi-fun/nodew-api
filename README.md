@@ -12,6 +12,7 @@
 ![MySQL](https://img.shields.io/badge/MySQL-supported-4479A1?logo=mysql&logoColor=white)
 ![OpenAI compatible](https://img.shields.io/badge/OpenAI-compatible-412991?logo=openai&logoColor=white)
 ![One API](https://img.shields.io/badge/One%20API-Node.js%20edition-10B981)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Flezi-fun%2Fnodew-api)
 
 Languages: [English](./README.md) | [简体中文](./README.zh-CN.md)
 
@@ -29,7 +30,9 @@ Copyright 2026 lezi-fun Team. Licensed under the Apache License, Version 2.0.
 
 ## Status
 
-> nodew-api is still in early-stage development. It is not recommended for production use yet. A Serverless deployment path is currently under active development.
+> nodew-api is still in early-stage development. It is not recommended for production use yet. APIs, database schemas, configuration, and deployment behavior may receive breaking changes at any time without prior notice. Contributions, testing feedback, and issue reports are welcome.
+
+Serverless deployment support is under active development.
 
 This project is a Node.js/TypeScript adaptation of One API. The codebase is built around Fastify, Prisma, TypeScript, React, Vite, and Semi UI.
 
@@ -118,6 +121,8 @@ npm run start
 ## Vercel Deployment
 
 Vercel support is experimental while the Serverless deployment path is under active development.
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Flezi-fun%2Fnodew-api)
 
 The repository includes:
 

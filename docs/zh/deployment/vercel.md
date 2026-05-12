@@ -1,8 +1,12 @@
 # Vercel 部署
 
 ::: warning 实验性支持
-Vercel 支持仍处于实验阶段。Serverless 部署路径正在开发中，不应视为生产就绪方案。
+Vercel 支持仍处于实验阶段。Serverless 部署路径正在开发中，不应视为生产就绪方案。API、数据库结构、配置项和部署行为都可能在没有提前通知的情况下发生破坏性变更。
 :::
+
+[![使用 Vercel 部署](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Flezi-fun%2Fnodew-api)
+
+欢迎贡献代码、测试反馈和 issue。
 
 主应用使用仓库根目录的 `vercel.json` 构建 Fastify 后端和 Vite Web 控制台。
 

@@ -1,8 +1,12 @@
 # Vercel Deployment
 
 ::: warning Experimental
-Vercel support is experimental. The Serverless deployment path is under active development and should not be treated as production-ready yet.
+Vercel support is experimental. The Serverless deployment path is under active development and should not be treated as production-ready yet. APIs, database schemas, configuration, and deployment behavior may receive breaking changes at any time without prior notice.
 :::
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Flezi-fun%2Fnodew-api)
+
+Contributions, testing feedback, and issue reports are welcome.
 
 The main application uses the repository root `vercel.json` to build the Fastify backend and the Vite web console.
 
