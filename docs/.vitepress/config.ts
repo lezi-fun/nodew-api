@@ -28,6 +28,7 @@ const enThemeConfig = {
       ],
     },
     { text: 'Preview', link: 'https://nodew.lezi.chat' },
+    { text: 'Docs', link: 'https://docs.lezi.chat' },
     { text: 'GitHub', link: 'https://github.com/lezi-fun/nodew-api' },
   ],
   sidebar: {
@@ -77,6 +78,7 @@ const zhThemeConfig = {
       ],
     },
     { text: '预览', link: 'https://nodew.lezi.chat' },
+    { text: '文档', link: 'https://docs.lezi.chat' },
     { text: 'GitHub', link: 'https://github.com/lezi-fun/nodew-api' },
   ],
   sidebar: {

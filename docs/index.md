@@ -15,6 +15,9 @@ hero:
       text: Preview
       link: https://nodew.lezi.chat
     - theme: alt
+      text: Deploy with Vercel
+      link: https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Flezi-fun%2Fnodew-api
+    - theme: alt
       text: GitHub
       link: https://github.com/lezi-fun/nodew-api
 features:

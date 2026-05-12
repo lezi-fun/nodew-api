@@ -4,7 +4,7 @@ The documentation site is a separate VitePress project under `docs/`.
 
 Production URL:
 
-<https://nodew-api-docs.vercel.app>
+<https://docs.lezi.chat>
 
 ## Local commands
 
@@ -30,7 +30,7 @@ The workflow always builds the VitePress site. On `main`, it also deploys to Ver
 | Secret | Value |
 | --- | --- |
 | `VERCEL_TOKEN` | Vercel access token. |
-| `VERCEL_ORG_ID` | `team_Skb3rpmmBxfkRhICpHcTgphh` |
-| `VERCEL_DOCS_PROJECT_ID` | `prj_sUUcDltlugzZpp1ht69t9XT5tl9S` |
+| `VERCEL_ORG_ID` | Vercel team or user ID from the linked project settings. |
+| `VERCEL_DOCS_PROJECT_ID` | Vercel project ID for the documentation site. |
 
 If those secrets are missing, the deploy step exits successfully after printing a skip message. This keeps PR and fork builds safe while still allowing automated production deploys.
