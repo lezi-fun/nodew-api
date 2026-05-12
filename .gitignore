@@ -4,6 +4,8 @@
 .claude/
 .env
 pnpm-lock.yaml
+package-lock.json
+bun.lock
 clean-room-d/
 dist/
 node_modules/
