@@ -6,6 +6,7 @@ import Loading from './components/common/Loading';
 import { StatusContext } from './context/Status';
 import { UserContext } from './context/User';
 import ChannelPage from './pages/Channel';
+import ChatPage from './pages/Chat';
 import DashboardPage from './pages/Dashboard';
 import HomePage from './pages/Home';
 import LogPage from './pages/Log';
@@ -20,7 +21,6 @@ import TokenPage from './pages/Token';
 import AboutPage from './pages/About';
 import PricingPage from './pages/Pricing';
 import NotFoundPage from './pages/NotFound';
-import PlaceholderPage from './pages/Placeholder';
 import DeploymentPage from './pages/Deployment';
 import MidjourneyPage from './pages/Midjourney';
 import ModelsPage from './pages/Models';
@@ -106,8 +106,8 @@ export default function App() {
         <Route path="/console/channel" element={<AdminRoute><ChannelPage /></AdminRoute>} />
         <Route path="/console/token" element={<PrivateRoute><TokenPage /></PrivateRoute>} />
         <Route path="/console/playground" element={<PrivateRoute><PlaygroundPage /></PrivateRoute>} />
-        <Route path="/console/chat" element={<PrivateRoute><PlaceholderPage title="聊天" description="与外部 Chat UI 入口保持路由兼容，后续可挂载多会话调试体验。" module="chat" /></PrivateRoute>} />
-        <Route path="/console/chat/:id" element={<PrivateRoute><PlaceholderPage title="聊天" description="与外部 Chat UI 入口保持路由兼容，后续可挂载多会话调试体验。" module="chat" /></PrivateRoute>} />
+        <Route path="/console/chat" element={<PrivateRoute><ChatPage /></PrivateRoute>} />
+        <Route path="/console/chat/:id" element={<PrivateRoute><ChatPage /></PrivateRoute>} />
         <Route path="/console/topup" element={<PrivateRoute><TopUpPage /></PrivateRoute>} />
         <Route path="/console/personal" element={<PrivateRoute><PersonalPage /></PrivateRoute>} />
         <Route path="/console/task" element={<PrivateRoute><TaskPage /></PrivateRoute>} />
