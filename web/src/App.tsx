@@ -5,28 +5,47 @@ import SetupCheck from './components/layout/SetupCheck';
 import Loading from './components/common/Loading';
 import { StatusContext } from './context/Status';
 import { UserContext } from './context/User';
+import AboutPage from './pages/About';
+import HomePage from './pages/Home';
+import LoginPage from './pages/Login';
+import NotFoundPage from './pages/NotFound';
+import PricingPage from './pages/Pricing';
+import RegisterPage from './pages/Register';
+import ResetConfirmPage from './pages/ResetConfirm';
+import ResetPage from './pages/Reset';
+import SetupPage from './pages/Setup';
 
 const recoverableLazy = <T extends React.ComponentType<unknown>>(
   loader: () => Promise<{ default: T }>,
 ) => lazy(async () => {
+  const storageKey = 'nodew-lazy-reload-once';
+  const storage = (() => {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    try {
+      return window.sessionStorage;
+    } catch {
+      return null;
+    }
+  })();
+
   try {
     const module = await loader();
 
-    if (typeof window !== 'undefined') {
-      window.sessionStorage.removeItem('nodew-lazy-reload-once');
-    }
+    storage?.removeItem(storageKey);
 
     return module;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    const storageKey = 'nodew-lazy-reload-once';
     const shouldReload =
       typeof window !== 'undefined' &&
       /Failed to fetch dynamically imported module|Importing a module script failed|Loading chunk [\w-]+ failed/i.test(message) &&
-      window.sessionStorage.getItem(storageKey) !== '1';
+      storage?.getItem(storageKey) !== '1';
 
     if (shouldReload) {
-      window.sessionStorage.setItem(storageKey, '1');
+      storage?.setItem(storageKey, '1');
       window.location.reload();
       return new Promise<never>(() => undefined);
     }
@@ -35,26 +54,17 @@ const recoverableLazy = <T extends React.ComponentType<unknown>>(
   }
 });
 
-const AboutPage = recoverableLazy(() => import('./pages/About'));
 const ChannelPage = recoverableLazy(() => import('./pages/Channel'));
 const ChatPage = recoverableLazy(() => import('./pages/Chat'));
 const DashboardPage = recoverableLazy(() => import('./pages/Dashboard'));
 const DeploymentPage = recoverableLazy(() => import('./pages/Deployment'));
-const HomePage = recoverableLazy(() => import('./pages/Home'));
 const LogPage = recoverableLazy(() => import('./pages/Log'));
-const LoginPage = recoverableLazy(() => import('./pages/Login'));
 const MidjourneyPage = recoverableLazy(() => import('./pages/Midjourney'));
 const ModelsPage = recoverableLazy(() => import('./pages/Models'));
-const NotFoundPage = recoverableLazy(() => import('./pages/NotFound'));
 const PersonalPage = recoverableLazy(() => import('./pages/Personal'));
 const PlaygroundPage = recoverableLazy(() => import('./pages/Playground'));
-const PricingPage = recoverableLazy(() => import('./pages/Pricing'));
 const RedemptionPage = recoverableLazy(() => import('./pages/Redemption'));
-const RegisterPage = recoverableLazy(() => import('./pages/Register'));
-const ResetConfirmPage = recoverableLazy(() => import('./pages/ResetConfirm'));
-const ResetPage = recoverableLazy(() => import('./pages/Reset'));
 const SettingPage = recoverableLazy(() => import('./pages/Setting'));
-const SetupPage = recoverableLazy(() => import('./pages/Setup'));
 const SubscriptionPage = recoverableLazy(() => import('./pages/Subscription'));
 const TaskPage = recoverableLazy(() => import('./pages/Task'));
 const TokenPage = recoverableLazy(() => import('./pages/Token'));
