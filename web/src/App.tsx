@@ -6,31 +6,60 @@ import Loading from './components/common/Loading';
 import { StatusContext } from './context/Status';
 import { UserContext } from './context/User';
 
-const AboutPage = lazy(() => import('./pages/About'));
-const ChannelPage = lazy(() => import('./pages/Channel'));
-const ChatPage = lazy(() => import('./pages/Chat'));
-const DashboardPage = lazy(() => import('./pages/Dashboard'));
-const DeploymentPage = lazy(() => import('./pages/Deployment'));
-const HomePage = lazy(() => import('./pages/Home'));
-const LogPage = lazy(() => import('./pages/Log'));
-const LoginPage = lazy(() => import('./pages/Login'));
-const MidjourneyPage = lazy(() => import('./pages/Midjourney'));
-const ModelsPage = lazy(() => import('./pages/Models'));
-const NotFoundPage = lazy(() => import('./pages/NotFound'));
-const PersonalPage = lazy(() => import('./pages/Personal'));
-const PlaygroundPage = lazy(() => import('./pages/Playground'));
-const PricingPage = lazy(() => import('./pages/Pricing'));
-const RedemptionPage = lazy(() => import('./pages/Redemption'));
-const RegisterPage = lazy(() => import('./pages/Register'));
-const ResetConfirmPage = lazy(() => import('./pages/ResetConfirm'));
-const ResetPage = lazy(() => import('./pages/Reset'));
-const SettingPage = lazy(() => import('./pages/Setting'));
-const SetupPage = lazy(() => import('./pages/Setup'));
-const SubscriptionPage = lazy(() => import('./pages/Subscription'));
-const TaskPage = lazy(() => import('./pages/Task'));
-const TokenPage = lazy(() => import('./pages/Token'));
-const TopUpPage = lazy(() => import('./pages/TopUp'));
-const UserPage = lazy(() => import('./pages/User'));
+const recoverableLazy = <T extends React.ComponentType<unknown>>(
+  loader: () => Promise<{ default: T }>,
+) => lazy(async () => {
+  try {
+    const module = await loader();
+
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.removeItem('nodew-lazy-reload-once');
+    }
+
+    return module;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const storageKey = 'nodew-lazy-reload-once';
+    const shouldReload =
+      typeof window !== 'undefined' &&
+      /Failed to fetch dynamically imported module|Importing a module script failed|Loading chunk [\w-]+ failed/i.test(message) &&
+      window.sessionStorage.getItem(storageKey) !== '1';
+
+    if (shouldReload) {
+      window.sessionStorage.setItem(storageKey, '1');
+      window.location.reload();
+      return new Promise<never>(() => undefined);
+    }
+
+    throw error;
+  }
+});
+
+const AboutPage = recoverableLazy(() => import('./pages/About'));
+const ChannelPage = recoverableLazy(() => import('./pages/Channel'));
+const ChatPage = recoverableLazy(() => import('./pages/Chat'));
+const DashboardPage = recoverableLazy(() => import('./pages/Dashboard'));
+const DeploymentPage = recoverableLazy(() => import('./pages/Deployment'));
+const HomePage = recoverableLazy(() => import('./pages/Home'));
+const LogPage = recoverableLazy(() => import('./pages/Log'));
+const LoginPage = recoverableLazy(() => import('./pages/Login'));
+const MidjourneyPage = recoverableLazy(() => import('./pages/Midjourney'));
+const ModelsPage = recoverableLazy(() => import('./pages/Models'));
+const NotFoundPage = recoverableLazy(() => import('./pages/NotFound'));
+const PersonalPage = recoverableLazy(() => import('./pages/Personal'));
+const PlaygroundPage = recoverableLazy(() => import('./pages/Playground'));
+const PricingPage = recoverableLazy(() => import('./pages/Pricing'));
+const RedemptionPage = recoverableLazy(() => import('./pages/Redemption'));
+const RegisterPage = recoverableLazy(() => import('./pages/Register'));
+const ResetConfirmPage = recoverableLazy(() => import('./pages/ResetConfirm'));
+const ResetPage = recoverableLazy(() => import('./pages/Reset'));
+const SettingPage = recoverableLazy(() => import('./pages/Setting'));
+const SetupPage = recoverableLazy(() => import('./pages/Setup'));
+const SubscriptionPage = recoverableLazy(() => import('./pages/Subscription'));
+const TaskPage = recoverableLazy(() => import('./pages/Task'));
+const TokenPage = recoverableLazy(() => import('./pages/Token'));
+const TopUpPage = recoverableLazy(() => import('./pages/TopUp'));
+const UserPage = recoverableLazy(() => import('./pages/User'));
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useContext(UserContext);

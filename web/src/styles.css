@@ -1046,6 +1046,22 @@ body[theme-mode='dark'] .dashboard-timeline-item {
   color: #ef4444;
 }
 
+.route-error-card {
+  max-width: 560px;
+  padding: 24px;
+  border-radius: 20px;
+  border: 1px solid var(--console-border);
+  background: var(--console-card);
+  box-shadow: var(--console-shadow);
+  display: grid;
+  gap: 12px;
+}
+
+.route-error-card h1,
+.route-error-card p {
+  margin: 0;
+}
+
 @media (max-width: 767px) {
   .headerbar-mobile-toggle {
     display: inline-flex;
