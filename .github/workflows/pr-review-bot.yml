@@ -24,6 +24,9 @@ jobs:
     uses: lezi-fun/ghbot/.github/workflows/review-reusable.yml@main
     secrets:
       CODEX_API_KEY: ${{ secrets.CODEX_API_KEY }}
+      GH_APP_ID: ${{ secrets.GH_APP_ID }}
+      GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
+      GH_APP_INSTALLATION_ID: ${{ secrets.GH_APP_INSTALLATION_ID }}
     with:
       event_name: ${{ github.event_name }}
       event_action: ${{ github.event.action }}
