@@ -1,4 +1,5 @@
-import { Space, Table, Tag } from '@douyinfe/semi-ui';
+import { Button, Space, Table, Tag } from '@douyinfe/semi-ui';
+import { IconPlus } from '@douyinfe/semi-icons';
 
 import type { ModelItem } from '../../lib/api';
 import { formatDateTime } from '../../lib/format';
@@ -9,6 +10,8 @@ type MissingModelsTableProps = {
   pageSize?: number;
   showEndpoints?: boolean;
   pendingLabel?: string;
+  onResolveModel?: (model: ModelItem) => void;
+  resolveLabel?: string;
 };
 
 export default function MissingModelsTable({
@@ -17,6 +20,8 @@ export default function MissingModelsTable({
   pageSize = 8,
   showEndpoints = true,
   pendingLabel = '待补齐',
+  onResolveModel,
+  resolveLabel = '补渠道',
 }: MissingModelsTableProps) {
   return (
     <Table
@@ -64,6 +69,17 @@ export default function MissingModelsTable({
           dataIndex: 'enabled',
           render: () => <Tag color="red">{pendingLabel}</Tag>,
         },
+        ...(onResolveModel
+          ? [{
+              title: '操作',
+              dataIndex: 'id',
+              render: (_value: unknown, record: ModelItem) => (
+                <Button size="small" icon={<IconPlus />} onClick={() => onResolveModel(record)}>
+                  {resolveLabel}
+                </Button>
+              ),
+            }]
+          : []),
       ]}
       dataSource={rows}
       loading={loading}

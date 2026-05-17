@@ -1,6 +1,7 @@
 import { Button, Input, Modal, Select, Space, Tag, TextArea, Toast, Typography } from '@douyinfe/semi-ui';
 import { IconCopy, IconDelete, IconEdit, IconPlay, IconRefresh } from '@douyinfe/semi-icons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import ConsoleTablePage from '../components/common/ConsoleTablePage';
 import { api, type ChannelItem, type ChannelPayload } from '../lib/api';
@@ -104,6 +105,7 @@ const toPayload = (draft: ChannelDraft): ChannelPayload & { apiKey?: string } =>
 });
 
 export default function ChannelPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [rows, setRows] = useState<ChannelItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -127,6 +129,35 @@ export default function ChannelPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const action = searchParams.get('action');
+    const model = searchParams.get('model')?.trim() ?? '';
+
+    if (action !== 'create' || !model) {
+      return;
+    }
+
+    const providerHint = searchParams.get('provider')?.trim() || 'openai';
+    const suggestedName = searchParams.get('name')?.trim() || `${model} Channel`;
+    const metadataModels = JSON.stringify({ models: [model] }, null, 2);
+
+    setDraft({
+      ...emptyDraft,
+      name: suggestedName,
+      provider: providerHint,
+      model,
+      metadata: metadataModels,
+    });
+    setModalVisible(true);
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('action');
+    nextParams.delete('model');
+    nextParams.delete('provider');
+    nextParams.delete('name');
+    setSearchParams(nextParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const activeCount = rows.filter((row) => row.status === 'ACTIVE').length;
   const providerCount = new Set(rows.map((row) => row.provider)).size;
