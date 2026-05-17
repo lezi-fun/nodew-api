@@ -1,35 +1,127 @@
-import { useContext, useMemo } from 'react';
+import { Suspense, lazy, useContext, useMemo } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
 import SetupCheck from './components/layout/SetupCheck';
 import Loading from './components/common/Loading';
 import { StatusContext } from './context/Status';
 import { UserContext } from './context/User';
-import ChannelPage from './pages/Channel';
-import ChatPage from './pages/Chat';
-import DashboardPage from './pages/Dashboard';
+import AboutPage from './pages/About';
 import HomePage from './pages/Home';
-import LogPage from './pages/Log';
 import LoginPage from './pages/Login';
-import RedemptionPage from './pages/Redemption';
+import NotFoundPage from './pages/NotFound';
+import PricingPage from './pages/Pricing';
 import RegisterPage from './pages/Register';
 import ResetConfirmPage from './pages/ResetConfirm';
 import ResetPage from './pages/Reset';
 import SetupPage from './pages/Setup';
-import UserPage from './pages/User';
-import TokenPage from './pages/Token';
-import AboutPage from './pages/About';
-import PricingPage from './pages/Pricing';
-import NotFoundPage from './pages/NotFound';
-import DeploymentPage from './pages/Deployment';
-import MidjourneyPage from './pages/Midjourney';
-import ModelsPage from './pages/Models';
-import PersonalPage from './pages/Personal';
-import PlaygroundPage from './pages/Playground';
-import SettingPage from './pages/Setting';
-import SubscriptionPage from './pages/Subscription';
-import TaskPage from './pages/Task';
-import TopUpPage from './pages/TopUp';
+
+const recoverableLazy = <T extends React.ComponentType<unknown>>(
+  retryKey: string,
+  loader: () => Promise<{ default: T }>,
+) => lazy(async () => {
+  const storageKey = `nodew-lazy-reload-once:${retryKey}`;
+  const retryQueryKey = '__nodew_lazy_retry';
+  const storage = (() => {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    try {
+      return window.sessionStorage;
+    } catch {
+      return null;
+    }
+  })();
+  const locationUrl = typeof window !== 'undefined' ? new URL(window.location.href) : null;
+  const urlRetryActive = locationUrl?.searchParams.get(retryQueryKey) === retryKey;
+  const safeStorageRead = () => {
+    if (!storage) {
+      return null;
+    }
+
+    try {
+      return storage.getItem(storageKey);
+    } catch {
+      return null;
+    }
+  };
+  const safeStorageWrite = (value: string) => {
+    if (!storage) {
+      return false;
+    }
+
+    try {
+      storage.setItem(storageKey, value);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const safeStorageClear = () => {
+    if (!storage) {
+      return false;
+    }
+
+    try {
+      storage.removeItem(storageKey);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const clearRetryMarker = () => {
+    safeStorageClear();
+  };
+  const hasRetried = safeStorageRead() === '1' || urlRetryActive;
+  const markRetriedAndReload = () => {
+    if (safeStorageWrite('1')) {
+      window.location.reload();
+      return;
+    }
+
+    if (!locationUrl) {
+      window.location.reload();
+      return;
+    }
+
+    locationUrl.searchParams.set(retryQueryKey, retryKey);
+    window.location.replace(locationUrl.toString());
+  };
+
+  try {
+    const module = await loader();
+
+    clearRetryMarker();
+
+    return module;
+  } catch (error) {
+    const shouldReload = typeof window !== 'undefined' && !hasRetried;
+
+    if (shouldReload) {
+      markRetriedAndReload();
+      return new Promise<never>(() => undefined);
+    }
+
+    throw error;
+  }
+});
+
+const ChannelPage = recoverableLazy('channel', () => import('./pages/Channel'));
+const ChatPage = recoverableLazy('chat', () => import('./pages/Chat'));
+const DashboardPage = recoverableLazy('dashboard', () => import('./pages/Dashboard'));
+const DeploymentPage = recoverableLazy('deployment', () => import('./pages/Deployment'));
+const LogPage = recoverableLazy('log', () => import('./pages/Log'));
+const MidjourneyPage = recoverableLazy('midjourney', () => import('./pages/Midjourney'));
+const ModelsPage = recoverableLazy('models', () => import('./pages/Models'));
+const PersonalPage = recoverableLazy('personal', () => import('./pages/Personal'));
+const PlaygroundPage = recoverableLazy('playground', () => import('./pages/Playground'));
+const RedemptionPage = recoverableLazy('redemption', () => import('./pages/Redemption'));
+const SettingPage = recoverableLazy('setting', () => import('./pages/Setting'));
+const SubscriptionPage = recoverableLazy('subscription', () => import('./pages/Subscription'));
+const TaskPage = recoverableLazy('task', () => import('./pages/Task'));
+const TokenPage = recoverableLazy('token', () => import('./pages/Token'));
+const TopUpPage = recoverableLazy('topup', () => import('./pages/TopUp'));
+const UserPage = recoverableLazy('user', () => import('./pages/User'));
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useContext(UserContext);
@@ -93,34 +185,36 @@ export default function App() {
 
   return (
     <SetupCheck>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/setup" element={<SetupPage />} />
-        <Route path="/login" element={<AuthRedirect><LoginPage /></AuthRedirect>} />
-        <Route path="/register" element={<AuthRedirect><RegisterPage /></AuthRedirect>} />
-        <Route path="/reset" element={<ResetPage />} />
-        <Route path="/user/reset" element={<ResetConfirmPage />} />
-        <Route path="/pricing" element={<PricingPage />} />
-        <Route path="/about" element={<AboutPage />} />
-        <Route path="/console" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
-        <Route path="/console/channel" element={<AdminRoute><ChannelPage /></AdminRoute>} />
-        <Route path="/console/token" element={<PrivateRoute><TokenPage /></PrivateRoute>} />
-        <Route path="/console/playground" element={<PrivateRoute><PlaygroundPage /></PrivateRoute>} />
-        <Route path="/console/chat" element={<PrivateRoute><ChatPage /></PrivateRoute>} />
-        <Route path="/console/chat/:id" element={<PrivateRoute><ChatPage /></PrivateRoute>} />
-        <Route path="/console/topup" element={<PrivateRoute><TopUpPage /></PrivateRoute>} />
-        <Route path="/console/personal" element={<PrivateRoute><PersonalPage /></PrivateRoute>} />
-        <Route path="/console/task" element={<PrivateRoute><TaskPage /></PrivateRoute>} />
-        <Route path="/console/midjourney" element={<PrivateRoute><MidjourneyPage /></PrivateRoute>} />
-        <Route path="/console/redemption" element={<AdminRoute><RedemptionPage /></AdminRoute>} />
-        <Route path="/console/user" element={<AdminRoute><UserPage /></AdminRoute>} />
-        <Route path="/console/log" element={<PrivateRoute><LogPage /></PrivateRoute>} />
-        <Route path="/console/models" element={<AdminRoute><ModelsPage /></AdminRoute>} />
-        <Route path="/console/deployment" element={<AdminRoute><DeploymentPage /></AdminRoute>} />
-        <Route path="/console/subscription" element={<AdminRoute><SubscriptionPage /></AdminRoute>} />
-        <Route path="/console/setting" element={<AdminRoute><SettingPage /></AdminRoute>} />
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
+      <Suspense fallback={<Loading />}>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/setup" element={<SetupPage />} />
+          <Route path="/login" element={<AuthRedirect><LoginPage /></AuthRedirect>} />
+          <Route path="/register" element={<AuthRedirect><RegisterPage /></AuthRedirect>} />
+          <Route path="/reset" element={<ResetPage />} />
+          <Route path="/user/reset" element={<ResetConfirmPage />} />
+          <Route path="/pricing" element={<PricingPage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/console" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
+          <Route path="/console/channel" element={<AdminRoute><ChannelPage /></AdminRoute>} />
+          <Route path="/console/token" element={<PrivateRoute><TokenPage /></PrivateRoute>} />
+          <Route path="/console/playground" element={<PrivateRoute><PlaygroundPage /></PrivateRoute>} />
+          <Route path="/console/chat" element={<PrivateRoute><ChatPage /></PrivateRoute>} />
+          <Route path="/console/chat/:id" element={<PrivateRoute><ChatPage /></PrivateRoute>} />
+          <Route path="/console/topup" element={<PrivateRoute><TopUpPage /></PrivateRoute>} />
+          <Route path="/console/personal" element={<PrivateRoute><PersonalPage /></PrivateRoute>} />
+          <Route path="/console/task" element={<PrivateRoute><TaskPage /></PrivateRoute>} />
+          <Route path="/console/midjourney" element={<PrivateRoute><MidjourneyPage /></PrivateRoute>} />
+          <Route path="/console/redemption" element={<AdminRoute><RedemptionPage /></AdminRoute>} />
+          <Route path="/console/user" element={<AdminRoute><UserPage /></AdminRoute>} />
+          <Route path="/console/log" element={<PrivateRoute><LogPage /></PrivateRoute>} />
+          <Route path="/console/models" element={<AdminRoute><ModelsPage /></AdminRoute>} />
+          <Route path="/console/deployment" element={<AdminRoute><DeploymentPage /></AdminRoute>} />
+          <Route path="/console/subscription" element={<AdminRoute><SubscriptionPage /></AdminRoute>} />
+          <Route path="/console/setting" element={<AdminRoute><SettingPage /></AdminRoute>} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </Suspense>
     </SetupCheck>
   );
 }
