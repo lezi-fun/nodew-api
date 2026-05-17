@@ -1,6 +1,7 @@
 import { Button, Card, Space, Tag, Toast, Typography } from '@douyinfe/semi-ui';
 import { IconActivity, IconRefresh } from '@douyinfe/semi-icons';
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import ConsoleTablePage from '../components/common/ConsoleTablePage';
 import MissingModelsTable from '../components/models/MissingModelsTable';
@@ -33,6 +34,7 @@ const readChannelModels = (channel: ChannelItem) => {
 };
 
 export default function DeploymentPage() {
+  const navigate = useNavigate();
   const [rows, setRows] = useState<ChannelItem[]>([]);
   const [modelRows, setModelRows] = useState<ModelItem[]>([]);
   const [missingRows, setMissingRows] = useState<ModelItem[]>([]);
@@ -87,6 +89,19 @@ export default function DeploymentPage() {
     } finally {
       setTestingId(null);
     }
+  };
+
+  const resolveModel = (model: ModelItem) => {
+    const params = new URLSearchParams({
+      action: 'create',
+      model: model.model,
+    });
+
+    if (model.providers[0]) {
+      params.set('provider', model.providers[0]);
+    }
+
+    navigate(`/console/channel?${params.toString()}`);
   };
 
   const active = rows.filter((row) => row.status === 'ACTIVE').length;
@@ -177,7 +192,14 @@ export default function DeploymentPage() {
               </div>
               <Tag color={missingRows.length > 0 ? 'red' : 'green'} size="large">{missingRows.length}</Tag>
             </div>
-            <MissingModelsTable rows={missingRows} loading={loading} showEndpoints={false} pendingLabel="待部署" />
+            <MissingModelsTable
+              rows={missingRows}
+              loading={loading}
+              showEndpoints={false}
+              pendingLabel="待部署"
+              resolveLabel="去补渠道"
+              onResolveModel={resolveModel}
+            />
           </Card>
         </div>
       )}

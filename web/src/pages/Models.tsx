@@ -1,12 +1,14 @@
 import { Button, Card, Space, Tag, Toast, Typography } from '@douyinfe/semi-ui';
 import { IconRefresh } from '@douyinfe/semi-icons';
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import ConsoleTablePage from '../components/common/ConsoleTablePage';
 import MissingModelsTable from '../components/models/MissingModelsTable';
 import { api, type ModelItem } from '../lib/api';
 
 export default function ModelsPage() {
+  const navigate = useNavigate();
   const [rows, setRows] = useState<ModelItem[]>([]);
   const [missingRows, setMissingRows] = useState<ModelItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -34,6 +36,19 @@ export default function ModelsPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const resolveModel = (model: ModelItem) => {
+    const params = new URLSearchParams({
+      action: 'create',
+      model: model.model,
+    });
+
+    if (model.providers[0]) {
+      params.set('provider', model.providers[0]);
+    }
+
+    navigate(`/console/channel?${params.toString()}`);
+  };
 
   return (
     <ConsoleTablePage
@@ -89,7 +104,7 @@ export default function ModelsPage() {
             </div>
             <Tag color={missingRows.length > 0 ? 'red' : 'green'} size="large">{missingRows.length}</Tag>
           </div>
-          <MissingModelsTable rows={missingRows} loading={loading} />
+          <MissingModelsTable rows={missingRows} loading={loading} onResolveModel={resolveModel} />
         </Card>
       )}
     />
