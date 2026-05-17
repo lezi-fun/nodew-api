@@ -19,6 +19,7 @@ const recoverableLazy = <T extends React.ComponentType<unknown>>(
   loader: () => Promise<{ default: T }>,
 ) => lazy(async () => {
   const storageKey = 'nodew-lazy-reload-once';
+  const retryQueryKey = '__nodew_lazy_retry';
   const storage = (() => {
     if (typeof window === 'undefined') {
       return null;
@@ -30,11 +31,42 @@ const recoverableLazy = <T extends React.ComponentType<unknown>>(
       return null;
     }
   })();
+  const locationUrl = typeof window !== 'undefined' ? new URL(window.location.href) : null;
+  const urlRetryActive = locationUrl?.searchParams.get(retryQueryKey) === '1';
+  const clearRetryMarker = () => {
+    if (storage) {
+      storage.removeItem(storageKey);
+      return;
+    }
+
+    if (!locationUrl || !urlRetryActive) {
+      return;
+    }
+
+    locationUrl.searchParams.delete(retryQueryKey);
+    window.history.replaceState(window.history.state, '', locationUrl.toString());
+  };
+  const hasRetried = storage ? storage.getItem(storageKey) === '1' : urlRetryActive;
+  const markRetriedAndReload = () => {
+    if (storage) {
+      storage.setItem(storageKey, '1');
+      window.location.reload();
+      return;
+    }
+
+    if (!locationUrl) {
+      window.location.reload();
+      return;
+    }
+
+    locationUrl.searchParams.set(retryQueryKey, '1');
+    window.location.replace(locationUrl.toString());
+  };
 
   try {
     const module = await loader();
 
-    storage?.removeItem(storageKey);
+    clearRetryMarker();
 
     return module;
   } catch (error) {
@@ -42,11 +74,10 @@ const recoverableLazy = <T extends React.ComponentType<unknown>>(
     const shouldReload =
       typeof window !== 'undefined' &&
       /Failed to fetch dynamically imported module|Importing a module script failed|Loading chunk [\w-]+ failed/i.test(message) &&
-      storage?.getItem(storageKey) !== '1';
+      !hasRetried;
 
     if (shouldReload) {
-      storage?.setItem(storageKey, '1');
-      window.location.reload();
+      markRetriedAndReload();
       return new Promise<never>(() => undefined);
     }
 
