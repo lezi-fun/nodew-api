@@ -70,7 +70,23 @@ describe('dashboard compatibility routes', () => {
 
       expect(response.statusCode).toBe(200);
       expect(response.json().success).toBe(true);
+      expect(response.json().data).toMatchObject({
+        currency: 'quota',
+        stats: {
+          activeChannels: 1,
+          channels: 1,
+          models: 1,
+        },
+      });
       expect(response.json().items).toEqual([
+        expect.objectContaining({
+          id: 'router-model',
+          providers: ['openrouter'],
+          promptTokenCost: 2,
+          completionTokenCost: 8,
+        }),
+      ]);
+      expect(response.json().data.catalog).toEqual([
         expect.objectContaining({
           id: 'router-model',
           providers: ['openrouter'],

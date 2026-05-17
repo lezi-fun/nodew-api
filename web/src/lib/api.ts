@@ -153,6 +153,10 @@ export type ModelItem = {
   weight: number;
   channelIds: string[];
   enabled: boolean;
+  requests?: number;
+  lastRequestedAt?: string | null;
+  endpoints?: string[];
+  reason?: string;
 };
 
 export type PricingInfo = {
@@ -210,6 +214,14 @@ export type TaskItem = {
   quota?: number;
   latencyMs?: number | null;
   createdAt: string;
+};
+
+export type TaskListData = {
+  items: TaskItem[];
+  total: number;
+  nextCursor?: string | null;
+  type?: string;
+  message?: string;
 };
 
 export type LegacyDataResponse<T> = {
@@ -439,8 +451,14 @@ export const api = {
   getPricing: async () => (await client.get<LegacyDataResponse<PricingInfo>>('/api/pricing')).data,
   listModels: async (params?: { limit?: number; cursor?: string; keyword?: string }) =>
     (await client.get<ListResponse<ModelItem>>('/api/models', { params })).data,
-  listTasks: async () => (await client.get<LegacyDataResponse<{ items: TaskItem[]; total: number; message?: string }>>('/api/task')).data,
-  listSelfTasks: async () => (await client.get<LegacyDataResponse<{ items: TaskItem[]; total: number; message?: string }>>('/api/task/self')).data,
-  listImageTasks: async () => (await client.get<LegacyDataResponse<{ items: TaskItem[]; total: number; message?: string }>>('/api/mj')).data,
-  listSelfImageTasks: async () => (await client.get<LegacyDataResponse<{ items: TaskItem[]; total: number; message?: string }>>('/api/mj/self')).data,
+  listMissingModels: async (params?: { limit?: number; cursor?: string; keyword?: string }) =>
+    (await client.get<ListResponse<ModelItem>>('/api/models/missing', { params })).data,
+  listTasks: async (params?: { limit?: number; cursor?: string; keyword?: string }) =>
+    (await client.get<LegacyDataResponse<TaskListData>>('/api/task', { params })).data,
+  listSelfTasks: async (params?: { limit?: number; cursor?: string; keyword?: string }) =>
+    (await client.get<LegacyDataResponse<TaskListData>>('/api/task/self', { params })).data,
+  listImageTasks: async (params?: { limit?: number; cursor?: string; keyword?: string }) =>
+    (await client.get<LegacyDataResponse<TaskListData>>('/api/mj', { params })).data,
+  listSelfImageTasks: async (params?: { limit?: number; cursor?: string; keyword?: string }) =>
+    (await client.get<LegacyDataResponse<TaskListData>>('/api/mj/self', { params })).data,
 };

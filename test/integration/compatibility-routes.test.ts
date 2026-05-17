@@ -364,7 +364,15 @@ describe('legacy compatibility routes', () => {
       expect(aboutResponse.statusCode).toBe(200);
       expect(aboutResponse.json().data).toContain('NodEW-api');
       expect(pricingResponse.statusCode).toBe(200);
-      expect(pricingResponse.json().stats.activeChannels).toBe(1);
+      expect(pricingResponse.json().data).toMatchObject({
+        currency: 'quota',
+        stats: {
+          activeChannels: 1,
+          channels: 1,
+          models: 2,
+        },
+      });
+      expect(pricingResponse.json().data.catalog).toHaveLength(2);
       expect(modelsResponse.statusCode).toBe(200);
       expect(modelsResponse.json().data.map((row: { model: string }) => row.model)).toEqual(['gpt-primary', 'gpt-sidecar']);
       expect(modelResponse.statusCode).toBe(200);

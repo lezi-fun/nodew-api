@@ -1,8 +1,7 @@
-import { Button, Card, Space, Tag, Toast, Typography } from '@douyinfe/semi-ui';
-import { IconCreditCard, IconRefresh, IconTickCircle } from '@douyinfe/semi-icons';
+import { Toast } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 
+import PricingOverview from '../components/billing/PricingOverview';
 import { api, type PricingInfo } from '../lib/api';
 
 const fallbackPricing: PricingInfo = {
@@ -17,7 +16,6 @@ const fallbackPricing: PricingInfo = {
 };
 
 export default function SubscriptionPage() {
-  const navigate = useNavigate();
   const [pricing, setPricing] = useState<PricingInfo>(fallbackPricing);
   const [loading, setLoading] = useState(true);
 
@@ -38,47 +36,14 @@ export default function SubscriptionPage() {
   }, [load]);
 
   return (
-    <main className="console-page subscription-page">
-      <section className="console-hero">
-        <div>
-          <div className="console-eyebrow">Subscription</div>
-          <Typography.Title heading={2} style={{ margin: '6px 0 8px' }}>订阅管理</Typography.Title>
-          <Typography.Paragraph className="console-description">
-            从后端价格接口读取当前实例的计划、额度单位和渠道覆盖，避免订阅入口停留在静态占位。
-          </Typography.Paragraph>
-        </div>
-        <Space wrap>
-          <Button icon={<IconRefresh />} loading={loading} onClick={() => void load()}>刷新</Button>
-          <Button theme="solid" type="primary" icon={<IconCreditCard />} onClick={() => navigate('/console/topup')}>
-            前往充值
-          </Button>
-        </Space>
-      </section>
-
-      <section className="metric-grid">
-        <Card className="metric-card tone-blue" bordered={false}><span>模型</span><strong>{pricing.stats.models}</strong></Card>
-        <Card className="metric-card tone-green" bordered={false}><span>活跃渠道</span><strong>{pricing.stats.activeChannels}</strong></Card>
-        <Card className="metric-card tone-grey" bordered={false}><span>总渠道</span><strong>{pricing.stats.channels}</strong></Card>
-        <Card className="metric-card tone-orange" bordered={false}><span>额度单位</span><strong>{pricing.currency}</strong></Card>
-      </section>
-
-      <section className="plan-grid">
-        {pricing.plans.map((plan) => (
-          <Card key={plan.id} bordered={false} className="dashboard-card plan-card">
-            <Space vertical align="start">
-              <Tag color={plan.current ? 'green' : 'blue'}>{plan.current ? 'current' : 'available'}</Tag>
-              <Typography.Title heading={3}>{plan.name}</Typography.Title>
-              <strong>{plan.quota}</strong>
-              <Typography.Paragraph type="tertiary">{pricing.note}</Typography.Paragraph>
-              <div className="plan-feature-list">
-                {plan.features.map((feature) => (
-                  <span key={feature}><IconTickCircle /> {feature}</span>
-                ))}
-              </div>
-            </Space>
-          </Card>
-        ))}
-      </section>
-    </main>
+    <PricingOverview
+      eyebrow="Subscription"
+      title="订阅管理"
+      description="从后端价格接口读取当前实例的计划、额度单位和渠道覆盖，避免订阅入口停留在静态占位。"
+      actionText="前往充值"
+      pricing={pricing}
+      loading={loading}
+      onRefresh={() => void load()}
+    />
   );
 }

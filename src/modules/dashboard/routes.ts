@@ -253,11 +253,9 @@ const dashboardRoutes: FastifyPluginAsync = async (app) => {
       prisma.channel.count(),
       prisma.channel.count({ where: { status: 'ACTIVE' } }),
     ]);
-
-    return {
-      success: true,
-      data: models,
-      items: models,
+    const vendors = [...new Set(models.flatMap((model) => model.providers))].sort();
+    const pricing = {
+      currency: 'quota',
       plans: [
         {
           id: 'self-hosted',
@@ -273,9 +271,8 @@ const dashboardRoutes: FastifyPluginAsync = async (app) => {
         activeChannels,
         models: models.length,
       },
-      currency: 'quota',
-      note: 'Billing plan management is not enabled yet; quota is controlled by user and token balances.',
-      vendors: [...new Set(models.flatMap((model) => model.providers))].sort(),
+      note: 'Quota is controlled by user and token balances in this self-hosted build.',
+      vendors,
       group_ratio: {
         default: 1,
       },
@@ -288,7 +285,16 @@ const dashboardRoutes: FastifyPluginAsync = async (app) => {
         embeddings: ['/v1/embeddings'],
         models: ['/v1/models'],
       },
-        pricing_version: 'NodEW-api-channel-catalog-v1',
+      pricing_version: 'nodew-api-channel-catalog-v1',
+      catalog: models,
+    };
+
+    return {
+      success: true,
+      data: pricing,
+      item: pricing,
+      items: models,
+      ...pricing,
     };
   });
 

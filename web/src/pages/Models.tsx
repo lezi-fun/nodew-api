@@ -1,21 +1,29 @@
-import { Button, Space, Tag, Toast } from '@douyinfe/semi-ui';
+import { Button, Card, Space, Table, Tag, Toast, Typography } from '@douyinfe/semi-ui';
 import { IconRefresh } from '@douyinfe/semi-icons';
 import { useCallback, useEffect, useState } from 'react';
 
 import ConsoleTablePage from '../components/common/ConsoleTablePage';
 import { api, type ModelItem } from '../lib/api';
+import { formatDateTime } from '../lib/format';
 
 export default function ModelsPage() {
   const [rows, setRows] = useState<ModelItem[]>([]);
+  const [missingRows, setMissingRows] = useState<ModelItem[]>([]);
   const [total, setTotal] = useState(0);
+  const [missingTotal, setMissingTotal] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await api.listModels({ limit: 100 });
+      const [response, missingResponse] = await Promise.all([
+        api.listModels({ limit: 100 }),
+        api.listMissingModels({ limit: 100 }),
+      ]);
       setRows(response.items ?? []);
       setTotal(response.total ?? response.items?.length ?? 0);
+      setMissingRows(missingResponse.items ?? []);
+      setMissingTotal(missingResponse.total ?? missingResponse.items?.length ?? 0);
     } catch (error) {
       Toast.error(error instanceof Error ? error.message : '加载模型失败');
     } finally {
@@ -39,6 +47,7 @@ export default function ModelsPage() {
       stats={[
         { label: '模型数', value: total, tone: 'blue' },
         { label: '活跃覆盖', value: rows.filter((row) => row.activeChannels > 0).length, tone: 'green' },
+        { label: '缺失模型', value: missingTotal, tone: missingTotal > 0 ? 'red' : 'grey' },
         { label: 'Wildcard', value: rows.filter((row) => row.model === '*').length, tone: 'orange' },
         { label: '渠道覆盖', value: rows.reduce((sum, row) => sum + row.channels, 0), tone: 'grey' },
       ]}
@@ -69,6 +78,68 @@ export default function ModelsPage() {
           ),
         },
       ]}
+      extraContent={(
+        <Card bordered={false} className="console-table-card" bodyStyle={{ padding: 0 }}>
+          <div className="table-toolbar">
+            <div>
+              <Typography.Text strong>缺失模型</Typography.Text>
+              <Typography.Text type="tertiary" className="table-note">
+                最近请求过，但当前没有任何活跃渠道支持的模型。这个列表可以直接指导后续补渠道或补映射。
+              </Typography.Text>
+            </div>
+            <Tag color={missingRows.length > 0 ? 'red' : 'green'} size="large">{missingRows.length}</Tag>
+          </div>
+          <Table
+            columns={[
+              {
+                title: '模型',
+                dataIndex: 'model',
+                render: (value: unknown, record: ModelItem) => (
+                  <div className="table-primary-cell">
+                    <strong>{String(value)}</strong>
+                    <span>{record.reason ?? '未配置可用渠道'}</span>
+                  </div>
+                ),
+              },
+              {
+                title: '最近供应商',
+                dataIndex: 'provider',
+                render: (value: unknown, record: ModelItem) =>
+                  record.providers && record.providers.length > 0 ? record.providers.join(', ') : (value ? String(value) : '-'),
+              },
+              {
+                title: '请求次数',
+                dataIndex: 'requests',
+                render: (value: unknown) => typeof value === 'number' ? value : '-',
+              },
+              {
+                title: '端点',
+                dataIndex: 'endpoints',
+                render: (value: unknown) =>
+                  Array.isArray(value) && value.length > 0 ? (
+                    <Space wrap>
+                      {value.map((endpoint) => <Tag key={String(endpoint)}>{String(endpoint)}</Tag>)}
+                    </Space>
+                  ) : '-',
+              },
+              {
+                title: '最近请求',
+                dataIndex: 'lastRequestedAt',
+                render: (value: unknown) => formatDateTime(typeof value === 'string' ? value : null),
+              },
+              {
+                title: '状态',
+                dataIndex: 'enabled',
+                render: () => <Tag color="red">待补齐</Tag>,
+              },
+            ]}
+            dataSource={missingRows}
+            loading={loading}
+            pagination={{ pageSize: 8, showSizeChanger: true }}
+            rowKey={(record) => String(record?.id ?? record?.model ?? 'missing-model')}
+          />
+        </Card>
+      )}
     />
   );
 }

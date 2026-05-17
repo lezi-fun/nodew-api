@@ -23,6 +23,7 @@ type ConsoleTablePageProps<T extends Record<string, unknown>> = {
   onPrimaryAction?: () => void;
   onRefresh?: () => void;
   toolbarExtra?: ReactNode;
+  extraContent?: ReactNode;
 };
 
 const stringifyCell = (value: unknown): string => {
@@ -55,6 +56,7 @@ export default function ConsoleTablePage<T extends Record<string, unknown>>({
   onPrimaryAction,
   onRefresh,
   toolbarExtra,
+  extraContent,
 }: ConsoleTablePageProps<T>) {
   const [keyword, setKeyword] = useState('');
   const [compact, setCompact] = useState(localStorage.getItem('nodew-table-compact') === 'true');
@@ -169,6 +171,8 @@ export default function ConsoleTablePage<T extends Record<string, unknown>>({
           />
         )}
       </Card>
+
+      {extraContent}
     </main>
   );
 }
