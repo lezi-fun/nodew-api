@@ -291,6 +291,24 @@ describe('legacy compatibility routes', () => {
         models: ['gpt-primary', 'gpt-sidecar'],
       },
     });
+    await createUsageLog({
+      userId: user.id,
+      requestId: 'task-compat-request',
+      model: 'gpt-primary',
+      endpoint: '/v1/chat/completions',
+      totalTokens: 16,
+      estimatedCostCents: 4,
+      latencyMs: 120,
+    });
+    await createUsageLog({
+      userId: user.id,
+      requestId: 'image-compat-request',
+      model: 'gpt-image-1',
+      endpoint: '/v1/images/generations',
+      totalTokens: 0,
+      estimatedCostCents: 12,
+      latencyMs: 900,
+    });
     const app = await createTestApp();
 
     try {
@@ -343,9 +361,23 @@ describe('legacy compatibility routes', () => {
         activeChannels: 1,
       });
       expect(taskResponse.statusCode).toBe(200);
-      expect(taskResponse.json().data.items).toEqual([]);
+      expect(taskResponse.json().data.items[0]).toMatchObject({
+        id: 'image-compat-request',
+        type: 'image',
+        status: 'success',
+        model: 'gpt-image-1',
+        quota: 12,
+      });
       expect(imageTaskResponse.statusCode).toBe(200);
-      expect(imageTaskResponse.json().data.items).toEqual([]);
+      expect(imageTaskResponse.json().data.items).toHaveLength(1);
+      expect(imageTaskResponse.json().data.items[0]).toMatchObject({
+        id: 'image-compat-request',
+        action: 'images/generations',
+        status: 'success',
+        model: 'gpt-image-1',
+        quota: 12,
+        latencyMs: 900,
+      });
     } finally {
       await closeTestApp(app);
     }

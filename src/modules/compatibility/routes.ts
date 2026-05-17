@@ -513,6 +513,109 @@ const summarizeUsage = async (where: Prisma.UsageLogWhereInput) => {
   };
 };
 
+const imageTaskEndpoints = [
+  '/v1/images/generations',
+  '/v1/images/edits',
+  '/v1/images/variations',
+];
+
+const videoTaskEndpoints = [
+  '/v1/video/generations',
+  '/v1/videos',
+];
+
+const isImageTaskEndpoint = (endpoint: string) =>
+  imageTaskEndpoints.some((prefix) => endpoint.startsWith(prefix));
+
+const isVisualTaskEndpoint = (endpoint: string) =>
+  isImageTaskEndpoint(endpoint) || videoTaskEndpoints.some((prefix) => endpoint.startsWith(prefix));
+
+const visualTaskEndpoints = [
+  ...imageTaskEndpoints,
+  ...videoTaskEndpoints,
+];
+
+const taskStatus = (log: Prisma.UsageLogGetPayload<{ select: typeof usageSelect }>) => {
+  if (!log.success) {
+    return 'failed';
+  }
+
+  if (log.statusCode && log.statusCode >= 200 && log.statusCode < 300) {
+    return 'success';
+  }
+
+  return 'pending';
+};
+
+const serializeTaskLog = (log: Prisma.UsageLogGetPayload<{ select: typeof usageSelect }>) => ({
+  id: log.requestId ?? log.id,
+  logId: log.id,
+  type: isVisualTaskEndpoint(log.endpoint) ? 'image' : 'relay',
+  action: log.endpoint.replace(/^\/v1\/?/, '') || log.endpoint,
+  prompt: log.errorMessage ?? null,
+  status: taskStatus(log),
+  model: log.model,
+  provider: log.provider,
+  endpoint: log.endpoint,
+  success: log.success,
+  statusCode: log.statusCode,
+  errorCode: log.errorCode,
+  errorMessage: log.errorMessage,
+  totalTokens: log.totalTokens,
+  quota: log.estimatedCostCents ?? 0,
+  latencyMs: log.latencyMs,
+  createdAt: log.createdAt,
+  apiKey: log.apiKey,
+  channel: log.channel,
+  user: log.user,
+});
+
+const buildTaskRows = async (params: {
+  type: 'task' | 'mj';
+  userId?: string;
+  query: z.infer<typeof listQuerySchema>;
+}) => {
+  const where: Prisma.UsageLogWhereInput = {
+    ...(params.userId ? { userId: params.userId } : {}),
+    ...(params.type === 'mj'
+      ? { OR: visualTaskEndpoints.map((endpoint) => ({ endpoint: { startsWith: endpoint } })) }
+      : {}),
+    ...(params.query.keyword
+      ? {
+          AND: [
+            {
+              OR: [
+                { requestId: { contains: params.query.keyword, mode: 'insensitive' } },
+                { provider: { contains: params.query.keyword, mode: 'insensitive' } },
+                { model: { contains: params.query.keyword, mode: 'insensitive' } },
+                { endpoint: { contains: params.query.keyword, mode: 'insensitive' } },
+                { errorMessage: { contains: params.query.keyword, mode: 'insensitive' } },
+              ],
+            },
+          ],
+        }
+      : {}),
+  };
+  const logs = await prisma.usageLog.findMany({
+    where,
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    ...paginate(params.query),
+    select: usageSelect,
+  });
+  const hasMore = logs.length > params.query.limit;
+  const items = (hasMore ? logs.slice(0, params.query.limit) : logs).map(serializeTaskLog);
+
+  return {
+    items,
+    total: items.length,
+    nextCursor: hasMore ? items.at(-1)?.logId ?? null : null,
+    type: params.type,
+    message: params.type === 'mj'
+      ? 'Image and video relay usage logs are shown as visual task records.'
+      : 'Relay usage logs are shown as task records until dedicated task persistence is enabled.',
+  };
+};
+
 const buildModelRows = async (query: z.infer<typeof listQuerySchema>) => {
   const channels = await prisma.channel.findMany({
     orderBy: [{ priority: 'desc' }, { weight: 'desc' }, { createdAt: 'desc' }],
@@ -586,13 +689,6 @@ const buildModelRows = async (query: z.infer<typeof listQuerySchema>) => {
   };
 };
 
-const emptyTaskRows = async (type: 'task' | 'mj') => ({
-  items: [] as Array<Record<string, unknown>>,
-  total: 0,
-  type,
-  message: `${type === 'mj' ? 'Image task' : 'Task'} persistence is not enabled yet.`,
-});
-
 const compatibilityRoutes: FastifyPluginAsync = async (app) => {
   app.get('/models/search', { preHandler: app.requireAdminUser }, async (request) => {
     const query = listQuerySchema.parse(request.query);
@@ -622,13 +718,27 @@ const compatibilityRoutes: FastifyPluginAsync = async (app) => {
     return ok(item, { item });
   });
 
-  app.get('/task', { preHandler: app.requireAdminUser }, async () => ok(await emptyTaskRows('task')));
+  app.get('/task', { preHandler: app.requireAdminUser }, async (request) => ok(await buildTaskRows({
+    type: 'task',
+    query: listQuerySchema.parse(request.query),
+  })));
 
-  app.get('/task/self', { preHandler: app.requireUser }, async () => ok(await emptyTaskRows('task')));
+  app.get('/task/self', { preHandler: app.requireUser }, async (request) => ok(await buildTaskRows({
+    type: 'task',
+    userId: request.currentUser!.id,
+    query: listQuerySchema.parse(request.query),
+  })));
 
-  app.get('/mj', { preHandler: app.requireAdminUser }, async () => ok(await emptyTaskRows('mj')));
+  app.get('/mj', { preHandler: app.requireAdminUser }, async (request) => ok(await buildTaskRows({
+    type: 'mj',
+    query: listQuerySchema.parse(request.query),
+  })));
 
-  app.get('/mj/self', { preHandler: app.requireUser }, async () => ok(await emptyTaskRows('mj')));
+  app.get('/mj/self', { preHandler: app.requireUser }, async (request) => ok(await buildTaskRows({
+    type: 'mj',
+    userId: request.currentUser!.id,
+    query: listQuerySchema.parse(request.query),
+  })));
 
   app.get('/option', { preHandler: app.requireAdminUser }, async () => {
     const options = await prisma.systemOption.findMany({

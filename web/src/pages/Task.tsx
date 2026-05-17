@@ -45,12 +45,16 @@ export default function TaskPage() {
         { label: '成功', value: rows.filter((row) => row.status === 'success').length, tone: 'green' },
         { label: '失败', value: rows.filter((row) => row.status === 'failed').length, tone: 'red' },
       ]}
-      searchKeys={['id', 'type', 'status', 'model']}
+      searchKeys={['id', 'type', 'status', 'model', 'provider', 'endpoint']}
       columns={[
         { title: '任务 ID', dataIndex: 'id' },
         { title: '类型', dataIndex: 'type', render: (value) => value ? String(value) : '-' },
+        { title: '供应商', dataIndex: 'provider', render: (value) => value ? String(value) : '-' },
         { title: '模型', dataIndex: 'model', render: (value) => value ? String(value) : '-' },
         { title: '状态', dataIndex: 'status', render: (value) => <Tag>{String(value)}</Tag> },
+        { title: 'Token', dataIndex: 'totalTokens', render: (value) => typeof value === 'number' ? value : '-' },
+        { title: '额度', dataIndex: 'quota', render: (value) => typeof value === 'number' ? value : '-' },
+        { title: '延迟', dataIndex: 'latencyMs', render: (value) => typeof value === 'number' ? `${value} ms` : '-' },
         { title: '创建时间', dataIndex: 'createdAt', render: (value) => formatDateTime(value as string | null) },
       ]}
     />

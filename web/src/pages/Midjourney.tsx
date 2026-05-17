@@ -45,12 +45,15 @@ export default function MidjourneyPage() {
         { label: '完成', value: rows.filter((row) => row.status === 'success').length, tone: 'green' },
         { label: '失败', value: rows.filter((row) => row.status === 'failed').length, tone: 'red' },
       ]}
-      searchKeys={['id', 'action', 'prompt', 'status']}
+      searchKeys={['id', 'action', 'model', 'provider', 'endpoint', 'status']}
       columns={[
         { title: '任务 ID', dataIndex: 'id' },
         { title: '动作', dataIndex: 'action', render: (value) => value ? String(value) : '-' },
-        { title: '提示词', dataIndex: 'prompt', render: (value) => value ? String(value) : '-' },
+        { title: '模型', dataIndex: 'model', render: (value) => value ? String(value) : '-' },
+        { title: '供应商', dataIndex: 'provider', render: (value) => value ? String(value) : '-' },
         { title: '状态', dataIndex: 'status', render: (value) => <Tag>{String(value)}</Tag> },
+        { title: '额度', dataIndex: 'quota', render: (value) => typeof value === 'number' ? value : '-' },
+        { title: '延迟', dataIndex: 'latencyMs', render: (value) => typeof value === 'number' ? `${value} ms` : '-' },
         { title: '创建时间', dataIndex: 'createdAt', render: (value) => formatDateTime(value as string | null) },
       ]}
     />

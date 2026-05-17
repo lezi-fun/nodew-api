@@ -197,11 +197,18 @@ export type SiteInfo = {
 
 export type TaskItem = {
   id: string;
+  logId?: string;
   type?: string;
   action?: string;
   prompt?: string;
   status: string;
   model?: string | null;
+  provider?: string;
+  endpoint?: string;
+  statusCode?: number | null;
+  totalTokens?: number;
+  quota?: number;
+  latencyMs?: number | null;
   createdAt: string;
 };
 
