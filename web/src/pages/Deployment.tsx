@@ -1,8 +1,10 @@
-import { Button, Card, Space, Table, Tag, Toast, Typography } from '@douyinfe/semi-ui';
+import { Button, Card, Space, Tag, Toast, Typography } from '@douyinfe/semi-ui';
 import { IconActivity, IconRefresh } from '@douyinfe/semi-icons';
 import { useCallback, useEffect, useState } from 'react';
 
 import ConsoleTablePage from '../components/common/ConsoleTablePage';
+import MissingModelsTable from '../components/models/MissingModelsTable';
+import ModelCoverageTable from '../components/models/ModelCoverageTable';
 import { api, type ChannelItem, type ModelItem } from '../lib/api';
 import { formatDateTime } from '../lib/format';
 
@@ -162,36 +164,7 @@ export default function DeploymentPage() {
                 {wildcard > 0 ? <Tag color="grey" size="large">Wildcard {wildcard}</Tag> : null}
               </Space>
             </div>
-            <Table
-              columns={[
-                {
-                  title: '模型',
-                  dataIndex: 'model',
-                  render: (value: unknown, record: ModelItem) => (
-                    <div className="table-primary-cell">
-                      <strong>{String(value)}</strong>
-                      <span>{record.providers.join(', ')}</span>
-                    </div>
-                  ),
-                },
-                {
-                  title: '活跃渠道',
-                  dataIndex: 'activeChannels',
-                  render: (value: unknown) => <Tag color={Number(value) > 0 ? 'green' : 'red'}>{String(value)}</Tag>,
-                },
-                { title: '总渠道', dataIndex: 'channels' },
-                { title: '总权重', dataIndex: 'weight' },
-                {
-                  title: '状态',
-                  dataIndex: 'enabled',
-                  render: (value: unknown) => <Tag color={value ? 'green' : 'red'}>{value ? '在线' : '离线'}</Tag>,
-                },
-              ]}
-              dataSource={modelRows}
-              loading={loading}
-              pagination={{ pageSize: 8, showSizeChanger: true }}
-              rowKey={(record) => String(record?.id ?? record?.model ?? 'deployment-model')}
-            />
+            <ModelCoverageTable rows={modelRows} loading={loading} />
           </Card>
 
           <Card bordered={false} className="console-table-card" bodyStyle={{ padding: 0 }}>
@@ -204,45 +177,7 @@ export default function DeploymentPage() {
               </div>
               <Tag color={missingRows.length > 0 ? 'red' : 'green'} size="large">{missingRows.length}</Tag>
             </div>
-            <Table
-              columns={[
-                {
-                  title: '模型',
-                  dataIndex: 'model',
-                  render: (value: unknown, record: ModelItem) => (
-                    <div className="table-primary-cell">
-                      <strong>{String(value)}</strong>
-                      <span>{record.reason ?? '缺少活跃部署'}</span>
-                    </div>
-                  ),
-                },
-                {
-                  title: '最近供应商',
-                  dataIndex: 'provider',
-                  render: (value: unknown, record: ModelItem) =>
-                    record.providers.length > 0 ? record.providers.join(', ') : (value ? String(value) : '-'),
-                },
-                {
-                  title: '请求次数',
-                  dataIndex: 'requests',
-                  render: (value: unknown) => typeof value === 'number' ? value : '-',
-                },
-                {
-                  title: '最近请求',
-                  dataIndex: 'lastRequestedAt',
-                  render: (value: unknown) => formatDateTime(typeof value === 'string' ? value : null),
-                },
-                {
-                  title: '状态',
-                  dataIndex: 'enabled',
-                  render: () => <Tag color="red">待部署</Tag>,
-                },
-              ]}
-              dataSource={missingRows}
-              loading={loading}
-              pagination={{ pageSize: 8, showSizeChanger: true }}
-              rowKey={(record) => String(record?.id ?? record?.model ?? 'deployment-gap')}
-            />
+            <MissingModelsTable rows={missingRows} loading={loading} showEndpoints={false} pendingLabel="待部署" />
           </Card>
         </div>
       )}

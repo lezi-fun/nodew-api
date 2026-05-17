@@ -1,10 +1,10 @@
-import { Button, Card, Space, Table, Tag, Toast, Typography } from '@douyinfe/semi-ui';
+import { Button, Card, Space, Tag, Toast, Typography } from '@douyinfe/semi-ui';
 import { IconRefresh } from '@douyinfe/semi-icons';
 import { useCallback, useEffect, useState } from 'react';
 
 import ConsoleTablePage from '../components/common/ConsoleTablePage';
+import MissingModelsTable from '../components/models/MissingModelsTable';
 import { api, type ModelItem } from '../lib/api';
-import { formatDateTime } from '../lib/format';
 
 export default function ModelsPage() {
   const [rows, setRows] = useState<ModelItem[]>([]);
@@ -89,55 +89,7 @@ export default function ModelsPage() {
             </div>
             <Tag color={missingRows.length > 0 ? 'red' : 'green'} size="large">{missingRows.length}</Tag>
           </div>
-          <Table
-            columns={[
-              {
-                title: '模型',
-                dataIndex: 'model',
-                render: (value: unknown, record: ModelItem) => (
-                  <div className="table-primary-cell">
-                    <strong>{String(value)}</strong>
-                    <span>{record.reason ?? '未配置可用渠道'}</span>
-                  </div>
-                ),
-              },
-              {
-                title: '最近供应商',
-                dataIndex: 'provider',
-                render: (value: unknown, record: ModelItem) =>
-                  record.providers && record.providers.length > 0 ? record.providers.join(', ') : (value ? String(value) : '-'),
-              },
-              {
-                title: '请求次数',
-                dataIndex: 'requests',
-                render: (value: unknown) => typeof value === 'number' ? value : '-',
-              },
-              {
-                title: '端点',
-                dataIndex: 'endpoints',
-                render: (value: unknown) =>
-                  Array.isArray(value) && value.length > 0 ? (
-                    <Space wrap>
-                      {value.map((endpoint) => <Tag key={String(endpoint)}>{String(endpoint)}</Tag>)}
-                    </Space>
-                  ) : '-',
-              },
-              {
-                title: '最近请求',
-                dataIndex: 'lastRequestedAt',
-                render: (value: unknown) => formatDateTime(typeof value === 'string' ? value : null),
-              },
-              {
-                title: '状态',
-                dataIndex: 'enabled',
-                render: () => <Tag color="red">待补齐</Tag>,
-              },
-            ]}
-            dataSource={missingRows}
-            loading={loading}
-            pagination={{ pageSize: 8, showSizeChanger: true }}
-            rowKey={(record) => String(record?.id ?? record?.model ?? 'missing-model')}
-          />
+          <MissingModelsTable rows={missingRows} loading={loading} />
         </Card>
       )}
     />
