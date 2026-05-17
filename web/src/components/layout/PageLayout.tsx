@@ -41,7 +41,7 @@ export default function PageLayout() {
         ) : null}
         <Layout className={`app-content-layout ${!isMobile && showSider ? 'with-sider' : ''}`}>
           <Content className="app-content">
-            <ErrorBoundary pathname={location.pathname}>
+            <ErrorBoundary pathname={`${location.pathname}${location.search}${location.hash}`}>
               <App />
             </ErrorBoundary>
           </Content>

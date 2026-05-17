@@ -103,11 +103,7 @@ const recoverableLazy = <T extends React.ComponentType<unknown>>(
 
     return module;
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    const shouldReload =
-      typeof window !== 'undefined' &&
-      /Failed to fetch dynamically imported module|Importing a module script failed|Loading chunk [\w-]+ failed/i.test(message) &&
-      !hasRetried;
+    const shouldReload = typeof window !== 'undefined' && !hasRetried;
 
     if (shouldReload) {
       markRetriedAndReload();
