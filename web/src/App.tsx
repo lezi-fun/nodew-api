@@ -33,9 +33,43 @@ const recoverableLazy = <T extends React.ComponentType<unknown>>(
   })();
   const locationUrl = typeof window !== 'undefined' ? new URL(window.location.href) : null;
   const urlRetryActive = locationUrl?.searchParams.get(retryQueryKey) === '1';
-  const clearRetryMarker = () => {
-    if (storage) {
+  const safeStorageRead = () => {
+    if (!storage) {
+      return null;
+    }
+
+    try {
+      return storage.getItem(storageKey);
+    } catch {
+      return null;
+    }
+  };
+  const safeStorageWrite = (value: string) => {
+    if (!storage) {
+      return false;
+    }
+
+    try {
+      storage.setItem(storageKey, value);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const safeStorageClear = () => {
+    if (!storage) {
+      return false;
+    }
+
+    try {
       storage.removeItem(storageKey);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const clearRetryMarker = () => {
+    if (safeStorageClear()) {
       return;
     }
 
@@ -46,10 +80,9 @@ const recoverableLazy = <T extends React.ComponentType<unknown>>(
     locationUrl.searchParams.delete(retryQueryKey);
     window.history.replaceState(window.history.state, '', locationUrl.toString());
   };
-  const hasRetried = storage ? storage.getItem(storageKey) === '1' : urlRetryActive;
+  const hasRetried = safeStorageRead() === '1' || urlRetryActive;
   const markRetriedAndReload = () => {
-    if (storage) {
-      storage.setItem(storageKey, '1');
+    if (safeStorageWrite('1')) {
       window.location.reload();
       return;
     }

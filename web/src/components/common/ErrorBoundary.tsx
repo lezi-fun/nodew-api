@@ -1,5 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
-import { Button, Space } from '@douyinfe/semi-ui';
+import { Button } from '@douyinfe/semi-ui';
 
 type ErrorBoundaryState = {
   error: Error | null;
@@ -31,10 +31,6 @@ export default class ErrorBoundary extends Component<{ children: ReactNode; path
     console.error('Console render error', error, info.componentStack);
   }
 
-  reset = () => {
-    this.setState({ error: null });
-  };
-
   render() {
     if (this.state.error) {
       return (
@@ -42,10 +38,7 @@ export default class ErrorBoundary extends Component<{ children: ReactNode; path
           <div className="route-error-card">
             <h1>控制台渲染失败</h1>
             <p>{this.state.error.message}</p>
-            <Space wrap>
-              <Button theme="solid" type="primary" onClick={this.reset}>重试</Button>
-              <Button onClick={() => window.location.reload()}>刷新页面</Button>
-            </Space>
+            <Button theme="solid" type="primary" onClick={() => window.location.reload()}>刷新页面</Button>
           </div>
         </div>
       );
