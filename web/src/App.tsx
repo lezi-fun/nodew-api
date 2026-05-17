@@ -16,9 +16,10 @@ import ResetPage from './pages/Reset';
 import SetupPage from './pages/Setup';
 
 const recoverableLazy = <T extends React.ComponentType<unknown>>(
+  retryKey: string,
   loader: () => Promise<{ default: T }>,
 ) => lazy(async () => {
-  const storageKey = 'nodew-lazy-reload-once';
+  const storageKey = `nodew-lazy-reload-once:${retryKey}`;
   const retryQueryKey = '__nodew_lazy_retry';
   const storage = (() => {
     if (typeof window === 'undefined') {
@@ -32,7 +33,7 @@ const recoverableLazy = <T extends React.ComponentType<unknown>>(
     }
   })();
   const locationUrl = typeof window !== 'undefined' ? new URL(window.location.href) : null;
-  const urlRetryActive = locationUrl?.searchParams.get(retryQueryKey) === '1';
+  const urlRetryActive = locationUrl?.searchParams.get(retryQueryKey) === retryKey;
   const safeStorageRead = () => {
     if (!storage) {
       return null;
@@ -69,16 +70,7 @@ const recoverableLazy = <T extends React.ComponentType<unknown>>(
     }
   };
   const clearRetryMarker = () => {
-    if (safeStorageClear()) {
-      return;
-    }
-
-    if (!locationUrl || !urlRetryActive) {
-      return;
-    }
-
-    locationUrl.searchParams.delete(retryQueryKey);
-    window.history.replaceState(window.history.state, '', locationUrl.toString());
+    safeStorageClear();
   };
   const hasRetried = safeStorageRead() === '1' || urlRetryActive;
   const markRetriedAndReload = () => {
@@ -92,7 +84,7 @@ const recoverableLazy = <T extends React.ComponentType<unknown>>(
       return;
     }
 
-    locationUrl.searchParams.set(retryQueryKey, '1');
+    locationUrl.searchParams.set(retryQueryKey, retryKey);
     window.location.replace(locationUrl.toString());
   };
 
@@ -114,22 +106,22 @@ const recoverableLazy = <T extends React.ComponentType<unknown>>(
   }
 });
 
-const ChannelPage = recoverableLazy(() => import('./pages/Channel'));
-const ChatPage = recoverableLazy(() => import('./pages/Chat'));
-const DashboardPage = recoverableLazy(() => import('./pages/Dashboard'));
-const DeploymentPage = recoverableLazy(() => import('./pages/Deployment'));
-const LogPage = recoverableLazy(() => import('./pages/Log'));
-const MidjourneyPage = recoverableLazy(() => import('./pages/Midjourney'));
-const ModelsPage = recoverableLazy(() => import('./pages/Models'));
-const PersonalPage = recoverableLazy(() => import('./pages/Personal'));
-const PlaygroundPage = recoverableLazy(() => import('./pages/Playground'));
-const RedemptionPage = recoverableLazy(() => import('./pages/Redemption'));
-const SettingPage = recoverableLazy(() => import('./pages/Setting'));
-const SubscriptionPage = recoverableLazy(() => import('./pages/Subscription'));
-const TaskPage = recoverableLazy(() => import('./pages/Task'));
-const TokenPage = recoverableLazy(() => import('./pages/Token'));
-const TopUpPage = recoverableLazy(() => import('./pages/TopUp'));
-const UserPage = recoverableLazy(() => import('./pages/User'));
+const ChannelPage = recoverableLazy('channel', () => import('./pages/Channel'));
+const ChatPage = recoverableLazy('chat', () => import('./pages/Chat'));
+const DashboardPage = recoverableLazy('dashboard', () => import('./pages/Dashboard'));
+const DeploymentPage = recoverableLazy('deployment', () => import('./pages/Deployment'));
+const LogPage = recoverableLazy('log', () => import('./pages/Log'));
+const MidjourneyPage = recoverableLazy('midjourney', () => import('./pages/Midjourney'));
+const ModelsPage = recoverableLazy('models', () => import('./pages/Models'));
+const PersonalPage = recoverableLazy('personal', () => import('./pages/Personal'));
+const PlaygroundPage = recoverableLazy('playground', () => import('./pages/Playground'));
+const RedemptionPage = recoverableLazy('redemption', () => import('./pages/Redemption'));
+const SettingPage = recoverableLazy('setting', () => import('./pages/Setting'));
+const SubscriptionPage = recoverableLazy('subscription', () => import('./pages/Subscription'));
+const TaskPage = recoverableLazy('task', () => import('./pages/Task'));
+const TokenPage = recoverableLazy('token', () => import('./pages/Token'));
+const TopUpPage = recoverableLazy('topup', () => import('./pages/TopUp'));
+const UserPage = recoverableLazy('user', () => import('./pages/User'));
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useContext(UserContext);
