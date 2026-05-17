@@ -689,6 +689,96 @@ const buildModelRows = async (query: z.infer<typeof listQuerySchema>) => {
   };
 };
 
+const buildMissingModelRows = async (query: z.infer<typeof listQuerySchema>) => {
+  const [activeChannels, requestedModels] = await Promise.all([
+    prisma.channel.findMany({
+      where: { status: 'ACTIVE' },
+      select: {
+        model: true,
+        metadata: true,
+      },
+    }),
+    prisma.usageLog.groupBy({
+      by: ['model'],
+      where: {
+        model: query.keyword
+          ? { not: null, contains: query.keyword, mode: 'insensitive' }
+          : { not: null },
+      },
+      _count: { _all: true },
+      _max: { createdAt: true },
+      orderBy: [
+        { _max: { createdAt: 'desc' } },
+        { model: 'asc' },
+      ],
+    }),
+  ]);
+  const activeModelSet = new Set(activeChannels.flatMap(getChannelSupportedModels));
+  const missingModels = requestedModels
+    .filter((row): row is typeof row & { model: string } => typeof row.model === 'string' && !activeModelSet.has(row.model));
+  const modelNames = missingModels.map((row) => row.model);
+  const recentLogs = modelNames.length > 0
+    ? await prisma.usageLog.findMany({
+        where: { model: { in: modelNames } },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        select: {
+          model: true,
+          provider: true,
+          endpoint: true,
+        },
+      })
+    : [];
+  const detailsByModel = new Map<string, {
+    providers: Set<string>;
+    endpoints: Set<string>;
+  }>();
+
+  for (const log of recentLogs) {
+    if (!log.model) {
+      continue;
+    }
+
+    const detail = detailsByModel.get(log.model) ?? {
+      providers: new Set<string>(),
+      endpoints: new Set<string>(),
+    };
+
+    detail.providers.add(log.provider);
+    detail.endpoints.add(log.endpoint);
+    detailsByModel.set(log.model, detail);
+  }
+
+  const rows = missingModels.map((row) => {
+    const detail = detailsByModel.get(row.model);
+    const providers = [...(detail?.providers ?? new Set<string>())].sort();
+
+    return {
+      id: row.model,
+      model: row.model,
+      provider: providers.join(', '),
+      providers,
+      channels: 0,
+      activeChannels: 0,
+      weight: 0,
+      channelIds: [] as string[],
+      enabled: false,
+      requests: row._count._all,
+      lastRequestedAt: row._max.createdAt,
+      endpoints: [...(detail?.endpoints ?? new Set<string>())].sort(),
+      reason: 'No active channel supports this requested model.',
+    };
+  });
+  const start = query.cursor ? Math.max(0, rows.findIndex((row) => row.id === query.cursor) + 1) : (query.page - 1) * query.limit;
+  const visibleRows = rows.slice(start, start + query.limit);
+  const nextRow = rows[start + query.limit];
+
+  return {
+    items: visibleRows,
+    total: rows.length,
+    nextCursor: nextRow?.id ?? null,
+  };
+};
+
 const compatibilityRoutes: FastifyPluginAsync = async (app) => {
   app.get('/models/search', { preHandler: app.requireAdminUser }, async (request) => {
     const query = listQuerySchema.parse(request.query);
@@ -701,10 +791,16 @@ const compatibilityRoutes: FastifyPluginAsync = async (app) => {
     });
   });
 
-  app.get('/models/missing', { preHandler: app.requireAdminUser }, async () => ok([], {
-    items: [],
-    total: 0,
-  }));
+  app.get('/models/missing', { preHandler: app.requireAdminUser }, async (request) => {
+    const query = listQuerySchema.parse(request.query);
+    const result = await buildMissingModelRows(query);
+
+    return ok(result.items, {
+      items: result.items,
+      total: result.total,
+      nextCursor: result.nextCursor,
+    });
+  });
 
   app.get('/models/:id', { preHandler: app.requireAdminUser }, async (request) => {
     const { id } = idParamsSchema.parse(request.params);

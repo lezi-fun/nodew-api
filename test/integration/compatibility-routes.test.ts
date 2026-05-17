@@ -309,6 +309,13 @@ describe('legacy compatibility routes', () => {
       estimatedCostCents: 12,
       latencyMs: 900,
     });
+    await createUsageLog({
+      userId: user.id,
+      requestId: 'missing-model-request',
+      model: 'gpt-missing',
+      endpoint: '/v1/chat/completions',
+      totalTokens: 9,
+    });
     const app = await createTestApp();
 
     try {
@@ -336,6 +343,11 @@ describe('legacy compatibility routes', () => {
         url: '/api/models/gpt-sidecar',
         cookies: adminCookies,
       });
+      const missingModelsResponse = await app.inject({
+        method: 'GET',
+        url: '/api/models/missing',
+        cookies: adminCookies,
+      });
       const taskResponse = await app.inject({
         method: 'GET',
         url: '/api/task/self',
@@ -360,8 +372,17 @@ describe('legacy compatibility routes', () => {
         model: 'gpt-sidecar',
         activeChannels: 1,
       });
+      expect(missingModelsResponse.statusCode).toBe(200);
+      expect(missingModelsResponse.json().data).toHaveLength(2);
+      expect(missingModelsResponse.json().data.map((row: { model: string }) => row.model).sort()).toEqual(['gpt-image-1', 'gpt-missing']);
+      expect(missingModelsResponse.json().data.find((row: { model: string }) => row.model === 'gpt-missing')).toMatchObject({
+        model: 'gpt-missing',
+        activeChannels: 0,
+        enabled: false,
+        requests: 1,
+      });
       expect(taskResponse.statusCode).toBe(200);
-      expect(taskResponse.json().data.items[0]).toMatchObject({
+      expect(taskResponse.json().data.items.find((row: { id: string }) => row.id === 'image-compat-request')).toMatchObject({
         id: 'image-compat-request',
         type: 'image',
         status: 'success',
