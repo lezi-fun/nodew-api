@@ -421,6 +421,44 @@ const relayRoutes: FastifyPluginAsync = async (app) => {
     return sendPersistedImageRelayResult(reply, relayExecution, '/v1/images/variations', requestId);
   });
 
+  app.post('/video/generations', {
+    preHandler: app.requireRelayApiKey,
+  }, async (request, reply) => {
+    const body = modelOptionalBodySchema.parse(request.body);
+    const model = body.model ?? 'video-default';
+    const relayExecution = await relayOpenAIJsonEndpoint({
+      userId: request.currentUser!.id,
+      apiKeyId: request.currentApiKey!.id,
+      requestId: getRequestId(request),
+      endpoint: '/v1/video/generations',
+      upstreamPath: 'video/generations',
+      model,
+      body: { ...body, model },
+    });
+
+    applyRelayAttemptHeaders(reply, relayExecution);
+    return sendRelayResult(reply, relayExecution, body.stream);
+  });
+
+  app.post('/videos', {
+    preHandler: app.requireRelayApiKey,
+  }, async (request, reply) => {
+    const body = modelOptionalBodySchema.parse(request.body);
+    const model = body.model ?? 'video-default';
+    const relayExecution = await relayOpenAIJsonEndpoint({
+      userId: request.currentUser!.id,
+      apiKeyId: request.currentApiKey!.id,
+      requestId: getRequestId(request),
+      endpoint: '/v1/videos',
+      upstreamPath: 'videos',
+      model,
+      body: { ...body, model },
+    });
+
+    applyRelayAttemptHeaders(reply, relayExecution);
+    return sendRelayResult(reply, relayExecution, body.stream);
+  });
+
   app.post('/moderations', {
     preHandler: app.requireRelayApiKey,
   }, async (request, reply) => {

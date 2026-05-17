@@ -743,6 +743,65 @@ describe('relay integration', () => {
     }
   });
 
+  it('proxies video generation requests through the generic OpenAI relay path', async () => {
+    const user = await createUser();
+    const { apiKey } = await createApiKey(user.id);
+    await createChannel({
+      model: null,
+      metadata: {
+        models: ['public-video'],
+        modelMap: {
+          'public-video': 'video-upstream',
+        },
+      },
+    });
+    const fetchMock = mockFetchOnce({
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+      body: {
+        id: 'video_test',
+        object: 'video.generation',
+        data: [{ url: '/assets/fixed.mp4' }],
+        usage: {
+          prompt_tokens: 8,
+          completion_tokens: 0,
+          total_tokens: 8,
+        },
+      },
+    });
+    const app = await createTestApp();
+
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/v1/video/generations',
+        headers: {
+          authorization: `Bearer ${apiKey}`,
+          'x-request-id': 'relay-video-generation-request',
+        },
+        payload: {
+          model: 'public-video',
+          prompt: 'make a test video',
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(fetchMock.mock.calls[0]?.[0]).toBe('https://example.test/v1/video/generations');
+      expect(JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string).model).toBe('video-upstream');
+      expect(response.json().data[0].url).toBe('/assets/fixed.mp4');
+
+      const log = await prisma.usageLog.findUnique({
+        where: { requestId: 'relay-video-generation-request' },
+      });
+
+      expect(log?.success).toBe(true);
+      expect(log?.endpoint).toBe('/v1/video/generations');
+      expect(log?.totalTokens).toBe(8);
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
   it('keeps image relay responses usable when object storage upload fails', async () => {
     const originalEnv = { ...process.env };
 
