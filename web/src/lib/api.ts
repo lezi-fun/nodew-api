@@ -268,11 +268,16 @@ export type ChannelTestResult = {
   errorMessage: string | null;
 };
 
+export type UpstreamModelItem = {
+  id: string;
+  ownedBy: string | null;
+};
+
 export type ChannelModelsResult = {
   statusCode: number;
   success: boolean;
   errorMessage: string | null;
-  items: Array<{ id: string; ownedBy: string | null }>;
+  items: UpstreamModelItem[];
   total: number;
 };
 
@@ -406,6 +411,40 @@ export const api = {
     (await client.post<{ item: ChannelItem }>(`/api/channels/${id}/copy`, payload ?? {})).data,
   testChannel: async (id: string, payload?: { model?: string }) =>
     (await client.post<{ item: ChannelTestResult }>(`/api/channels/${id}/test`, payload ?? {})).data,
+  fetchChannelModels: async (id: string, model?: string) =>
+    (await client.get<{ item: ChannelModelsResult }>(`/api/channels/${id}/models`, { params: model ? { model } : undefined })).data,
+  fetchUpstreamModels: async (payload: {
+    provider: string;
+    baseUrl?: string | null;
+    apiKey: string;
+    metadata?: Record<string, unknown> | null;
+  }): Promise<{ item: ChannelModelsResult }> => {
+    const response = await client.post<{
+      data?: string[];
+      items?: string[];
+      total?: number;
+      statusCode?: number;
+      success?: boolean;
+      message?: string;
+    }>('/api/channel/fetch_models', payload);
+    const rawModels = response.data.items ?? response.data.data ?? [];
+    const items = rawModels
+      .map((model) => String(model ?? '').trim())
+      .filter(Boolean)
+      .map((id) => ({ id, ownedBy: null }));
+    const statusCode = response.data.statusCode ?? 200;
+
+    return {
+      ...response.data,
+      item: {
+        statusCode,
+        success: statusCode >= 200 && statusCode < 300,
+        errorMessage: statusCode >= 200 && statusCode < 300 ? null : '获取模型失败',
+        items,
+        total: response.data.total ?? items.length,
+      },
+    };
+  },
   syncChannelModels: async (id: string, model?: string) =>
     (await client.post<{ item: ChannelModelsResult }>(`/api/channels/${id}/models/sync`, undefined, { params: model ? { model } : undefined })).data,
   listTokens: async () => (await client.get<ListResponse<TokenItem>>('/api/token')).data,

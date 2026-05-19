@@ -1,10 +1,11 @@
 import { Button, Input, Modal, Select, Space, Tag, TextArea, Toast, Typography } from '@douyinfe/semi-ui';
 import { IconCopy, IconDelete, IconEdit, IconPlay, IconRefresh } from '@douyinfe/semi-icons';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import ConsoleTablePage from '../components/common/ConsoleTablePage';
-import { api, type ChannelItem, type ChannelPayload } from '../lib/api';
+import UpstreamModelSelectModal from '../components/models/UpstreamModelSelectModal';
+import { api, type ChannelItem, type ChannelPayload, type UpstreamModelItem } from '../lib/api';
 import { formatDateTime } from '../lib/format';
 
 type ChannelDraft = {
@@ -39,6 +40,22 @@ const providerOptions = [
   'google',
 ];
 
+const upstreamModelProviders = new Set([
+  'openai',
+  'openai-compatible',
+  'openrouter',
+  'deepseek',
+  'siliconflow',
+  'xai',
+  'moonshot',
+  'mistral',
+  'perplexity',
+  'together',
+  'groq',
+  'fireworks',
+  'ollama',
+]);
+
 const emptyDraft: ChannelDraft = {
   name: '',
   provider: 'openai',
@@ -54,6 +71,58 @@ const emptyDraft: ChannelDraft = {
 
 const stringifyMetadata = (metadata: ChannelItem['metadata']) =>
   JSON.stringify(metadata ?? { models: [] }, null, 2);
+
+const readMetadataModels = (value: string) => {
+  if (!value.trim()) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return [];
+    }
+
+    const models = (parsed as Record<string, unknown>).models;
+
+    if (!Array.isArray(models)) {
+      return [];
+    }
+
+    return models.filter((model): model is string => typeof model === 'string' && model.trim().length > 0);
+  } catch {
+    return [];
+  }
+};
+
+const writeMetadataModels = (value: string, models: string[]) => {
+  const trimmedModels = Array.from(new Set(models.map((model) => model.trim()).filter(Boolean)));
+  const base = value.trim()
+    ? (() => {
+        try {
+          const parsed = JSON.parse(value) as unknown;
+
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            return parsed as Record<string, unknown>;
+          }
+        } catch {
+          // fall through
+        }
+
+        return { models: [] as string[] };
+      })()
+    : { models: [] as string[] };
+
+  return JSON.stringify(
+    {
+      ...base,
+      models: trimmedModels,
+    },
+    null,
+    2,
+  );
+};
 
 const toDraft = (channel?: ChannelItem): ChannelDraft => {
   if (!channel) {
@@ -111,8 +180,12 @@ export default function ChannelPage() {
   const [saving, setSaving] = useState(false);
   const [testingId, setTestingId] = useState<string | null>(null);
   const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [fetchingModels, setFetchingModels] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [upstreamModels, setUpstreamModels] = useState<UpstreamModelItem[]>([]);
+  const [upstreamModelModalVisible, setUpstreamModelModalVisible] = useState(false);
   const [draft, setDraft] = useState<ChannelDraft>(emptyDraft);
+  const fetchRequestSeq = useRef(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -163,18 +236,108 @@ export default function ChannelPage() {
   const providerCount = new Set(rows.map((row) => row.provider)).size;
 
   const openCreate = () => {
+    fetchRequestSeq.current += 1;
     setDraft({ ...emptyDraft });
+    setUpstreamModels([]);
+    setUpstreamModelModalVisible(false);
     setModalVisible(true);
   };
 
   const openEdit = (channel: ChannelItem) => {
+    fetchRequestSeq.current += 1;
     setDraft(toDraft(channel));
+    setUpstreamModels([]);
+    setUpstreamModelModalVisible(false);
     setModalVisible(true);
   };
 
   const closeModal = () => {
+    fetchRequestSeq.current += 1;
     setModalVisible(false);
     setSaving(false);
+    setFetchingModels(false);
+    setUpstreamModelModalVisible(false);
+  };
+
+  const selectedMetadataModels = useMemo(
+    () => readMetadataModels(draft.metadata),
+    [draft.metadata],
+  );
+
+  const canFetchUpstreamModels = upstreamModelProviders.has(draft.provider);
+
+  const fetchUpstreamModels = async () => {
+    if (!canFetchUpstreamModels) {
+      Toast.info('当前提供商不支持模型发现');
+      return;
+    }
+
+    if (!draft.id && !draft.apiKey.trim()) {
+      Toast.error('请先填写 API Key');
+      return;
+    }
+
+    setFetchingModels(true);
+    const requestSeq = ++fetchRequestSeq.current;
+    try {
+      const response = draft.id
+        ? await api.fetchChannelModels(draft.id)
+        : await api.fetchUpstreamModels({
+            provider: draft.provider,
+            baseUrl: draft.baseUrl.trim() || null,
+            apiKey: draft.apiKey.trim(),
+            metadata: (() => {
+              try {
+                return draft.metadata.trim() ? JSON.parse(draft.metadata) as Record<string, unknown> : null;
+              } catch {
+                return null;
+              }
+            })(),
+          });
+
+      const result = response.item;
+      if (!result.success) {
+        Toast.error(result.errorMessage ?? '获取上游模型失败');
+        return;
+      }
+
+      if (requestSeq !== fetchRequestSeq.current || !modalVisible) {
+        return;
+      }
+
+      if (result.items.length === 0) {
+        Toast.info('暂无可选模型');
+        return;
+      }
+
+      setUpstreamModels(result.items);
+      setUpstreamModelModalVisible(true);
+    } catch (error) {
+      if (requestSeq !== fetchRequestSeq.current) {
+        return;
+      }
+
+      Toast.error(error instanceof Error ? error.message : '获取上游模型失败');
+    } finally {
+      if (requestSeq === fetchRequestSeq.current) {
+        setFetchingModels(false);
+      }
+    }
+  };
+
+  const applySelectedModels = (models: string[]) => {
+    setDraft((current) => {
+      const nextMetadata = writeMetadataModels(current.metadata, models);
+      const nextModel = current.model.trim() || (models.length === 1 ? models[0] ?? '' : '');
+
+      return {
+        ...current,
+        model: nextModel,
+        metadata: nextMetadata,
+      };
+    });
+    setUpstreamModelModalVisible(false);
+    Toast.success('上游模型已写入');
   };
 
   const submitDraft = async () => {
@@ -384,6 +547,38 @@ export default function ChannelPage() {
             <Input value={draft.rateLimitPerMin} placeholder="留空不限制" onChange={(rateLimitPerMin) => setDraft((current) => ({ ...current, rateLimitPerMin }))} />
           </label>
         </div>
+        <div className="form-block">
+          <div className="table-toolbar" style={{ padding: 0, marginBottom: 8 }}>
+            <div>
+              <span style={{ display: 'block', fontWeight: 600 }}>上游模型</span>
+              <Typography.Text type="tertiary" className="table-note">
+                拉取上游返回的模型列表后，可按需勾选写入 `metadata.models`。
+              </Typography.Text>
+            </div>
+            <Space wrap>
+              <Tag color={selectedMetadataModels.length > 0 ? 'blue' : 'grey'}>
+                {selectedMetadataModels.length}
+              </Tag>
+              <Button
+                loading={fetchingModels}
+                disabled={!canFetchUpstreamModels}
+                onClick={() => void fetchUpstreamModels()}
+              >
+                拉取上游模型
+              </Button>
+            </Space>
+          </div>
+          {selectedMetadataModels.length > 0 ? (
+            <Space wrap>
+              {selectedMetadataModels.slice(0, 8).map((model) => (
+                <Tag key={model}>{model}</Tag>
+              ))}
+              {selectedMetadataModels.length > 8 ? <Tag>+{selectedMetadataModels.length - 8}</Tag> : null}
+            </Space>
+          ) : (
+            <Typography.Text type="tertiary">当前未配置可路由模型</Typography.Text>
+          )}
+        </div>
         <label className="form-block">
           <span>Metadata JSON</span>
           <TextArea rows={8} value={draft.metadata} onChange={(metadata) => setDraft((current) => ({ ...current, metadata }))} />
@@ -392,6 +587,13 @@ export default function ChannelPage() {
           常用字段：models、modelMap、headers、costPerMillionTokensCents、autoDisableFailureThreshold。
         </Typography.Text>
       </Modal>
+      <UpstreamModelSelectModal
+        visible={upstreamModelModalVisible}
+        models={upstreamModels}
+        selected={selectedMetadataModels}
+        onConfirm={applySelectedModels}
+        onCancel={() => setUpstreamModelModalVisible(false)}
+      />
     </>
   );
 }

@@ -278,6 +278,43 @@ describe('legacy compatibility routes', () => {
     }
   });
 
+  it('serves legacy upstream model discovery for new channels', async () => {
+    const admin = await createAdminUser();
+    const token = await createSessionForUser(admin.id);
+    const fetchMock = mockFetchOnce({
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+      body: {
+        data: [
+          { id: 'gpt-new' },
+          { id: 'gpt-new-mini' },
+        ],
+      },
+    });
+    const app = await createTestApp();
+
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/channel/fetch_models',
+        cookies: { nodew_session: app.signCookie(token) },
+        payload: {
+          provider: 'openai',
+          baseUrl: 'https://legacy-models.example.test/v1',
+          apiKey: 'sk-test',
+        },
+      });
+
+      expect(fetchMock.mock.calls[0]?.[0]).toBe('https://legacy-models.example.test/v1/models');
+      expect(response.statusCode).toBe(200);
+      expect(response.json().data).toEqual(['gpt-new', 'gpt-new-mini']);
+      expect(response.json().items).toEqual(['gpt-new', 'gpt-new-mini']);
+      expect(response.json().total).toBe(2);
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
   it('serves public content, pricing, model metadata, and task compatibility routes', async () => {
     const admin = await createAdminUser();
     const user = await createUser();
