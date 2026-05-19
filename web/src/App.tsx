@@ -1,5 +1,5 @@
-import { Suspense, lazy, useContext, useMemo } from 'react';
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Suspense, lazy, useContext, useEffect, useMemo } from 'react';
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 
 import SetupCheck from './components/layout/SetupCheck';
 import Loading from './components/common/Loading';
@@ -15,12 +15,13 @@ import ResetConfirmPage from './pages/ResetConfirm';
 import ResetPage from './pages/Reset';
 import SetupPage from './pages/Setup';
 
+const LAZY_RETRY_QUERY_KEY = '__nodew_lazy_retry';
+
 const recoverableLazy = <T extends React.ComponentType<unknown>>(
   retryKey: string,
   loader: () => Promise<{ default: T }>,
 ) => lazy(async () => {
   const storageKey = `nodew-lazy-reload-once:${retryKey}`;
-  const retryQueryKey = '__nodew_lazy_retry';
   const storage = (() => {
     if (typeof window === 'undefined') {
       return null;
@@ -33,7 +34,7 @@ const recoverableLazy = <T extends React.ComponentType<unknown>>(
     }
   })();
   const locationUrl = typeof window !== 'undefined' ? new URL(window.location.href) : null;
-  const urlRetryActive = locationUrl?.searchParams.get(retryQueryKey) === retryKey;
+  const urlRetryActive = locationUrl?.searchParams.get(LAZY_RETRY_QUERY_KEY) === retryKey;
   const safeStorageRead = () => {
     if (!storage) {
       return null;
@@ -84,7 +85,7 @@ const recoverableLazy = <T extends React.ComponentType<unknown>>(
       return;
     }
 
-    locationUrl.searchParams.set(retryQueryKey, retryKey);
+    locationUrl.searchParams.set(LAZY_RETRY_QUERY_KEY, retryKey);
     window.location.replace(locationUrl.toString());
   };
 
@@ -172,8 +173,28 @@ function AuthRedirect({ children }: { children: React.ReactNode }) {
 export default function App() {
   const { status, loading } = useContext(StatusContext);
   const location = useLocation();
+  const navigate = useNavigate();
 
   const setupRequired = useMemo(() => status?.setup?.isInitialized === false, [status?.setup?.isInitialized]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+
+    if (!params.has(LAZY_RETRY_QUERY_KEY)) {
+      return;
+    }
+
+    params.delete(LAZY_RETRY_QUERY_KEY);
+
+    navigate(
+      {
+        pathname: location.pathname,
+        search: params.toString() ? `?${params.toString()}` : '',
+        hash: location.hash,
+      },
+      { replace: true },
+    );
+  }, [location.hash, location.pathname, location.search, navigate]);
 
   if (loading) {
     return <Loading />;
