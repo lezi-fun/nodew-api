@@ -5,6 +5,11 @@ export type SetupStatus = {
   hasAdmin: boolean;
 };
 
+export type EmailVerificationRequestResult = {
+  success: boolean;
+  verificationToken?: string;
+};
+
 export type ServiceStatus = {
   status: string;
   service: string;
@@ -30,6 +35,7 @@ export type CurrentUser = {
   email: string;
   username: string;
   displayName: string | null;
+  emailVerifiedAt: string | null;
   role: 'USER' | 'ADMIN';
   status: 'ACTIVE' | 'DISABLED';
   quotaRemaining: string;
@@ -394,6 +400,17 @@ export const api = {
     (await client.post('/api/user/password/forgot', payload)).data,
   resetPassword: async (payload: { token: string; password: string }) =>
     (await client.post('/api/user/password/reset', payload)).data,
+  requestEmailVerification: async () => {
+    const response = await client.post<EmailVerificationRequestResult>('/api/user/email/verification');
+    const verificationToken = response.headers['x-email-verification-token'];
+
+    return {
+      ...response.data,
+      verificationToken: typeof verificationToken === 'string' ? verificationToken : undefined,
+    };
+  },
+  verifyEmail: async (payload: { token: string }) =>
+    (await client.post<{ success: boolean }>('/api/user/email/verify', payload)).data,
   logout: async () => (await client.post<{ success: boolean }>('/api/user/logout')).data,
   getCurrentUser: async () => (await client.get<{ user: CurrentUser }>('/api/user/self')).data,
   getStatus: async () => (await client.get<AppStatus>('/api/status')).data,

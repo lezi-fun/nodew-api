@@ -40,6 +40,9 @@ model User {
   passwordHash                String
   displayName                 String?
   emailVerifiedAt             DateTime?
+  emailVerificationTokenHash   String?      @unique
+  emailVerificationTokenExpiresAt DateTime?
+  emailVerificationRequestedAt DateTime?
   passwordResetTokenHash      String?
   passwordResetTokenExpiresAt DateTime?
   passwordResetRequestedAt    DateTime?

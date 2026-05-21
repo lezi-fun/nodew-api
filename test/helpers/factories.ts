@@ -22,6 +22,7 @@ export const createUser = async (overrides: Partial<{
   username: string;
   password: string;
   displayName: string | null;
+  emailVerifiedAt: Date | null;
   role: UserRole;
   status: UserStatus;
   accessToken: string | null;
@@ -37,6 +38,7 @@ export const createUser = async (overrides: Partial<{
       username: overrides.username ?? `user_${suffix}`,
       passwordHash: hashPassword(password),
       displayName: overrides.displayName ?? 'Test User',
+      emailVerifiedAt: overrides.emailVerifiedAt === undefined ? null : overrides.emailVerifiedAt,
       role: overrides.role ?? 'USER',
       status: overrides.status ?? 'ACTIVE',
       accessToken: overrides.accessToken ?? null,
@@ -49,6 +51,7 @@ export const createUser = async (overrides: Partial<{
 export const createNamedUser = async (email: string, username: string, overrides: Partial<{
   password: string;
   displayName: string | null;
+  emailVerifiedAt: Date | null;
   role: UserRole;
   status: UserStatus;
   accessToken: string | null;
@@ -61,6 +64,7 @@ export const createNamedUser = async (email: string, username: string, overrides
 export const createNamedAdminUser = async (email: string, username: string, overrides: Partial<{
   password: string;
   displayName: string | null;
+  emailVerifiedAt: Date | null;
   accessToken: string | null;
 }> = {}) => createAdminUser({
   ...overrides,
@@ -164,12 +168,14 @@ export const createAdminUser = async (overrides: Partial<{
   username: string;
   password: string;
   displayName: string | null;
+  emailVerifiedAt: Date | null;
   accessToken: string | null;
   groupId: string | null;
   quotaRemaining: bigint;
 }> = {}) => createUser({
   ...overrides,
   role: 'ADMIN',
+  emailVerifiedAt: overrides.emailVerifiedAt === undefined ? new Date() : overrides.emailVerifiedAt,
 });
 
 export const createSessionForUser = async (userId: string) => {

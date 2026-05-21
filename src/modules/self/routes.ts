@@ -21,6 +21,7 @@ const selfSelect = {
   email: true,
   username: true,
   displayName: true,
+  emailVerifiedAt: true,
   role: true,
   status: true,
   quotaRemaining: true,
@@ -35,6 +36,7 @@ const serializeUser = (user: {
   email: string;
   username: string;
   displayName: string | null;
+  emailVerifiedAt: Date | null;
   role: 'USER' | 'ADMIN';
   status: 'ACTIVE' | 'DISABLED';
   quotaRemaining: bigint;

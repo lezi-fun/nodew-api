@@ -23,7 +23,7 @@ export default function RegisterPage() {
                 password: values.password,
                 displayName: values.displayName,
               });
-              Toast.success('注册成功');
+              Toast.success('注册成功，请登录后完成邮箱验证');
               navigate('/login');
             } catch (error) {
               Toast.error(error instanceof Error ? error.message : '注册失败');

@@ -3,14 +3,17 @@ import { z } from 'zod';
 
 import {
   generateAccessToken,
+  generateEmailVerificationToken,
   generatePasswordResetToken,
   getRedemptionCodePrefix,
+  hashEmailVerificationToken,
   hashPassword,
   verifyPassword,
   verifyRedemptionCode,
 } from '../../lib/crypto.js';
 import { prisma } from '../../lib/prisma.js';
 import { clearSessionCookie, setSessionCookie } from '../../plugins/auth.js';
+import { canUseEmailVerificationToken, setEmailVerificationToken } from './email-verification.js';
 import { setPasswordResetToken, updateUserPassword, canUsePasswordResetToken } from './password-reset.js';
 import { ensureRegistrationAllowed, ensureUserIdentityAvailable } from './registration.js';
 
@@ -36,6 +39,10 @@ const resetPasswordBodySchema = z.object({
   password: z.string().min(8).max(128),
 });
 
+const verifyEmailBodySchema = z.object({
+  token: z.string().trim().min(1).max(256),
+});
+
 const redeemRedemptionBodySchema = z.object({
   code: z.string().trim().min(1).max(128),
 });
@@ -45,6 +52,7 @@ const authUserSelect = {
   email: true,
   username: true,
   displayName: true,
+  emailVerifiedAt: true,
   role: true,
   status: true,
   lastLoginAt: true,
@@ -60,6 +68,7 @@ const serializeAuthUser = (user: {
   email: string;
   username: string;
   displayName: string | null;
+  emailVerifiedAt: Date | null;
   role: 'USER' | 'ADMIN';
   status: 'ACTIVE' | 'DISABLED';
   lastLoginAt: Date | null;
@@ -185,6 +194,73 @@ const authRoutes: FastifyPluginAsync = async (app) => {
     await updateUserPassword({
       userId: user.id,
       password: body.password,
+    });
+
+    return {
+      success: true,
+    };
+  });
+
+  app.post('/user/email/verification', {
+    preHandler: app.requireUser,
+  }, async (request, reply) => {
+    const currentUser = request.currentUser!;
+
+    if (currentUser.status !== 'ACTIVE') {
+      throw app.httpErrors.forbidden('User is disabled');
+    }
+
+    if (currentUser.emailVerifiedAt) {
+      return {
+        success: true,
+      };
+    }
+
+    const token = generateEmailVerificationToken();
+    await setEmailVerificationToken(currentUser.id, token);
+
+    if (process.env.NODE_ENV !== 'production') {
+      reply.header('x-email-verification-token', token);
+    } else {
+      request.log.info({
+        userId: currentUser.id,
+        email: currentUser.email,
+        verificationPath: `/verify-email?token=${token}`,
+      }, 'Email verification token generated');
+    }
+
+    return {
+      success: true,
+    };
+  });
+
+  app.post('/user/email/verify', async (request) => {
+    const body = verifyEmailBodySchema.parse(request.body);
+    const tokenHash = hashEmailVerificationToken(body.token);
+
+    const matchedUser = await prisma.user.findUnique({
+      where: { emailVerificationTokenHash: tokenHash },
+      select: {
+        id: true,
+        status: true,
+        emailVerifiedAt: true,
+        emailVerificationTokenHash: true,
+        emailVerificationTokenExpiresAt: true,
+      },
+    });
+
+    if (!matchedUser || matchedUser.status !== 'ACTIVE' || !canUseEmailVerificationToken(matchedUser, body.token)) {
+      throw app.httpErrors.badRequest('Email verification token is invalid or expired');
+    }
+
+    await prisma.user.update({
+      where: { id: matchedUser.id },
+      data: {
+        emailVerifiedAt: matchedUser.emailVerifiedAt ?? new Date(),
+        emailVerificationTokenHash: null,
+        emailVerificationTokenExpiresAt: null,
+        emailVerificationRequestedAt: null,
+      },
     });
 
     return {

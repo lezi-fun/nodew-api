@@ -15,6 +15,7 @@ export default function PersonalPage() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
+  const [sendingVerification, setSendingVerification] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
 
   const saveProfile = async () => {
@@ -54,6 +55,28 @@ export default function PersonalPage() {
     }
   };
 
+  const requestVerification = async () => {
+    setSendingVerification(true);
+    try {
+      const response = await api.requestEmailVerification();
+
+      if (response.verificationToken) {
+        await api.verifyEmail({ token: response.verificationToken });
+        await refresh();
+        Toast.success('邮箱已验证');
+        return;
+      }
+
+      Toast.success('验证链接已发送');
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : '发送验证链接失败');
+    } finally {
+      setSendingVerification(false);
+    }
+  };
+
+  const emailVerifiedAt = user?.emailVerifiedAt;
+
   return (
     <main className="console-page personal-page">
       <section className="console-hero">
@@ -88,6 +111,26 @@ export default function PersonalPage() {
               保存资料
             </Button>
           </div>
+        </Card>
+        <Card title="邮箱验证" bordered={false} className="dashboard-card">
+          <Space vertical align="start">
+            <Typography.Text type="tertiary">验证状态</Typography.Text>
+            <Typography.Title heading={4} style={{ margin: 0 }}>
+              {emailVerifiedAt ? '已验证' : '未验证'}
+            </Typography.Title>
+            <Typography.Text type="tertiary">
+              {emailVerifiedAt ? `验证时间 ${formatDateTime(emailVerifiedAt)}` : '完成验证后，账号安全状态会更新。'}
+            </Typography.Text>
+            <Button
+              theme="solid"
+              type="primary"
+              loading={sendingVerification}
+              disabled={Boolean(emailVerifiedAt)}
+              onClick={() => void requestVerification()}
+            >
+              {emailVerifiedAt ? '邮箱已验证' : '发送验证链接'}
+            </Button>
+          </Space>
         </Card>
         <Card title="密码安全" bordered={false} className="dashboard-card">
           <div className="form-grid">

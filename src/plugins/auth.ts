@@ -14,6 +14,7 @@ type CurrentUser = {
   email: string;
   username: string;
   displayName: string | null;
+  emailVerifiedAt: Date | null;
   role: 'USER' | 'ADMIN';
   status: 'ACTIVE' | 'DISABLED';
   quotaRemaining: bigint;
@@ -165,15 +166,16 @@ const authenticateApiKey = async (token: string) => {
       expiresAt: true,
       revokedAt: true,
       user: {
-        select: {
-          id: true,
-          email: true,
-          username: true,
-          displayName: true,
-          role: true,
-          status: true,
-          quotaRemaining: true,
-          quotaUsed: true,
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        displayName: true,
+        emailVerifiedAt: true,
+        role: true,
+        status: true,
+        quotaRemaining: true,
+        quotaUsed: true,
         },
       },
     },
@@ -229,6 +231,7 @@ const authenticateSession = async (request: FastifyRequest) => {
       email: true,
       username: true,
       displayName: true,
+      emailVerifiedAt: true,
       role: true,
       status: true,
       quotaRemaining: true,

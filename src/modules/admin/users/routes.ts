@@ -56,6 +56,7 @@ const userSelect = {
   email: true,
   username: true,
   displayName: true,
+  emailVerifiedAt: true,
   role: true,
   status: true,
   group: {
@@ -74,6 +75,7 @@ const serializeUser = (user: {
   email: string;
   username: string;
   displayName: string | null;
+  emailVerifiedAt: Date | null;
   role: 'USER' | 'ADMIN';
   status: 'ACTIVE' | 'DISABLED';
   group: { id: string; name: string } | null;

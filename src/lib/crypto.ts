@@ -45,6 +45,21 @@ export const verifyPasswordResetToken = (token: string, storedHash: string) => {
   return timingSafeEqual(tokenBuffer, hashBuffer);
 };
 
+export const generateEmailVerificationToken = () => randomBytes(24).toString('hex');
+
+export const hashEmailVerificationToken = (token: string) => createHash('sha256').update(token).digest('hex');
+
+export const verifyEmailVerificationToken = (token: string, storedHash: string) => {
+  const tokenBuffer = Buffer.from(hashEmailVerificationToken(token), 'hex');
+  const hashBuffer = Buffer.from(storedHash, 'hex');
+
+  if (tokenBuffer.length !== hashBuffer.length) {
+    return false;
+  }
+
+  return timingSafeEqual(tokenBuffer, hashBuffer);
+};
+
 export const generateApiKey = () => `${TOKEN_PREFIX}${randomBytes(24).toString('hex')}`;
 
 export const hashApiKey = (apiKey: string) => hashPassword(apiKey);

@@ -129,6 +129,71 @@ describe('auth lifecycle integration', () => {
     }
   });
 
+  it('issues and consumes an email verification token for the current user', async () => {
+    const user = await createUser({ email: 'verify@test.local', username: 'verify_user' });
+    const sessionToken = await createSessionForUser(user.id);
+    const app = await createTestApp();
+
+    try {
+      const requestResponse = await app.inject({
+        method: 'POST',
+        url: '/api/user/email/verification',
+        cookies: {
+          nodew_session: app.signCookie(sessionToken),
+        },
+      });
+
+      expect(requestResponse.statusCode).toBe(200);
+      expect(requestResponse.json().success).toBe(true);
+
+      const verificationToken = requestResponse.headers['x-email-verification-token'] as string;
+      expect(verificationToken).toBeTruthy();
+
+      const storedUser = await prisma.user.findUnique({
+        where: { email: 'verify@test.local' },
+        select: {
+          emailVerifiedAt: true,
+          emailVerificationTokenHash: true,
+          emailVerificationTokenExpiresAt: true,
+          emailVerificationRequestedAt: true,
+        },
+      });
+
+      expect(storedUser?.emailVerifiedAt).toBeNull();
+      expect(storedUser?.emailVerificationTokenHash).toBeTruthy();
+      expect(storedUser?.emailVerificationTokenExpiresAt).not.toBeNull();
+      expect(storedUser?.emailVerificationRequestedAt).not.toBeNull();
+
+      const verifyResponse = await app.inject({
+        method: 'POST',
+        url: '/api/user/email/verify',
+        payload: {
+          token: verificationToken,
+        },
+      });
+
+      expect(verifyResponse.statusCode).toBe(200);
+      expect(verifyResponse.json().success).toBe(true);
+
+      const verifiedUser = await prisma.user.findUnique({
+        where: { email: 'verify@test.local' },
+        select: {
+          emailVerifiedAt: true,
+          emailVerificationTokenHash: true,
+          emailVerificationTokenExpiresAt: true,
+          emailVerificationRequestedAt: true,
+        },
+      });
+
+      expect(verifiedUser?.emailVerifiedAt).not.toBeNull();
+      expect(verifiedUser?.emailVerificationTokenHash).toBeNull();
+      expect(verifiedUser?.emailVerificationTokenExpiresAt).toBeNull();
+      expect(verifiedUser?.emailVerificationRequestedAt).toBeNull();
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
   it('resets password with a valid token and clears reset state', async () => {
     await createUser({ email: 'reset@test.local', username: 'reset_user', password: 'oldpassword' });
     const app = await createTestApp();
@@ -181,6 +246,43 @@ describe('auth lifecycle integration', () => {
       expect(storedUser?.passwordResetTokenExpiresAt).toBeNull();
       expect(storedUser?.passwordResetRequestedAt).toBeNull();
       expect(storedUser?.accessToken).toBeTruthy();
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
+  it('rejects expired email verification tokens', async () => {
+    const user = await createUser({ email: 'expired-verify@test.local', username: 'expired_verify_user' });
+    const sessionToken = await createSessionForUser(user.id);
+    const app = await createTestApp();
+
+    try {
+      const requestResponse = await app.inject({
+        method: 'POST',
+        url: '/api/user/email/verification',
+        cookies: {
+          nodew_session: app.signCookie(sessionToken),
+        },
+      });
+      const verificationToken = requestResponse.headers['x-email-verification-token'] as string;
+
+      await prisma.user.update({
+        where: { email: 'expired-verify@test.local' },
+        data: {
+          emailVerificationTokenExpiresAt: new Date(Date.now() - 1000),
+        },
+      });
+
+      const verifyResponse = await app.inject({
+        method: 'POST',
+        url: '/api/user/email/verify',
+        payload: {
+          token: verificationToken,
+        },
+      });
+
+      expect(verifyResponse.statusCode).toBe(400);
+      expect(verifyResponse.json().message).toBe('Email verification token is invalid or expired');
     } finally {
       await closeTestApp(app);
     }

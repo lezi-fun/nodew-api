@@ -90,6 +90,7 @@ export const ensureDevelopmentSeed = async () => {
       update: {
         passwordHash: hashPassword(devAdmin.password),
         displayName: devAdmin.displayName,
+        emailVerifiedAt: new Date(),
         role: 'ADMIN',
         status: 'ACTIVE',
       },
@@ -98,6 +99,7 @@ export const ensureDevelopmentSeed = async () => {
         username,
         passwordHash: hashPassword(devAdmin.password),
         displayName: devAdmin.displayName,
+        emailVerifiedAt: new Date(),
         role: 'ADMIN',
         status: 'ACTIVE',
         accessToken: generateAccessToken(),
