@@ -41,6 +41,7 @@ Current capabilities include:
 - OpenAI-compatible relay endpoints under `/v1`, including chat completions and streaming responses.
 - Channel management with provider metadata, weights, priorities, health checks, and model sync.
 - Token management with quota, expiry, and model allow/block metadata.
+- Account security flows, including email verification, password reset, and session management.
 - Usage logs and billing-oriented request accounting.
 - Admin console for dashboard, channels, tokens, users, redemptions, logs, models, deployment, settings, wallet, and playground.
 - PostgreSQL by default, with a dedicated MySQL Prisma schema for MySQL deployments.
@@ -75,6 +76,8 @@ LOG_LEVEL=info
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/nodew_api?schema=public"
 SESSION_SECRET="nodew-dev-session-secret"
 ```
+
+There are no SMTP or Resend-specific environment variables yet. Email verification currently stores and validates tokens, but external mail delivery is not wired up.
 
 Prepare Prisma:
 

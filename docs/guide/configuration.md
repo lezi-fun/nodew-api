@@ -14,6 +14,12 @@ NodEW-api reads runtime configuration from environment variables.
 | `CHANNEL_SECRET` | Recommended | Secret material used for channel credential handling. |
 | `LOG_LEVEL` | No | Pino log level, for example `info` or `debug`. |
 
+## Account security
+
+Email verification token storage and validation are implemented, but no SMTP or Resend delivery adapter is wired in yet.
+
+In development and test environments, verification tokens are surfaced in responses so the flow can be completed without an external mail provider.
+
 ## Object storage
 
 Object storage is optional and disabled by default. Enable it when generated images, videos, task files, or future upload assets must survive Serverless function restarts.

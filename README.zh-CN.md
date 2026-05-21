@@ -41,6 +41,7 @@ NodEW-api 使用 Fastify、Prisma、TypeScript、React、Vite 和 Semi UI 构建
 - `/v1` 下的 OpenAI 兼容 Relay 接口，支持 Chat Completions 和流式响应。
 - 渠道管理，支持供应商 metadata、权重、优先级、连通性测试和模型同步。
 - 令牌管理，支持额度、过期时间、模型 allow/block 策略。
+- 账号安全流程，包含邮箱验证、密码重置和会话管理。
 - 使用日志和面向计费的请求统计。
 - 管理控制台，包含数据看板、渠道、令牌、用户、兑换码、日志、模型、部署、系统设置、钱包和操练场。
 - 默认支持 PostgreSQL，并提供独立的 MySQL Prisma schema。
@@ -75,6 +76,8 @@ LOG_LEVEL=info
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/nodew_api?schema=public"
 SESSION_SECRET="nodew-dev-session-secret"
 ```
+
+目前还没有 SMTP 或 Resend 的专用环境变量。邮箱验证目前只负责 token 的存储和校验，外部邮件投递还没有接入。
 
 准备 Prisma：
 

@@ -32,7 +32,18 @@ The console exposes a small content layer through system options. Admin users ca
 
 ## Session authentication
 
-The web console uses the backend authentication APIs for login, registration, setup, and user profile retrieval.
+The web console uses the backend authentication APIs for login, registration, setup, email verification, password reset, and user profile retrieval.
+
+### Authentication routes
+
+- `POST /api/user/register`
+- `POST /api/user/login`
+- `POST /api/user/password/forgot`
+- `POST /api/user/password/reset`
+- `POST /api/user/email/verification`
+- `POST /api/user/email/verify`
+- `GET /api/user/self`
+- `PATCH /api/user/self`
 
 ## Compatibility routes
 
