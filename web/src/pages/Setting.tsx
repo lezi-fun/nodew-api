@@ -1,9 +1,9 @@
-import { Button, Card, Input, Space, Switch, TextArea, Toast, Typography } from '@douyinfe/semi-ui';
+import { Button, Card, Input, Select, Space, Switch, TextArea, Toast, Typography } from '@douyinfe/semi-ui';
 import { IconSave, IconRefresh } from '@douyinfe/semi-icons';
 import { useCallback, useContext, useEffect, useState } from 'react';
 
 import { UserContext } from '../context/User';
-import { api, type MailStatus, type SystemOptionItem, type SystemOptionKey } from '../lib/api';
+import { api, type MailConfig, type MailStatus, type SystemOptionItem, type SystemOptionKey } from '../lib/api';
 
 const optionMeta: Array<{
   key: SystemOptionKey;
@@ -28,24 +28,40 @@ const optionMeta: Array<{
 const toMap = (items: SystemOptionItem[]) =>
   Object.fromEntries(items.map((item) => [item.key, item.value])) as Partial<Record<SystemOptionKey, string>>;
 
+const emptyMailConfig: MailConfig = {
+  appBaseUrl: '',
+  provider: 'disabled',
+  from: '',
+  smtpHost: '',
+  smtpPort: '',
+  smtpSecure: false,
+  smtpUser: '',
+  smtpPass: '',
+  resendApiKey: '',
+};
+
 export default function SettingPage() {
   const { user } = useContext(UserContext);
   const [values, setValues] = useState<Partial<Record<SystemOptionKey, string>>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [mailStatus, setMailStatus] = useState<MailStatus | null>(null);
+  const [mailConfig, setMailConfig] = useState<MailConfig>(emptyMailConfig);
+  const [savingMail, setSavingMail] = useState(false);
   const [testingMail, setTestingMail] = useState(false);
   const [testMailRecipient, setTestMailRecipient] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [response, mailResponse] = await Promise.all([
+      const [response, mailResponse, mailConfigResponse] = await Promise.all([
         api.listOptions(),
         api.getMailStatus(),
+        api.getMailConfig(),
       ]);
       setValues(toMap(response.items ?? []));
       setMailStatus(mailResponse.item);
+      setMailConfig(mailConfigResponse.item);
       setTestMailRecipient((current) => current || user?.email || '');
     } catch (error) {
       Toast.error(error instanceof Error ? error.message : '加载设置失败');
@@ -68,6 +84,21 @@ export default function SettingPage() {
       Toast.error(error instanceof Error ? error.message : '保存设置失败');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const saveMailConfig = async () => {
+    setSavingMail(true);
+    try {
+      const response = await api.updateMailConfig(mailConfig);
+      setMailConfig(response.item);
+      setMailStatus(response.status);
+      Toast.success('邮件配置已保存');
+      await load();
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : '保存邮件配置失败');
+    } finally {
+      setSavingMail(false);
     }
   };
 
@@ -134,21 +165,138 @@ export default function SettingPage() {
       <Card bordered={false} className="dashboard-card settings-card" style={{ marginTop: 16 }}>
         <Space vertical align="start" style={{ width: '100%' }}>
           <div>
-            <Typography.Title heading={5} style={{ marginBottom: 4 }}>邮件通道状态</Typography.Title>
+            <Typography.Title heading={5} style={{ marginBottom: 4 }}>邮件配置</Typography.Title>
             <Typography.Paragraph type="tertiary">
-              这里显示当前后端已加载的邮件发送配置，并支持发送一封测试邮件。
+              在这里配置邮件发送方式。保存后，注册验证、密码重置、邮箱验证和测试邮件都会立即使用这套配置。
             </Typography.Paragraph>
           </div>
-          <Typography.Text>发送方式：{mailStatus?.provider ?? 'unknown'}</Typography.Text>
-          <Typography.Text>是否启用：{mailStatus?.enabled ? '已启用' : '未启用'}</Typography.Text>
-          <Typography.Text>发件地址：{mailStatus?.from ?? '-'}</Typography.Text>
-          <Typography.Text>应用地址：{mailStatus?.appBaseUrl ?? '-'}</Typography.Text>
+          <div className="settings-grid" style={{ width: '100%' }}>
+            <label className="setting-field">
+              <span>
+                <strong>发送方式</strong>
+                <em>关闭后不会发送任何邮件。</em>
+              </span>
+              <Select value={mailConfig.provider} onChange={(value) => setMailConfig((current) => ({ ...current, provider: String(value) as MailConfig['provider'] }))}>
+                <Select.Option value="disabled">disabled</Select.Option>
+                <Select.Option value="smtp">smtp</Select.Option>
+                <Select.Option value="resend">resend</Select.Option>
+              </Select>
+            </label>
+            <label className="setting-field">
+              <span>
+                <strong>应用地址</strong>
+                <em>生成验证链接和重置链接时使用。</em>
+              </span>
+              <Input
+                value={mailConfig.appBaseUrl}
+                placeholder="https://console.example.com"
+                onChange={(value) => setMailConfig((current) => ({ ...current, appBaseUrl: value }))}
+              />
+            </label>
+            <label className="setting-field">
+              <span>
+                <strong>发件地址</strong>
+                <em>用于发件人 From。</em>
+              </span>
+              <Input
+                value={mailConfig.from}
+                placeholder="noreply@example.com"
+                onChange={(value) => setMailConfig((current) => ({ ...current, from: value }))}
+              />
+            </label>
+            {mailConfig.provider === 'smtp' ? (
+              <>
+                <label className="setting-field">
+                  <span>
+                    <strong>SMTP Host</strong>
+                    <em>SMTP 服务器地址。</em>
+                  </span>
+                  <Input
+                    value={mailConfig.smtpHost}
+                    placeholder="smtp.example.com"
+                    onChange={(value) => setMailConfig((current) => ({ ...current, smtpHost: value }))}
+                  />
+                </label>
+                <label className="setting-field">
+                  <span>
+                    <strong>SMTP Port</strong>
+                    <em>例如 465 或 587。</em>
+                  </span>
+                  <Input
+                    value={mailConfig.smtpPort}
+                    placeholder="465"
+                    onChange={(value) => setMailConfig((current) => ({ ...current, smtpPort: value }))}
+                  />
+                </label>
+                <label className="setting-field">
+                  <span>
+                    <strong>SMTP User</strong>
+                    <em>SMTP 登录用户名。</em>
+                  </span>
+                  <Input
+                    value={mailConfig.smtpUser}
+                    placeholder="mailer"
+                    onChange={(value) => setMailConfig((current) => ({ ...current, smtpUser: value }))}
+                  />
+                </label>
+                <label className="setting-field">
+                  <span>
+                    <strong>SMTP Password</strong>
+                    <em>SMTP 登录密码或授权码。</em>
+                  </span>
+                  <Input
+                    mode="password"
+                    value={mailConfig.smtpPass}
+                    placeholder="secret"
+                    onChange={(value) => setMailConfig((current) => ({ ...current, smtpPass: value }))}
+                  />
+                </label>
+                <label className="setting-field">
+                  <span>
+                    <strong>SMTP Secure</strong>
+                    <em>通常 465 为开启，587 视服务商而定。</em>
+                  </span>
+                  <Switch
+                    checked={mailConfig.smtpSecure}
+                    onChange={(checked) => setMailConfig((current) => ({ ...current, smtpSecure: checked }))}
+                  />
+                </label>
+              </>
+            ) : null}
+            {mailConfig.provider === 'resend' ? (
+              <label className="setting-field">
+                <span>
+                  <strong>Resend API Key</strong>
+                  <em>用于调用 Resend 发信。</em>
+                </span>
+                <Input
+                  mode="password"
+                  value={mailConfig.resendApiKey}
+                  placeholder="re_xxx"
+                  onChange={(value) => setMailConfig((current) => ({ ...current, resendApiKey: value }))}
+                />
+              </label>
+            ) : null}
+          </div>
+          <Space wrap>
+            <Button theme="solid" type="primary" icon={<IconSave />} loading={savingMail} onClick={() => void saveMailConfig()}>
+              保存邮件配置
+            </Button>
+            <Typography.Text>当前来源：{mailStatus?.source ?? '-'}</Typography.Text>
+            <Typography.Text>当前状态：{mailStatus?.enabled ? '已启用' : '未启用'}</Typography.Text>
+            <Typography.Text>配置校验：{mailStatus?.valid ? '通过' : '未通过'}</Typography.Text>
+          </Space>
+          {mailStatus?.errors.length ? (
+            <Typography.Paragraph type="danger" style={{ marginBottom: 0 }}>
+              {mailStatus.errors.join('；')}
+            </Typography.Paragraph>
+          ) : null}
           <Input
             value={testMailRecipient}
             placeholder={user?.email ?? '输入测试收件邮箱'}
             onChange={setTestMailRecipient}
           />
-          <Button theme="solid" loading={testingMail} disabled={!mailStatus?.enabled} onClick={() => void sendTestMail()}>
+          <Button theme="solid" loading={testingMail} disabled={!mailStatus?.enabled || !mailStatus?.valid} onClick={() => void sendTestMail()}>
             发送测试邮件
           </Button>
         </Space>

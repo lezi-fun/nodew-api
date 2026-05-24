@@ -79,6 +79,8 @@ SESSION_SECRET="nodew-dev-session-secret"
 
 Email delivery now supports either SMTP or Resend. Configure one provider when you want password reset, email verification, and pre-registration verification messages to be sent automatically.
 
+If you do not want to keep the mail settings only in environment variables, the admin settings page can now manage the mail configuration directly. Saved values take effect immediately, while environment variables continue to act as defaults and fallbacks.
+
 ```bash
 APP_BASE_URL="http://127.0.0.1:3000"
 MAIL_PROVIDER="smtp"
@@ -160,7 +162,7 @@ The repository includes:
 - `vercel.json`: build, function, and rewrite configuration.
 - `api/server.js`: Vercel Function entrypoint for the compiled Fastify app.
 - `installCommand`: uses Bun to install both root backend dependencies and `web` frontend dependencies.
-- `bun run vercel-build`: generates Prisma Client, builds the backend, and builds the web console.
+- `bun run vercel-build`: generates Prisma Client, applies production Prisma migrations, builds the backend, and builds the web console.
 
 Required Vercel environment variables:
 

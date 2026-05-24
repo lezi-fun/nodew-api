@@ -15,9 +15,9 @@ import {
   buildEmailVerificationMessage,
   buildPasswordResetMessage,
   buildRegistrationVerificationMessage,
-  isMailDeliveryEnabled,
   sendMailMessage,
 } from '../../lib/mailer.js';
+import { isMailDeliveryEnabled } from '../../lib/mail-config.js';
 import { prisma } from '../../lib/prisma.js';
 import { clearSessionCookie, setSessionCookie } from '../../plugins/auth.js';
 import { canUseEmailVerificationToken, setEmailVerificationToken } from './email-verification.js';
@@ -231,7 +231,7 @@ const authRoutes: FastifyPluginAsync = async (app) => {
 
     await deleteExpiredPendingRegistrations();
 
-    if (process.env.NODE_ENV !== 'test' && !isMailDeliveryEnabled()) {
+    if (process.env.NODE_ENV !== 'test' && !await isMailDeliveryEnabled()) {
       throw app.httpErrors.badRequest('Mail delivery is not enabled');
     }
 
@@ -240,8 +240,8 @@ const authRoutes: FastifyPluginAsync = async (app) => {
     if (process.env.NODE_ENV === 'test') {
       reply.header('x-registration-verification-token', token);
       reply.header('x-registration-verification-code', code);
-    } else if (isMailDeliveryEnabled()) {
-      await sendMailMessage(buildRegistrationVerificationMessage(body.email, token, code));
+    } else if (await isMailDeliveryEnabled()) {
+      await sendMailMessage(await buildRegistrationVerificationMessage(body.email, token, code));
     } else {
       request.log.info({
         email: body.email,
@@ -316,8 +316,8 @@ const authRoutes: FastifyPluginAsync = async (app) => {
 
       if (process.env.NODE_ENV === 'test') {
         reply.header('x-password-reset-token', token);
-      } else if (isMailDeliveryEnabled()) {
-        await sendMailMessage(buildPasswordResetMessage(body.email, token));
+      } else if (await isMailDeliveryEnabled()) {
+        await sendMailMessage(await buildPasswordResetMessage(body.email, token));
       } else {
         request.log.info({
           userId: user.id,
@@ -378,8 +378,8 @@ const authRoutes: FastifyPluginAsync = async (app) => {
 
     if (process.env.NODE_ENV === 'test') {
       reply.header('x-email-verification-token', token);
-    } else if (isMailDeliveryEnabled()) {
-      await sendMailMessage(buildEmailVerificationMessage(currentUser.email, token));
+    } else if (await isMailDeliveryEnabled()) {
+      await sendMailMessage(await buildEmailVerificationMessage(currentUser.email, token));
     } else {
       request.log.info({
         userId: currentUser.id,

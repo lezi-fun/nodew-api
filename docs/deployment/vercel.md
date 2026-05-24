@@ -48,7 +48,7 @@ The configured build command is:
 bun run vercel-build
 ```
 
-That command generates Prisma Client, builds the TypeScript backend, and builds the web console.
+That command generates Prisma Client, runs `prisma migrate deploy`, builds the TypeScript backend, and builds the web console.
 
 ## Routing
 

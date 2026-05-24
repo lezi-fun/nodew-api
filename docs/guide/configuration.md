@@ -32,7 +32,9 @@ Email verification, password reset, and pre-registration verification support ex
 
 In development and test environments, tokens and registration verification codes are still surfaced in responses so the flow can be completed without an external mail provider.
 
-When the admin setting for registration email verification is enabled, mail delivery must also be enabled. The admin settings page exposes current mail status and a test-mail action to verify the configuration.
+These values can be supplied through environment variables, or entered later from the admin settings page. The settings page persists mail configuration in the database, applies it immediately, and still uses environment variables as defaults when a field has not been configured there.
+
+When the admin setting for registration email verification is enabled, mail delivery must also be enabled. The admin settings page exposes current mail status, editable mail fields, and a test-mail action to verify the configuration.
 
 ## Object storage
 

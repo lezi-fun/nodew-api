@@ -1,8 +1,14 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 
-import { parseEnv } from '../../../config/env.js';
-import { buildTestMailMessage, isMailDeliveryEnabled, sendMailMessage } from '../../../lib/mailer.js';
+import {
+  evaluateMailConfigInput,
+  getMailConfiguration,
+  isMailDeliveryEnabled,
+  mailConfigBodySchema,
+  saveMailConfig,
+} from '../../../lib/mail-config.js';
+import { buildTestMailMessage, sendMailMessage } from '../../../lib/mailer.js';
 import { prisma } from '../../../lib/prisma.js';
 
 const optionKeySchema = z.enum([
@@ -36,17 +42,6 @@ const serializeOption = (option: {
 }) => ({
   ...option,
 });
-
-const readMailStatus = () => {
-  const env = parseEnv(process.env);
-
-  return {
-    provider: env.MAIL_PROVIDER,
-    enabled: env.MAIL_PROVIDER !== 'disabled',
-    from: env.MAIL_FROM ?? null,
-    appBaseUrl: env.APP_BASE_URL ?? null,
-  };
-};
 
 const optionsRoutes: FastifyPluginAsync = async (app) => {
   app.get('/options', {
@@ -91,7 +86,7 @@ const optionsRoutes: FastifyPluginAsync = async (app) => {
     const body = updateOptionBodySchema.parse(request.body);
     const value = typeof body.value === 'string' ? body.value : String(body.value);
 
-    if (params.key === 'registration_email_verification_required' && value === 'true' && !isMailDeliveryEnabled()) {
+    if (params.key === 'registration_email_verification_required' && value === 'true' && !await isMailDeliveryEnabled()) {
       throw app.httpErrors.badRequest('Mail delivery must be enabled before requiring email verification for registration');
     }
 
@@ -111,16 +106,75 @@ const optionsRoutes: FastifyPluginAsync = async (app) => {
 
   app.get('/options/mail/status', {
     preHandler: app.requireAdminUser,
-  }, async () => ({
-    item: readMailStatus(),
-  }));
+  }, async () => {
+    const configuration = await getMailConfiguration();
+
+    return {
+      item: {
+        ...configuration.config,
+        source: configuration.source,
+        valid: configuration.valid,
+        errors: configuration.errors,
+      },
+    };
+  });
+
+  app.get('/options/mail/config', {
+    preHandler: app.requireAdminUser,
+  }, async () => {
+    const configuration = await getMailConfiguration();
+
+    return {
+      item: configuration.draft,
+    };
+  });
+
+  app.put('/options/mail/config', {
+    preHandler: app.requireAdminUser,
+  }, async (request) => {
+    const body = mailConfigBodySchema.parse(request.body);
+    const evaluation = evaluateMailConfigInput(body);
+
+    if (!evaluation.valid) {
+      throw app.httpErrors.badRequest(evaluation.errors[0] ?? 'Mail configuration is invalid');
+    }
+
+    const configuration = await saveMailConfig(body);
+
+    if (
+      configuration.valid &&
+      !configuration.config.enabled
+    ) {
+      const registrationOption = await prisma.systemOption.findUnique({
+        where: { key: 'registration_email_verification_required' },
+        select: { value: true },
+      });
+
+      if (registrationOption?.value === 'true') {
+        await prisma.systemOption.update({
+          where: { key: 'registration_email_verification_required' },
+          data: { value: 'false' },
+        });
+      }
+    }
+
+    return {
+      item: configuration.draft,
+      status: {
+        ...configuration.config,
+        source: configuration.source,
+        valid: configuration.valid,
+        errors: configuration.errors,
+      },
+    };
+  });
 
   app.post('/options/mail/test', {
     preHandler: app.requireAdminUser,
   }, async (request, reply) => {
     const body = sendTestMailBodySchema.parse(request.body);
 
-    if (!isMailDeliveryEnabled()) {
+    if (!await isMailDeliveryEnabled()) {
       throw app.httpErrors.badRequest('Mail delivery is not enabled');
     }
 
@@ -130,7 +184,7 @@ const optionsRoutes: FastifyPluginAsync = async (app) => {
       throw app.httpErrors.badRequest('Test mail recipient is required');
     }
 
-    await sendMailMessage(buildTestMailMessage(email));
+    await sendMailMessage(await buildTestMailMessage(email));
 
     return reply.send({
       success: true,

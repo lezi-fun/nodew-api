@@ -1,4 +1,4 @@
-import { parseEnv } from '../config/env.js';
+import { getMailDeliveryConfig } from './mail-config.js';
 
 type MailMessage = {
   to: string;
@@ -14,18 +14,16 @@ const escapeHtml = (value: string) => value
   .replace(/"/g, '&quot;')
   .replace(/'/g, '&#39;');
 
-const readMailEnv = () => parseEnv(process.env);
-
 const sendWithResend = async (message: MailMessage) => {
-  const env = readMailEnv();
+  const config = await getMailDeliveryConfig();
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${env.RESEND_API_KEY!}`,
+      Authorization: `Bearer ${config.resendApiKey!}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: env.MAIL_FROM!,
+      from: config.from!,
       to: [message.to],
       subject: message.subject,
       text: message.text,
@@ -40,20 +38,20 @@ const sendWithResend = async (message: MailMessage) => {
 };
 
 const sendWithSmtp = async (message: MailMessage) => {
-  const env = readMailEnv();
+  const config = await getMailDeliveryConfig();
   const { createTransport } = await import('nodemailer');
   const transport = createTransport({
-    host: env.SMTP_HOST,
-    port: env.SMTP_PORT,
-    secure: env.SMTP_SECURE,
+    host: config.smtpHost,
+    port: config.smtpPort,
+    secure: config.smtpSecure,
     auth: {
-      user: env.SMTP_USER,
-      pass: env.SMTP_PASS,
+      user: config.smtpUser,
+      pass: config.smtpPass,
     },
-  });
+  } as Parameters<typeof createTransport>[0]);
 
   await transport.sendMail({
-    from: env.MAIL_FROM,
+    from: config.from ?? undefined,
     to: message.to,
     subject: message.subject,
     text: message.text,
@@ -61,27 +59,25 @@ const sendWithSmtp = async (message: MailMessage) => {
   });
 };
 
-export const isMailDeliveryEnabled = () => readMailEnv().MAIL_PROVIDER !== 'disabled';
-
-export const buildAppUrl = (pathname: string) => {
-  const env = readMailEnv();
-  const baseUrl = env.APP_BASE_URL ?? 'http://127.0.0.1:3000';
+export const buildAppUrl = async (pathname: string) => {
+  const config = await getMailDeliveryConfig();
+  const baseUrl = config.appBaseUrl ?? 'http://127.0.0.1:3000';
   return new URL(pathname, baseUrl).toString();
 };
 
 export const sendMailMessage = async (message: MailMessage) => {
-  const env = readMailEnv();
+  const config = await getMailDeliveryConfig();
 
-  if (env.MAIL_PROVIDER === 'disabled') {
+  if (config.provider === 'disabled') {
     return false;
   }
 
-  if (env.MAIL_PROVIDER === 'resend') {
+  if (config.provider === 'resend') {
     await sendWithResend(message);
     return true;
   }
 
-  if (env.MAIL_PROVIDER === 'smtp') {
+  if (config.provider === 'smtp') {
     await sendWithSmtp(message);
     return true;
   }
@@ -89,8 +85,8 @@ export const sendMailMessage = async (message: MailMessage) => {
   return false;
 };
 
-export const buildEmailVerificationMessage = (email: string, token: string) => {
-  const verificationUrl = buildAppUrl(`/verify-email?token=${encodeURIComponent(token)}`);
+export const buildEmailVerificationMessage = async (email: string, token: string) => {
+  const verificationUrl = await buildAppUrl(`/verify-email?token=${encodeURIComponent(token)}`);
 
   return {
     to: email,
@@ -109,8 +105,8 @@ export const buildEmailVerificationMessage = (email: string, token: string) => {
   } satisfies MailMessage;
 };
 
-export const buildRegistrationVerificationMessage = (email: string, token: string, code: string) => {
-  const verificationUrl = buildAppUrl(`/verify-email?flow=registration&token=${encodeURIComponent(token)}`);
+export const buildRegistrationVerificationMessage = async (email: string, token: string, code: string) => {
+  const verificationUrl = await buildAppUrl(`/verify-email?flow=registration&token=${encodeURIComponent(token)}`);
 
   return {
     to: email,
@@ -132,8 +128,8 @@ export const buildRegistrationVerificationMessage = (email: string, token: strin
   } satisfies MailMessage;
 };
 
-export const buildPasswordResetMessage = (email: string, token: string) => {
-  const resetUrl = buildAppUrl(`/user/reset?token=${encodeURIComponent(token)}`);
+export const buildPasswordResetMessage = async (email: string, token: string) => {
+  const resetUrl = await buildAppUrl(`/user/reset?token=${encodeURIComponent(token)}`);
 
   return {
     to: email,
@@ -152,9 +148,9 @@ export const buildPasswordResetMessage = (email: string, token: string) => {
   } satisfies MailMessage;
 };
 
-export const buildTestMailMessage = (email: string) => {
+export const buildTestMailMessage = async (email: string) => {
   const timestamp = new Date().toISOString();
-  const appUrl = buildAppUrl('/');
+  const appUrl = await buildAppUrl('/');
 
   return {
     to: email,

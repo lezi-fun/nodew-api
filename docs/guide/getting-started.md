@@ -49,7 +49,9 @@ SMTP_USER="smtp-user"
 SMTP_PASS="smtp-password"
 ```
 
-If you want users to verify their email before an account is created, enable the registration verification switch from the admin settings page after mail delivery is working. The settings page also includes a mail-status panel and a test-mail action.
+You can keep these values in environment variables, or fill them later from the admin settings page. The admin settings page stores mail configuration in the database and applies it immediately.
+
+If you want users to verify their email before an account is created, enable the registration verification switch from the admin settings page after mail delivery is working. The settings page also includes mail configuration fields, a mail-status panel, and a test-mail action.
 
 ## Database
 

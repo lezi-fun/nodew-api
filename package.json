@@ -14,7 +14,7 @@
     "build": "tsc -p tsconfig.json",
     "build:web": "bun run --cwd web build",
     "build:server": "tsc -p tsconfig.json",
-    "vercel-build": "bun run prisma:generate && bun run build:server && bun run build:web",
+    "vercel-build": "bun run prisma:generate && bun run prisma:migrate:deploy && bun run build:server && bun run build:web",
     "start": "node --env-file=.env dist/server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",

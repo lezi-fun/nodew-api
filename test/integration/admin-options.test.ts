@@ -168,4 +168,110 @@ describe('admin options integration', () => {
       await closeTestApp(app);
     }
   });
+
+  it('stores mail configuration in options and uses it for status plus test delivery', async () => {
+    process.env.MAIL_PROVIDER = 'disabled';
+    delete process.env.MAIL_FROM;
+    delete process.env.APP_BASE_URL;
+    delete process.env.SMTP_HOST;
+    delete process.env.SMTP_PORT;
+    delete process.env.SMTP_SECURE;
+    delete process.env.SMTP_USER;
+    delete process.env.SMTP_PASS;
+
+    const sendMailMock = vi.fn();
+    vi.doMock('nodemailer', () => ({
+      createTransport: (config: Record<string, unknown>) => ({
+        sendMail: (...args: unknown[]) => {
+          sendMailMock(config, ...args);
+          return Promise.resolve();
+        },
+      }),
+    }));
+
+    const admin = await createAdminUser();
+    const token = await createSessionForUser(admin.id);
+    const app = await createTestApp();
+
+    try {
+      const cookies = {
+        nodew_session: app.signCookie(token),
+      };
+
+      const saveResponse = await app.inject({
+        method: 'PUT',
+        url: '/api/options/mail/config',
+        cookies,
+        payload: {
+          provider: 'smtp',
+          appBaseUrl: 'https://mail.console.test',
+          from: 'noreply@test.local',
+          smtpHost: 'smtp.persisted.test',
+          smtpPort: '465',
+          smtpSecure: true,
+          smtpUser: 'persisted-user',
+          smtpPass: 'persisted-pass',
+          resendApiKey: '',
+        },
+      });
+
+      expect(saveResponse.statusCode).toBe(200);
+      expect(saveResponse.json().item).toMatchObject({
+        provider: 'smtp',
+        appBaseUrl: 'https://mail.console.test',
+        from: 'noreply@test.local',
+        smtpHost: 'smtp.persisted.test',
+        smtpPort: '465',
+        smtpSecure: true,
+        smtpUser: 'persisted-user',
+      });
+
+      const statusResponse = await app.inject({
+        method: 'GET',
+        url: '/api/options/mail/status',
+        cookies,
+      });
+
+      expect(statusResponse.statusCode).toBe(200);
+      expect(statusResponse.json().item).toMatchObject({
+        provider: 'smtp',
+        enabled: true,
+        valid: true,
+        from: 'noreply@test.local',
+        appBaseUrl: 'https://mail.console.test',
+        smtpHost: 'smtp.persisted.test',
+        smtpPort: 465,
+        smtpSecure: true,
+        smtpUser: 'persisted-user',
+      });
+
+      const testResponse = await app.inject({
+        method: 'POST',
+        url: '/api/options/mail/test',
+        cookies,
+        payload: {
+          email: 'persisted-recipient@test.local',
+        },
+      });
+
+      expect(testResponse.statusCode).toBe(200);
+      expect(sendMailMock).toHaveBeenCalledTimes(1);
+      expect(sendMailMock.mock.calls[0]?.[0]).toMatchObject({
+        host: 'smtp.persisted.test',
+        port: 465,
+        secure: true,
+        auth: {
+          user: 'persisted-user',
+          pass: 'persisted-pass',
+        },
+      });
+      expect(sendMailMock.mock.calls[0]?.[1]).toMatchObject({
+        from: 'noreply@test.local',
+        to: 'persisted-recipient@test.local',
+      });
+    } finally {
+      vi.doUnmock('nodemailer');
+      await closeTestApp(app);
+    }
+  });
 });

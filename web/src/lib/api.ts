@@ -32,6 +32,8 @@ export type RegistrationVerificationResult = {
   displayName: string | null;
 };
 
+export type MailProvider = 'disabled' | 'smtp' | 'resend';
+
 export type ServiceStatus = {
   status: string;
   service: string;
@@ -248,10 +250,31 @@ export type TaskItem = {
 };
 
 export type MailStatus = {
-  provider: 'disabled' | 'smtp' | 'resend';
-  enabled: boolean;
-  from: string | null;
   appBaseUrl: string | null;
+  provider: MailProvider;
+  from: string | null;
+  smtpHost: string | null;
+  smtpPort: number | null;
+  smtpSecure: boolean;
+  smtpUser: string | null;
+  smtpPass: string | null;
+  resendApiKey: string | null;
+  enabled: boolean;
+  valid: boolean;
+  errors: string[];
+  source: 'environment' | 'settings' | 'mixed';
+};
+
+export type MailConfig = {
+  appBaseUrl: string;
+  provider: MailProvider;
+  from: string;
+  smtpHost: string;
+  smtpPort: string;
+  smtpSecure: boolean;
+  smtpUser: string;
+  smtpPass: string;
+  resendApiKey: string;
 };
 
 export type TaskListData = {
@@ -550,6 +573,9 @@ export const api = {
   updateOption: async (key: SystemOptionKey, value: string | boolean | number) =>
     (await client.put<{ item: SystemOptionItem }>(`/api/options/${key}`, { value })).data,
   getMailStatus: async () => (await client.get<{ item: MailStatus }>('/api/options/mail/status')).data,
+  getMailConfig: async () => (await client.get<{ item: MailConfig }>('/api/options/mail/config')).data,
+  updateMailConfig: async (payload: MailConfig) =>
+    (await client.put<{ item: MailConfig; status: MailStatus }>('/api/options/mail/config', payload)).data,
   sendTestMail: async (payload?: { email?: string }) =>
     (await client.post<{ success: boolean; email: string }>('/api/options/mail/test', payload ?? {})).data,
   listUsageLogs: async (params?: UsageQuery) => (await client.get<ListResponse<UsageLogItem>>('/api/usage', { params })).data,
