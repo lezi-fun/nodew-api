@@ -8,6 +8,8 @@ const fallbackSite: SiteInfo = {
   siteName: 'NodEW-api',
   siteDescription: 'Node.js and TypeScript edition of the One API gateway.',
   defaultModel: 'gpt-4o-mini',
+  registrationEnabled: false,
+  registrationEmailVerificationRequired: false,
   notice: '',
   userAgreement: '',
   privacyPolicy: '',

@@ -24,7 +24,7 @@ const getSetupConfig = async () => {
   const options = await prisma.systemOption.findMany({
     where: {
       key: {
-        in: ['registration_enabled', 'self_use_mode_enabled', 'demo_site_enabled', 'site_name', 'site_description', 'default_model'],
+        in: ['registration_enabled', 'registration_email_verification_required', 'self_use_mode_enabled', 'demo_site_enabled', 'site_name', 'site_description', 'default_model'],
       },
     },
   });
@@ -33,6 +33,7 @@ const getSetupConfig = async () => {
 
   return {
     registrationEnabled: parseBooleanOption(map.get('registration_enabled'), false),
+    registrationEmailVerificationRequired: parseBooleanOption(map.get('registration_email_verification_required'), false),
     selfUseModeEnabled: parseBooleanOption(map.get('self_use_mode_enabled'), false),
     demoSiteEnabled: parseBooleanOption(map.get('demo_site_enabled'), false),
     siteName: map.get('site_name') ?? null,
@@ -96,6 +97,7 @@ void setupPublicConfigRouteSchema;
 
 const setupConfigKeys = {
   registrationEnabled: 'registration_enabled',
+  registrationEmailVerificationRequired: 'registration_email_verification_required',
   selfUseModeEnabled: 'self_use_mode_enabled',
   demoSiteEnabled: 'demo_site_enabled',
   siteName: 'site_name',
@@ -105,12 +107,14 @@ const setupConfigKeys = {
 
 const setupConfigDefaults = {
   registrationEnabled: false,
+  registrationEmailVerificationRequired: false,
   selfUseModeEnabled: false,
   demoSiteEnabled: false,
 } as const;
 
 const persistSetupOptions = async (tx: Prisma.TransactionClient, body: z.infer<typeof setupBodySchema>) => {
   await upsertSystemOption(tx, setupConfigKeys.registrationEnabled, 'false');
+  await upsertSystemOption(tx, setupConfigKeys.registrationEmailVerificationRequired, String(setupConfigDefaults.registrationEmailVerificationRequired));
   await upsertBooleanSystemOption(tx, setupConfigKeys.selfUseModeEnabled, body.selfUseModeEnabled, setupConfigDefaults.selfUseModeEnabled);
   await upsertBooleanSystemOption(tx, setupConfigKeys.demoSiteEnabled, body.demoSiteEnabled, setupConfigDefaults.demoSiteEnabled);
   await upsertOptionalSystemOption(tx, setupConfigKeys.siteName, body.siteName);

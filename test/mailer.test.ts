@@ -29,12 +29,16 @@ describe('mailer configuration', () => {
     const {
       buildEmailVerificationMessage,
       buildPasswordResetMessage,
+      buildRegistrationVerificationMessage,
     } = await import('../src/lib/mailer.js');
 
     const verification = buildEmailVerificationMessage('user@example.com', 'verify-token');
     const reset = buildPasswordResetMessage('user@example.com', 'reset-token');
+    const registration = buildRegistrationVerificationMessage('user@example.com', 'register-token', '123456');
 
     expect(verification.text).toContain('https://console.example.com/verify-email?token=verify-token');
     expect(reset.text).toContain('https://console.example.com/user/reset?token=reset-token');
+    expect(registration.text).toContain('https://console.example.com/verify-email?flow=registration&token=register-token');
+    expect(registration.text).toContain('Verification code: 123456');
   });
 });

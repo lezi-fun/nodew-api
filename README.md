@@ -77,7 +77,7 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5432/nodew_api?schema=pub
 SESSION_SECRET="nodew-dev-session-secret"
 ```
 
-Email delivery now supports either SMTP or Resend. Configure one provider when you want password reset and email verification links to be sent automatically.
+Email delivery now supports either SMTP or Resend. Configure one provider when you want password reset, email verification, and pre-registration verification messages to be sent automatically.
 
 ```bash
 APP_BASE_URL="http://127.0.0.1:3000"
@@ -98,6 +98,12 @@ MAIL_PROVIDER="resend"
 MAIL_FROM="noreply@example.com"
 RESEND_API_KEY="re_xxx"
 ```
+
+If you plan to require email verification before registration from the admin settings page, make sure mail delivery is configured first. When this option is enabled:
+
+- Users must open the verification link from the email or enter the verification code on the registration page.
+- The account is created only after verification succeeds.
+- The settings page shows current mail delivery status and includes a test-mail action.
 
 Prepare Prisma:
 

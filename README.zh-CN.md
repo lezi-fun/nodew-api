@@ -77,7 +77,7 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5432/nodew_api?schema=pub
 SESSION_SECRET="nodew-dev-session-secret"
 ```
 
-现在已经支持两种发信方式：`SMTP` 或 `Resend`。配置其中一种后，找回密码和邮箱验证链接就会自动发送。
+现在已经支持两种发信方式：`SMTP` 或 `Resend`。配置其中一种后，找回密码、邮箱验证，以及注册前邮箱验证邮件都会自动发送。
 
 ```bash
 APP_BASE_URL="http://127.0.0.1:3000"
@@ -98,6 +98,12 @@ MAIL_PROVIDER="resend"
 MAIL_FROM="noreply@example.com"
 RESEND_API_KEY="re_xxx"
 ```
+
+如果你准备在后台开启“注册前验证邮箱”，还需要保证上面的邮件配置可用。开启后：
+
+- 用户必须先点击验证邮件中的链接，或者在注册页输入验证码。
+- 验证完成后才能真正创建账号。
+- 后台系统设置页会显示当前邮件通道状态，并支持发送测试邮件。
 
 准备 Prisma：
 

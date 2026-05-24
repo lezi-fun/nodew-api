@@ -16,7 +16,7 @@ NodEW-api reads runtime configuration from environment variables.
 
 ## Account security
 
-Email verification and password reset support external delivery through either SMTP or Resend.
+Email verification, password reset, and pre-registration verification support external delivery through either SMTP or Resend.
 
 | Variable | Required | Description |
 | --- | --- | --- |
@@ -30,7 +30,9 @@ Email verification and password reset support external delivery through either S
 | `SMTP_PASS` | Yes for SMTP | SMTP password. |
 | `RESEND_API_KEY` | Yes for Resend | Resend API key. |
 
-In development and test environments, tokens are still surfaced in responses so the flow can be completed without an external mail provider.
+In development and test environments, tokens and registration verification codes are still surfaced in responses so the flow can be completed without an external mail provider.
+
+When the admin setting for registration email verification is enabled, mail delivery must also be enabled. The admin settings page exposes current mail status and a test-mail action to verify the configuration.
 
 ## Object storage
 

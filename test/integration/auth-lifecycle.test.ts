@@ -40,7 +40,143 @@ describe('auth lifecycle integration', () => {
       expect(response.statusCode).toBe(201);
       expect(response.json().user.email).toBe('register@test.local');
       expect(response.json().user.displayName).toBe('Register User');
+      expect(response.json().user.emailVerifiedAt).toBeNull();
     } finally {
+      await closeTestApp(app);
+    }
+  });
+
+  it('requires email verification before registration when the option is enabled', async () => {
+    const admin = await createAdminUser();
+    const token = await createSessionForUser(admin.id);
+    await prisma.setupState.create({
+      data: {
+        isInitialized: true,
+        initializedAt: new Date(),
+      },
+    });
+    const app = await createTestApp();
+
+    try {
+      const cookies = {
+        nodew_session: app.signCookie(token),
+      };
+
+      await app.inject({
+        method: 'PUT',
+        url: '/api/options/registration_enabled',
+        cookies,
+        payload: {
+          value: true,
+        },
+      });
+
+      const directRegisterResponse = await app.inject({
+        method: 'POST',
+        url: '/api/user/register',
+        payload: {
+          email: 'verify-first@test.local',
+          username: 'verify_first_user',
+          password: 'testtest',
+        },
+      });
+
+      expect(directRegisterResponse.statusCode).toBe(201);
+
+      process.env.MAIL_PROVIDER = 'smtp';
+      process.env.MAIL_FROM = 'noreply@test.local';
+      process.env.APP_BASE_URL = 'https://console.example.com';
+      process.env.SMTP_HOST = 'smtp.test.local';
+      process.env.SMTP_PORT = '465';
+      process.env.SMTP_SECURE = 'true';
+      process.env.SMTP_USER = 'tester';
+      process.env.SMTP_PASS = 'secret';
+
+      const optionResponse = await app.inject({
+        method: 'PUT',
+        url: '/api/options/registration_email_verification_required',
+        cookies,
+        payload: {
+          value: true,
+        },
+      });
+
+      expect(optionResponse.statusCode).toBe(200);
+
+      const blockedRegisterResponse = await app.inject({
+        method: 'POST',
+        url: '/api/user/register',
+        payload: {
+          email: 'blocked-verify@test.local',
+          username: 'blocked_verify_user',
+          password: 'testtest',
+        },
+      });
+
+      expect(blockedRegisterResponse.statusCode).toBe(400);
+      expect(blockedRegisterResponse.json().message).toBe('Registration verification token or code is invalid or expired');
+
+      const requestVerificationResponse = await app.inject({
+        method: 'POST',
+        url: '/api/user/register/verification',
+        payload: {
+          email: 'blocked-verify@test.local',
+          username: 'blocked_verify_user',
+          password: 'testtest',
+          displayName: 'Blocked Verify User',
+        },
+      });
+
+      expect(requestVerificationResponse.statusCode).toBe(200);
+
+      const verificationToken = requestVerificationResponse.headers['x-registration-verification-token'] as string;
+      const verificationCode = requestVerificationResponse.headers['x-registration-verification-code'] as string;
+
+      expect(verificationToken).toBeTruthy();
+      expect(verificationCode).toBeTruthy();
+
+      const verifyResponse = await app.inject({
+        method: 'POST',
+        url: '/api/user/register/verify',
+        payload: {
+          email: 'blocked-verify@test.local',
+          code: verificationCode,
+        },
+      });
+
+      expect(verifyResponse.statusCode).toBe(200);
+      expect(verifyResponse.json().email).toBe('blocked-verify@test.local');
+
+      const completedRegisterResponse = await app.inject({
+        method: 'POST',
+        url: '/api/user/register',
+        payload: {
+          email: 'blocked-verify@test.local',
+          username: 'blocked_verify_user',
+          password: 'ignored-pass',
+          displayName: 'Ignored Name',
+          verificationToken,
+        },
+      });
+
+      expect(completedRegisterResponse.statusCode).toBe(201);
+      expect(completedRegisterResponse.json().user.email).toBe('blocked-verify@test.local');
+      expect(completedRegisterResponse.json().user.emailVerifiedAt).toBeTruthy();
+
+      const storedPendingRegistration = await prisma.pendingUserRegistration.findUnique({
+        where: { email: 'blocked-verify@test.local' },
+        select: { id: true },
+      });
+
+      expect(storedPendingRegistration).toBeNull();
+    } finally {
+      process.env.MAIL_PROVIDER = 'disabled';
+      delete process.env.MAIL_FROM;
+      delete process.env.SMTP_HOST;
+      delete process.env.SMTP_PORT;
+      delete process.env.SMTP_SECURE;
+      delete process.env.SMTP_USER;
+      delete process.env.SMTP_PASS;
       await closeTestApp(app);
     }
   });

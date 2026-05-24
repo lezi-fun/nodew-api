@@ -60,6 +60,21 @@ export const verifyEmailVerificationToken = (token: string, storedHash: string) 
   return timingSafeEqual(tokenBuffer, hashBuffer);
 };
 
+export const generateVerificationCode = () => `${randomBytes(3).readUIntBE(0, 3) % 1000000}`.padStart(6, '0');
+
+export const hashVerificationCode = (code: string) => createHash('sha256').update(code).digest('hex');
+
+export const verifyVerificationCode = (code: string, storedHash: string) => {
+  const codeBuffer = Buffer.from(hashVerificationCode(code), 'hex');
+  const hashBuffer = Buffer.from(storedHash, 'hex');
+
+  if (codeBuffer.length !== hashBuffer.length) {
+    return false;
+  }
+
+  return timingSafeEqual(codeBuffer, hashBuffer);
+};
+
 export const generateApiKey = () => `${TOKEN_PREFIX}${randomBytes(24).toString('hex')}`;
 
 export const hashApiKey = (apiKey: string) => hashPassword(apiKey);

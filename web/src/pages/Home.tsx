@@ -8,6 +8,8 @@ const fallbackSite: SiteInfo = {
   siteName: 'NodEW-api',
   siteDescription: '管理渠道、令牌、用户与使用日志，并通过统一控制台完成系统初始化和日常运维。',
   defaultModel: 'gpt-4o-mini',
+  registrationEnabled: false,
+  registrationEmailVerificationRequired: false,
   notice: '',
   userAgreement: '',
   privacyPolicy: '',

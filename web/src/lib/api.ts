@@ -3,11 +3,33 @@ import axios from 'axios';
 export type SetupStatus = {
   isInitialized: boolean;
   hasAdmin: boolean;
+  config?: {
+    registrationEnabled?: boolean;
+    registrationEmailVerificationRequired?: boolean;
+    selfUseModeEnabled?: boolean;
+    demoSiteEnabled?: boolean;
+    siteName?: string | null;
+    siteDescription?: string | null;
+    defaultModel?: string | null;
+  };
 };
 
 export type EmailVerificationRequestResult = {
   success: boolean;
   verificationToken?: string;
+};
+
+export type RegistrationVerificationRequestResult = {
+  success: boolean;
+  verificationToken?: string;
+  verificationCode?: string;
+};
+
+export type RegistrationVerificationResult = {
+  success: boolean;
+  email: string;
+  username: string;
+  displayName: string | null;
 };
 
 export type ServiceStatus = {
@@ -110,6 +132,7 @@ export type GroupItem = {
 
 export type SystemOptionKey =
   | 'registration_enabled'
+  | 'registration_email_verification_required'
   | 'self_use_mode_enabled'
   | 'demo_site_enabled'
   | 'site_name'
@@ -187,6 +210,8 @@ export type SiteInfo = {
   siteName: string;
   siteDescription: string;
   defaultModel: string;
+  registrationEnabled: boolean;
+  registrationEmailVerificationRequired: boolean;
   notice: string;
   userAgreement: string;
   privacyPolicy: string;
@@ -220,6 +245,13 @@ export type TaskItem = {
   quota?: number;
   latencyMs?: number | null;
   createdAt: string;
+};
+
+export type MailStatus = {
+  provider: 'disabled' | 'smtp' | 'resend';
+  enabled: boolean;
+  from: string | null;
+  appBaseUrl: string | null;
 };
 
 export type TaskListData = {
@@ -395,7 +427,27 @@ export const api = {
     username: string;
     password: string;
     displayName?: string;
+    verificationToken?: string;
+    verificationCode?: string;
   }) => (await client.post('/api/user/register', payload)).data,
+  requestRegistrationVerification: async (payload: {
+    email: string;
+    username: string;
+    password: string;
+    displayName?: string;
+  }) => {
+    const response = await client.post<RegistrationVerificationRequestResult>('/api/user/register/verification', payload);
+    const verificationToken = response.headers['x-registration-verification-token'];
+    const verificationCode = response.headers['x-registration-verification-code'];
+
+    return {
+      ...response.data,
+      verificationToken: typeof verificationToken === 'string' ? verificationToken : undefined,
+      verificationCode: typeof verificationCode === 'string' ? verificationCode : undefined,
+    };
+  },
+  verifyRegistration: async (payload: { email?: string; token?: string; code?: string }) =>
+    (await client.post<RegistrationVerificationResult>('/api/user/register/verify', payload)).data,
   forgotPassword: async (payload: { email: string }) =>
     (await client.post('/api/user/password/forgot', payload)).data,
   resetPassword: async (payload: { token: string; password: string }) =>
@@ -497,6 +549,9 @@ export const api = {
   listOptions: async () => (await client.get<ListResponse<SystemOptionItem>>('/api/options')).data,
   updateOption: async (key: SystemOptionKey, value: string | boolean | number) =>
     (await client.put<{ item: SystemOptionItem }>(`/api/options/${key}`, { value })).data,
+  getMailStatus: async () => (await client.get<{ item: MailStatus }>('/api/options/mail/status')).data,
+  sendTestMail: async (payload?: { email?: string }) =>
+    (await client.post<{ success: boolean; email: string }>('/api/options/mail/test', payload ?? {})).data,
   listUsageLogs: async (params?: UsageQuery) => (await client.get<ListResponse<UsageLogItem>>('/api/usage', { params })).data,
   listSelfUsageLogs: async (params?: UsageQuery) => (await client.get<ListResponse<UsageLogItem>>('/api/usage/self', { params })).data,
   getUsageSummary: async () => (await client.get<UsageSummary>('/api/usage/summary')).data,

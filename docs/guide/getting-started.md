@@ -36,7 +36,7 @@ SESSION_SECRET="nodew-dev-session-secret"
 CHANNEL_SECRET="nodew-dev-channel-secret"
 ```
 
-Optional mail delivery for password reset and email verification:
+Optional mail delivery for password reset, email verification, and pre-registration verification:
 
 ```bash
 APP_BASE_URL="http://127.0.0.1:3000"
@@ -48,6 +48,8 @@ SMTP_SECURE=false
 SMTP_USER="smtp-user"
 SMTP_PASS="smtp-password"
 ```
+
+If you want users to verify their email before an account is created, enable the registration verification switch from the admin settings page after mail delivery is working. The settings page also includes a mail-status panel and a test-mail action.
 
 ## Database
 

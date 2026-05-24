@@ -14,14 +14,27 @@ import {
 import {
   buildEmailVerificationMessage,
   buildPasswordResetMessage,
+  buildRegistrationVerificationMessage,
   isMailDeliveryEnabled,
   sendMailMessage,
 } from '../../lib/mailer.js';
 import { prisma } from '../../lib/prisma.js';
 import { clearSessionCookie, setSessionCookie } from '../../plugins/auth.js';
 import { canUseEmailVerificationToken, setEmailVerificationToken } from './email-verification.js';
+import {
+  canUsePendingRegistration,
+  createPendingRegistration,
+  deleteExpiredPendingRegistrations,
+  deletePendingRegistration,
+  getPendingRegistrationByEmail,
+  getPendingRegistrationByToken,
+} from './pending-registration.js';
 import { setPasswordResetToken, updateUserPassword, canUsePasswordResetToken } from './password-reset.js';
-import { ensureRegistrationAllowed, ensureUserIdentityAvailable } from './registration.js';
+import {
+  ensureRegistrationAllowed,
+  ensureUserIdentityAvailable,
+  isRegistrationEmailVerificationRequired,
+} from './registration.js';
 
 const loginBodySchema = z.object({
   email: z.string().email(),
@@ -29,6 +42,15 @@ const loginBodySchema = z.object({
 });
 
 const registerBodySchema = z.object({
+  email: z.string().email(),
+  username: z.string().min(3).max(32).regex(/^[a-zA-Z0-9_-]+$/),
+  password: z.string().min(8).max(128),
+  displayName: z.string().min(1).max(64).optional(),
+  verificationToken: z.string().trim().min(1).max(256).optional(),
+  verificationCode: z.string().trim().min(1).max(32).optional(),
+});
+
+const registerVerificationRequestBodySchema = z.object({
   email: z.string().email(),
   username: z.string().min(3).max(32).regex(/^[a-zA-Z0-9_-]+$/),
   password: z.string().min(8).max(128),
@@ -47,6 +69,14 @@ const resetPasswordBodySchema = z.object({
 
 const verifyEmailBodySchema = z.object({
   token: z.string().trim().min(1).max(256),
+});
+
+const verifyRegistrationBodySchema = z.object({
+  email: z.string().email().optional(),
+  token: z.string().trim().min(1).max(256).optional(),
+  code: z.string().trim().min(1).max(32).optional(),
+}).refine((value) => Boolean(value.token || value.code), {
+  message: 'Verification token or code is required',
 });
 
 const redeemRedemptionBodySchema = z.object({
@@ -96,10 +126,13 @@ const createSessionForUser = async (userId: string) => {
 const authRoutes: FastifyPluginAsync = async (app) => {
   app.post('/user/register', async (request, reply) => {
     const body = registerBodySchema.parse(request.body);
+    const registrationEmailVerificationRequired = await isRegistrationEmailVerificationRequired();
 
     try {
       await ensureRegistrationAllowed();
-      await ensureUserIdentityAvailable(body.email, body.username);
+      await ensureUserIdentityAvailable(body.email, body.username, {
+        allowPendingRegistrationForSameEmail: registrationEmailVerificationRequired,
+      });
     } catch (error) {
       if (error instanceof Error && error.message === 'System is not initialized') {
         throw app.httpErrors.conflict('System is not initialized');
@@ -116,6 +149,46 @@ const authRoutes: FastifyPluginAsync = async (app) => {
       throw error;
     }
 
+    if (registrationEmailVerificationRequired) {
+      const pendingRegistration = body.verificationToken
+        ? await getPendingRegistrationByToken(body.verificationToken)
+        : await getPendingRegistrationByEmail(body.email);
+
+      const isVerified = canUsePendingRegistration(
+        pendingRegistration,
+        {
+          token: body.verificationToken,
+          code: body.verificationCode,
+        },
+      );
+
+      if (!isVerified || !pendingRegistration) {
+        throw app.httpErrors.badRequest('Registration verification token or code is invalid or expired');
+      }
+
+      if (pendingRegistration.email !== body.email || pendingRegistration.username !== body.username) {
+        throw app.httpErrors.badRequest('Registration verification does not match the submitted account');
+      }
+
+      const user = await prisma.user.create({
+        data: {
+          email: pendingRegistration.email,
+          username: pendingRegistration.username,
+          passwordHash: pendingRegistration.passwordHash,
+          displayName: pendingRegistration.displayName,
+          emailVerifiedAt: new Date(),
+          role: 'USER',
+        },
+        select: authUserSelect,
+      });
+
+      await deletePendingRegistration(pendingRegistration.id);
+
+      return reply.code(201).send({
+        user: serializeAuthUser(user),
+      });
+    }
+
     const user = await prisma.user.create({
       data: {
         email: body.email,
@@ -130,6 +203,76 @@ const authRoutes: FastifyPluginAsync = async (app) => {
     return reply.code(201).send({
       user: serializeAuthUser(user),
     });
+  });
+
+  app.post('/user/register/verification', async (request, reply) => {
+    const body = registerVerificationRequestBodySchema.parse(request.body);
+
+    try {
+      await ensureRegistrationAllowed();
+      await ensureUserIdentityAvailable(body.email, body.username, {
+        allowPendingRegistrationForSameEmail: true,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'System is not initialized') {
+        throw app.httpErrors.conflict('System is not initialized');
+      }
+
+      if (error instanceof Error && error.message === 'User registration is disabled') {
+        throw app.httpErrors.forbidden('User registration is disabled');
+      }
+
+      if (error instanceof Error && error.message === 'User already exists') {
+        throw app.httpErrors.conflict('User already exists');
+      }
+
+      throw error;
+    }
+
+    await deleteExpiredPendingRegistrations();
+
+    if (process.env.NODE_ENV !== 'test' && !isMailDeliveryEnabled()) {
+      throw app.httpErrors.badRequest('Mail delivery is not enabled');
+    }
+
+    const { token, code } = await createPendingRegistration(body);
+
+    if (process.env.NODE_ENV === 'test') {
+      reply.header('x-registration-verification-token', token);
+      reply.header('x-registration-verification-code', code);
+    } else if (isMailDeliveryEnabled()) {
+      await sendMailMessage(buildRegistrationVerificationMessage(body.email, token, code));
+    } else {
+      request.log.info({
+        email: body.email,
+        verificationPath: `/verify-email?token=${token}`,
+        verificationCode: code,
+      }, 'Registration verification generated');
+    }
+
+    return {
+      success: true,
+    };
+  });
+
+  app.post('/user/register/verify', async (request) => {
+    const body = verifyRegistrationBodySchema.parse(request.body);
+    const pendingRegistration = body.token
+      ? await getPendingRegistrationByToken(body.token)
+      : body.email
+        ? await getPendingRegistrationByEmail(body.email)
+        : null;
+
+    if (!canUsePendingRegistration(pendingRegistration, { token: body.token, code: body.code }) || !pendingRegistration) {
+      throw app.httpErrors.badRequest('Registration verification token or code is invalid or expired');
+    }
+
+    return {
+      success: true,
+      email: pendingRegistration.email,
+      username: pendingRegistration.username,
+      displayName: pendingRegistration.displayName,
+    };
   });
 
   app.post('/user/login', async (request, reply) => {
