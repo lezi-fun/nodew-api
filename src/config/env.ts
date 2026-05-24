@@ -24,6 +24,15 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   SESSION_SECRET: z.string().min(16).default('nodew-dev-session-secret'),
   CHANNEL_SECRET: z.string().min(16).optional(),
+  APP_BASE_URL: z.string().url().optional(),
+  MAIL_PROVIDER: z.enum(['disabled', 'smtp', 'resend']).default('disabled'),
+  MAIL_FROM: z.string().email().optional(),
+  SMTP_HOST: z.string().min(1).optional(),
+  SMTP_PORT: z.coerce.number().int().positive().optional(),
+  SMTP_SECURE: booleanStringSchema.default(false),
+  SMTP_USER: z.string().min(1).optional(),
+  SMTP_PASS: z.string().min(1).optional(),
+  RESEND_API_KEY: z.string().min(1).optional(),
   STORAGE_DRIVER: z.enum(['disabled', 's3']).default('disabled'),
   STORAGE_ENDPOINT: z.string().url().optional(),
   STORAGE_REGION: z.string().min(1).default('auto'),
@@ -53,6 +62,34 @@ export const parseEnv = (input: NodeJS.ProcessEnv = process.env) => {
     if (missing.length > 0) {
       throw new Error(`Invalid environment variables: ${missing.join(', ')} are required when STORAGE_DRIVER=s3`);
     }
+  }
+
+  if (parsed.data.MAIL_PROVIDER !== 'disabled') {
+    const missingCommon = [
+      ['MAIL_FROM', parsed.data.MAIL_FROM],
+      ['APP_BASE_URL', parsed.data.APP_BASE_URL],
+    ].filter(([, value]) => !value).map(([key]) => key);
+
+    if (missingCommon.length > 0) {
+      throw new Error(`Invalid environment variables: ${missingCommon.join(', ')} are required when MAIL_PROVIDER is enabled`);
+    }
+  }
+
+  if (parsed.data.MAIL_PROVIDER === 'smtp') {
+    const missing = [
+      ['SMTP_HOST', parsed.data.SMTP_HOST],
+      ['SMTP_PORT', parsed.data.SMTP_PORT],
+      ['SMTP_USER', parsed.data.SMTP_USER],
+      ['SMTP_PASS', parsed.data.SMTP_PASS],
+    ].filter(([, value]) => !value).map(([key]) => key);
+
+    if (missing.length > 0) {
+      throw new Error(`Invalid environment variables: ${missing.join(', ')} are required when MAIL_PROVIDER=smtp`);
+    }
+  }
+
+  if (parsed.data.MAIL_PROVIDER === 'resend' && !parsed.data.RESEND_API_KEY) {
+    throw new Error('Invalid environment variables: RESEND_API_KEY is required when MAIL_PROVIDER=resend');
   }
 
   return parsed.data;

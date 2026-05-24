@@ -77,7 +77,27 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5432/nodew_api?schema=pub
 SESSION_SECRET="nodew-dev-session-secret"
 ```
 
-There are no SMTP or Resend-specific environment variables yet. Email verification currently stores and validates tokens, but external mail delivery is not wired up.
+Email delivery now supports either SMTP or Resend. Configure one provider when you want password reset and email verification links to be sent automatically.
+
+```bash
+APP_BASE_URL="http://127.0.0.1:3000"
+MAIL_PROVIDER="smtp"
+MAIL_FROM="noreply@example.com"
+SMTP_HOST="smtp.example.com"
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER="smtp-user"
+SMTP_PASS="smtp-password"
+```
+
+Or use Resend:
+
+```bash
+APP_BASE_URL="http://127.0.0.1:3000"
+MAIL_PROVIDER="resend"
+MAIL_FROM="noreply@example.com"
+RESEND_API_KEY="re_xxx"
+```
 
 Prepare Prisma:
 

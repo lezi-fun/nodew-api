@@ -16,9 +16,21 @@ NodEW-api reads runtime configuration from environment variables.
 
 ## Account security
 
-Email verification token storage and validation are implemented, but no SMTP or Resend delivery adapter is wired in yet.
+Email verification and password reset support external delivery through either SMTP or Resend.
 
-In development and test environments, verification tokens are surfaced in responses so the flow can be completed without an external mail provider.
+| Variable | Required | Description |
+| --- | --- | --- |
+| `APP_BASE_URL` | Yes when mail is enabled | Base console URL used to build verification and reset links. |
+| `MAIL_PROVIDER` | No | `disabled`, `smtp`, or `resend`. Defaults to `disabled`. |
+| `MAIL_FROM` | Yes when mail is enabled | Sender address used for outbound mail. |
+| `SMTP_HOST` | Yes for SMTP | SMTP host name. |
+| `SMTP_PORT` | Yes for SMTP | SMTP port. |
+| `SMTP_SECURE` | No for SMTP | Set `true` for implicit TLS SMTP. |
+| `SMTP_USER` | Yes for SMTP | SMTP username. |
+| `SMTP_PASS` | Yes for SMTP | SMTP password. |
+| `RESEND_API_KEY` | Yes for Resend | Resend API key. |
+
+In development and test environments, tokens are still surfaced in responses so the flow can be completed without an external mail provider.
 
 ## Object storage
 

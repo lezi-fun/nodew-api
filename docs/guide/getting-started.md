@@ -36,6 +36,19 @@ SESSION_SECRET="nodew-dev-session-secret"
 CHANNEL_SECRET="nodew-dev-channel-secret"
 ```
 
+Optional mail delivery for password reset and email verification:
+
+```bash
+APP_BASE_URL="http://127.0.0.1:3000"
+MAIL_PROVIDER="smtp"
+MAIL_FROM="noreply@example.com"
+SMTP_HOST="smtp.example.com"
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER="smtp-user"
+SMTP_PASS="smtp-password"
+```
+
 ## Database
 
 ```bash

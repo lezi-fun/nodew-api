@@ -11,6 +11,12 @@ import {
   verifyPassword,
   verifyRedemptionCode,
 } from '../../lib/crypto.js';
+import {
+  buildEmailVerificationMessage,
+  buildPasswordResetMessage,
+  isMailDeliveryEnabled,
+  sendMailMessage,
+} from '../../lib/mailer.js';
 import { prisma } from '../../lib/prisma.js';
 import { clearSessionCookie, setSessionCookie } from '../../plugins/auth.js';
 import { canUseEmailVerificationToken, setEmailVerificationToken } from './email-verification.js';
@@ -167,6 +173,14 @@ const authRoutes: FastifyPluginAsync = async (app) => {
 
       if (process.env.NODE_ENV === 'test') {
         reply.header('x-password-reset-token', token);
+      } else if (isMailDeliveryEnabled()) {
+        await sendMailMessage(buildPasswordResetMessage(body.email, token));
+      } else {
+        request.log.info({
+          userId: user.id,
+          email: body.email,
+          resetPath: `/user/reset?token=${token}`,
+        }, 'Password reset token generated');
       }
     }
 
@@ -219,8 +233,10 @@ const authRoutes: FastifyPluginAsync = async (app) => {
     const token = generateEmailVerificationToken();
     await setEmailVerificationToken(currentUser.id, token);
 
-    if (process.env.NODE_ENV !== 'production') {
+    if (process.env.NODE_ENV === 'test') {
       reply.header('x-email-verification-token', token);
+    } else if (isMailDeliveryEnabled()) {
+      await sendMailMessage(buildEmailVerificationMessage(currentUser.email, token));
     } else {
       request.log.info({
         userId: currentUser.id,

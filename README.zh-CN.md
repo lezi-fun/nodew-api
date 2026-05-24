@@ -77,7 +77,27 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5432/nodew_api?schema=pub
 SESSION_SECRET="nodew-dev-session-secret"
 ```
 
-目前还没有 SMTP 或 Resend 的专用环境变量。邮箱验证目前只负责 token 的存储和校验，外部邮件投递还没有接入。
+现在已经支持两种发信方式：`SMTP` 或 `Resend`。配置其中一种后，找回密码和邮箱验证链接就会自动发送。
+
+```bash
+APP_BASE_URL="http://127.0.0.1:3000"
+MAIL_PROVIDER="smtp"
+MAIL_FROM="noreply@example.com"
+SMTP_HOST="smtp.example.com"
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER="smtp-user"
+SMTP_PASS="smtp-password"
+```
+
+或者使用 Resend：
+
+```bash
+APP_BASE_URL="http://127.0.0.1:3000"
+MAIL_PROVIDER="resend"
+MAIL_FROM="noreply@example.com"
+RESEND_API_KEY="re_xxx"
+```
 
 准备 Prisma：
 
