@@ -60,6 +60,7 @@ export default function UserPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserItem | null>(null);
   const [draft, setDraft] = useState<UserDraft>(emptyDraft);
   const [passwordUser, setPasswordUser] = useState<UserItem | null>(null);
   const [newPassword, setNewPassword] = useState('');
@@ -90,17 +91,20 @@ export default function UserPage() {
 
   const openCreate = () => {
     setDraft({ ...emptyDraft });
+    setEditingUser(null);
     setModalVisible(true);
   };
 
   const openEdit = (user: UserItem) => {
     setDraft(toDraft(user));
+    setEditingUser(user);
     setModalVisible(true);
   };
 
   const closeModal = () => {
     setModalVisible(false);
     setSaving(false);
+    setEditingUser(null);
   };
 
   const submitDraft = async () => {
@@ -249,6 +253,15 @@ export default function UserPage() {
             dataIndex: 'status',
             render: (value) => <Tag color={value === 'ACTIVE' ? 'green' : 'orange'}>{String(value)}</Tag>,
           },
+          {
+            title: '邮箱验证',
+            dataIndex: 'emailVerifiedAt',
+            render: (value) => (
+              <Tag color={value ? 'green' : 'orange'}>
+                {value ? '已验证' : '未验证'}
+              </Tag>
+            ),
+          },
           { title: '分组', dataIndex: 'group', render: (value) => (value && typeof value === 'object' && 'name' in value ? String(value.name) : '-') },
           { title: '剩余额度', dataIndex: 'quotaRemaining', render: (value) => formatQuota(value as string) },
           { title: '已用额度', dataIndex: 'quotaUsed', render: (value) => formatQuota(value as string) },
@@ -332,6 +345,22 @@ export default function UserPage() {
             <span>剩余额度</span>
             <Input value={draft.quotaRemaining} placeholder="留空不修改" onChange={(quotaRemaining) => setDraft((current) => ({ ...current, quotaRemaining }))} />
           </label>
+          {editingUser ? (
+            <div className="form-wide">
+              <Space vertical align="start">
+                <Typography.Text type="tertiary">安全状态</Typography.Text>
+                <Typography.Text>
+                  邮箱验证：{editingUser.emailVerifiedAt ? '已验证' : '未验证'}
+                </Typography.Text>
+                <Typography.Text>
+                  验证时间：{formatDateTime(editingUser.emailVerifiedAt)}
+                </Typography.Text>
+                <Typography.Text>
+                  最后登录：{formatDateTime(editingUser.lastLoginAt)}
+                </Typography.Text>
+              </Space>
+            </div>
+          ) : null}
         </div>
       </Modal>
 
