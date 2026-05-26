@@ -5,7 +5,11 @@ import { z } from 'zod';
 import { prisma } from '../../lib/prisma.js';
 
 const checkinRewardQuotaKey = 'checkin_reward_quota';
-const checkinRewardQuotaDefault = 100n;
+const checkinEnabledKey = 'checkin_enabled';
+const checkinMinQuotaKey = 'checkin_min_quota';
+const checkinMaxQuotaKey = 'checkin_max_quota';
+const checkinMinQuotaDefault = 1000n;
+const checkinMaxQuotaDefault = 10000n;
 const checkinTimeZone = 'Asia/Shanghai';
 
 const checkinDateFormatter = new Intl.DateTimeFormat('en-CA', {
@@ -28,27 +32,58 @@ const getCheckinDateKey = (date = new Date()) => {
   return `${year}-${month}-${day}`;
 };
 
-const parseRewardQuota = (value: string | null | undefined) => {
+const parseQuota = (value: string | null | undefined, fallback: bigint) => {
   if (value === null || value === undefined || !value.trim()) {
-    return checkinRewardQuotaDefault;
+    return fallback;
   }
 
   try {
     const parsed = BigInt(value.trim());
 
-    return parsed > 0n ? parsed : checkinRewardQuotaDefault;
+    return parsed > 0n ? parsed : fallback;
   } catch {
-    return checkinRewardQuotaDefault;
+    return fallback;
   }
 };
 
-const getCheckinRewardQuota = async () => {
-  const option = await prisma.systemOption.findUnique({
-    where: { key: checkinRewardQuotaKey },
-    select: { value: true },
-  });
+const getCheckinConfig = async () => {
+  const [enabledOption, minOption, maxOption, legacyOption] = await Promise.all([
+    prisma.systemOption.findUnique({
+      where: { key: checkinEnabledKey },
+      select: { value: true },
+    }),
+    prisma.systemOption.findUnique({
+      where: { key: checkinMinQuotaKey },
+      select: { value: true },
+    }),
+    prisma.systemOption.findUnique({
+      where: { key: checkinMaxQuotaKey },
+      select: { value: true },
+    }),
+    prisma.systemOption.findUnique({
+      where: { key: checkinRewardQuotaKey },
+      select: { value: true },
+    }),
+  ]);
 
-  return parseRewardQuota(option?.value);
+  let minQuota = parseQuota(minOption?.value, checkinMinQuotaDefault);
+  let maxQuota = parseQuota(maxOption?.value, checkinMaxQuotaDefault);
+
+  if (!minOption && !maxOption && legacyOption?.value) {
+    const fixedQuota = parseQuota(legacyOption.value, checkinMinQuotaDefault);
+    minQuota = fixedQuota;
+    maxQuota = fixedQuota;
+  }
+
+  if (maxQuota < minQuota) {
+    [minQuota, maxQuota] = [maxQuota, minQuota];
+  }
+
+  return {
+    enabled: enabledOption?.value !== 'false',
+    minQuota,
+    maxQuota,
+  };
 };
 
 const monthQuerySchema = z.object({
@@ -115,6 +150,17 @@ const calculateLongestStreak = (records: Array<{ checkinDate: string }>) => {
   return longest;
 };
 
+const pickRandomQuota = (minQuota: bigint, maxQuota: bigint) => {
+  if (maxQuota <= minQuota) {
+    return minQuota;
+  }
+
+  const range = maxQuota - minQuota + 1n;
+  const offset = BigInt(Math.floor(Math.random() * Number(range)));
+
+  return minQuota + offset;
+};
+
 const checkinRoutes: FastifyPluginAsync = async (app) => {
   app.get('/checkin/status', {
     preHandler: app.requireUser,
@@ -122,7 +168,7 @@ const checkinRoutes: FastifyPluginAsync = async (app) => {
     const userId = request.currentUser!.id;
     const { month = getCheckinDateKey().slice(0, 7) } = monthQuerySchema.parse(request.query);
     const today = getCheckinDateKey();
-    const rewardQuota = await getCheckinRewardQuota();
+    const { enabled, minQuota, maxQuota } = await getCheckinConfig();
 
     const [todayRecord, lastRecord, monthRecords, allRecords, totalCheckins, totalQuotaAggregate] = await Promise.all([
       prisma.userCheckinRecord.findFirst({
@@ -183,10 +229,11 @@ const checkinRoutes: FastifyPluginAsync = async (app) => {
 
     return {
       status: {
-        enabled: true,
+        enabled,
         checkedInToday: Boolean(todayRecord),
         today,
-        rewardQuota: rewardQuota.toString(),
+        minQuota: minQuota.toString(),
+        maxQuota: maxQuota.toString(),
         lastCheckinAt: lastRecord?.createdAt.toISOString() ?? null,
         lastCheckinDate: lastRecord?.checkinDate ?? null,
         lastRewardQuota: lastRecord?.rewardQuota.toString() ?? null,
@@ -207,7 +254,12 @@ const checkinRoutes: FastifyPluginAsync = async (app) => {
   }, async (request) => {
     const userId = request.currentUser!.id;
     const today = getCheckinDateKey();
-    const rewardQuota = await getCheckinRewardQuota();
+    const { enabled, minQuota, maxQuota } = await getCheckinConfig();
+
+    if (!enabled) {
+      throw app.httpErrors.badRequest('Check-in feature is not enabled');
+    }
+    const rewardQuota = pickRandomQuota(minQuota, maxQuota);
 
     const existingCheckin = await prisma.userCheckinRecord.findFirst({
       where: {

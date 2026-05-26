@@ -7,9 +7,19 @@ describe('checkin integration', () => {
     const user = await createUser();
     const token = await createSessionForUser(user.id);
     await prisma.systemOption.upsert({
-      where: { key: 'checkin_reward_quota' },
+      where: { key: 'checkin_enabled' },
+      update: { value: 'true' },
+      create: { key: 'checkin_enabled', value: 'true' },
+    });
+    await prisma.systemOption.upsert({
+      where: { key: 'checkin_min_quota' },
       update: { value: '250' },
-      create: { key: 'checkin_reward_quota', value: '250' },
+      create: { key: 'checkin_min_quota', value: '250' },
+    });
+    await prisma.systemOption.upsert({
+      where: { key: 'checkin_max_quota' },
+      update: { value: '250' },
+      create: { key: 'checkin_max_quota', value: '250' },
     });
     const app = await createTestApp();
 
@@ -27,7 +37,8 @@ describe('checkin integration', () => {
       expect(beforeResponse.statusCode).toBe(200);
       expect(beforeResponse.json().status).toMatchObject({
         checkedInToday: false,
-        rewardQuota: '250',
+        minQuota: '250',
+        maxQuota: '250',
         totalCheckins: 0,
         totalQuota: '0',
       });
@@ -75,6 +86,8 @@ describe('checkin integration', () => {
       const statusBody = afterResponse.json().status;
       expect(statusBody).toMatchObject({
         checkedInToday: true,
+        minQuota: '250',
+        maxQuota: '250',
         lastCheckinDate: claimBody.record.checkinDate,
         month: claimBody.record.checkinDate.slice(0, 7),
         monthCheckins: 1,
@@ -98,6 +111,43 @@ describe('checkin integration', () => {
 
       expect(duplicateResponse.statusCode).toBe(409);
       expect(duplicateResponse.json().message).toBe('Already checked in today');
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
+  it('rejects check-in when the feature is disabled', async () => {
+    const user = await createUser();
+    const token = await createSessionForUser(user.id);
+    await prisma.systemOption.upsert({
+      where: { key: 'checkin_enabled' },
+      update: { value: 'false' },
+      create: { key: 'checkin_enabled', value: 'false' },
+    });
+    const app = await createTestApp();
+
+    try {
+      const cookies = {
+        nodew_session: app.signCookie(token),
+      };
+
+      const statusResponse = await app.inject({
+        method: 'GET',
+        url: '/api/checkin/status',
+        cookies,
+      });
+
+      expect(statusResponse.statusCode).toBe(200);
+      expect(statusResponse.json().status.enabled).toBe(false);
+
+      const claimResponse = await app.inject({
+        method: 'POST',
+        url: '/api/checkin',
+        cookies,
+      });
+
+      expect(claimResponse.statusCode).toBe(400);
+      expect(claimResponse.json().message).toBe('Check-in feature is not enabled');
     } finally {
       await closeTestApp(app);
     }

@@ -77,6 +77,64 @@ describe('admin options integration', () => {
     }
   });
 
+  it('updates check-in configuration through admin options', async () => {
+    const admin = await createAdminUser();
+    const token = await createSessionForUser(admin.id);
+    const app = await createTestApp();
+
+    try {
+      const cookies = {
+        nodew_session: app.signCookie(token),
+      };
+
+      const enabledResponse = await app.inject({
+        method: 'PUT',
+        url: '/api/options/checkin_enabled',
+        cookies,
+        payload: {
+          value: false,
+        },
+      });
+      const minResponse = await app.inject({
+        method: 'PUT',
+        url: '/api/options/checkin_min_quota',
+        cookies,
+        payload: {
+          value: 300,
+        },
+      });
+      const maxResponse = await app.inject({
+        method: 'PUT',
+        url: '/api/options/checkin_max_quota',
+        cookies,
+        payload: {
+          value: 500,
+        },
+      });
+
+      expect(enabledResponse.statusCode).toBe(200);
+      expect(minResponse.statusCode).toBe(200);
+      expect(maxResponse.statusCode).toBe(200);
+
+      const optionsResponse = await app.inject({
+        method: 'GET',
+        url: '/api/options',
+        cookies,
+      });
+
+      expect(optionsResponse.statusCode).toBe(200);
+      expect(optionsResponse.json().items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ key: 'checkin_enabled', value: 'false' }),
+          expect.objectContaining({ key: 'checkin_min_quota', value: '300' }),
+          expect.objectContaining({ key: 'checkin_max_quota', value: '500' }),
+        ]),
+      );
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
   it('rejects enabling registration email verification when mail delivery is disabled', async () => {
     const admin = await createAdminUser();
     const token = await createSessionForUser(admin.id);

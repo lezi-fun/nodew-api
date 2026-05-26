@@ -1,11 +1,11 @@
-import { Button, Card, Input, Select, Space, Switch, TextArea, Toast, Typography } from '@douyinfe/semi-ui';
+import { Button, Card, Input, InputNumber, Select, Space, Switch, TextArea, Toast, Typography } from '@douyinfe/semi-ui';
 import { IconSave, IconRefresh } from '@douyinfe/semi-icons';
 import { useCallback, useContext, useEffect, useState } from 'react';
 
 import { UserContext } from '../context/User';
 import { api, type MailConfig, type MailStatus, type SystemOptionItem, type SystemOptionKey } from '../lib/api';
 
-const optionMeta: Array<{
+const generalOptionMeta: Array<{
   key: SystemOptionKey;
   title: string;
   description: string;
@@ -23,8 +23,20 @@ const optionMeta: Array<{
   { key: 'registration_email_verification_required', title: '注册前验证邮箱', description: '开启后，用户必须先点击验证邮件或输入验证码，才能完成注册。', type: 'boolean' },
   { key: 'self_use_mode_enabled', title: '自用模式', description: '隐藏注册和部分公开入口。', type: 'boolean' },
   { key: 'demo_site_enabled', title: '演示站点', description: '用于标记演示环境。', type: 'boolean' },
-  { key: 'checkin_reward_quota', title: '签到奖励额度', description: '用户每日签到后自动获得的额度，默认 100。', type: 'text' },
 ];
+
+const checkinOptionMeta: Array<{
+  key: SystemOptionKey;
+  title: string;
+  description: string;
+  type: 'text' | 'textarea' | 'boolean' | 'number';
+}> = [
+  { key: 'checkin_enabled', title: '启用签到功能', description: '关闭后个人页不再显示签到入口。', type: 'boolean' },
+  { key: 'checkin_min_quota', title: '签到最小额度', description: '签到奖励的最小额度。', type: 'number' },
+  { key: 'checkin_max_quota', title: '签到最大额度', description: '签到奖励的最大额度。', type: 'number' },
+];
+
+const editableOptionMeta = generalOptionMeta;
 
 const toMap = (items: SystemOptionItem[]) =>
   Object.fromEntries(items.map((item) => [item.key, item.value])) as Partial<Record<SystemOptionKey, string>>;
@@ -49,6 +61,7 @@ export default function SettingPage() {
   const [mailStatus, setMailStatus] = useState<MailStatus | null>(null);
   const [mailConfig, setMailConfig] = useState<MailConfig>(emptyMailConfig);
   const [savingMail, setSavingMail] = useState(false);
+  const [savingCheckin, setSavingCheckin] = useState(false);
   const [testingMail, setTestingMail] = useState(false);
   const [testMailRecipient, setTestMailRecipient] = useState('');
 
@@ -61,9 +74,12 @@ export default function SettingPage() {
         api.getMailConfig(),
       ]);
       const optionMap = toMap(response.items ?? []);
+      const legacyCheckinQuota = optionMap.checkin_reward_quota;
       setValues({
         ...optionMap,
-        checkin_reward_quota: optionMap.checkin_reward_quota ?? '100',
+        checkin_enabled: optionMap.checkin_enabled ?? 'true',
+        checkin_min_quota: optionMap.checkin_min_quota ?? legacyCheckinQuota ?? '1000',
+        checkin_max_quota: optionMap.checkin_max_quota ?? legacyCheckinQuota ?? '10000',
       });
       setMailStatus(mailResponse.item);
       setMailConfig(mailConfigResponse.item);
@@ -82,13 +98,26 @@ export default function SettingPage() {
   const save = async () => {
     setSaving(true);
     try {
-      await Promise.all(optionMeta.map((option) => api.updateOption(option.key, values[option.key] ?? '')));
+      await Promise.all(editableOptionMeta.map((option) => api.updateOption(option.key, values[option.key] ?? '')));
       Toast.success('系统设置已保存');
       await load();
     } catch (error) {
       Toast.error(error instanceof Error ? error.message : '保存设置失败');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const saveCheckin = async () => {
+    setSavingCheckin(true);
+    try {
+      await Promise.all(checkinOptionMeta.map((option) => api.updateOption(option.key, values[option.key] ?? '')));
+      Toast.success('签到设置已保存');
+      await load();
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : '保存签到设置失败');
+    } finally {
+      setSavingCheckin(false);
     }
   };
 
@@ -119,6 +148,8 @@ export default function SettingPage() {
     }
   };
 
+  const checkinEnabled = values.checkin_enabled !== 'false';
+
   return (
     <main className="console-page settings-page">
       <section className="console-hero">
@@ -131,13 +162,13 @@ export default function SettingPage() {
         </div>
         <Space wrap>
           <Button icon={<IconRefresh />} loading={loading} onClick={() => void load()}>刷新</Button>
-          <Button theme="solid" type="primary" icon={<IconSave />} loading={saving} onClick={() => void save()}>保存</Button>
+          <Button theme="solid" type="primary" icon={<IconSave />} loading={saving} onClick={() => void save()}>保存基础设置</Button>
         </Space>
       </section>
 
       <Card bordered={false} className="dashboard-card settings-card">
-        <div className="settings-grid">
-          {optionMeta.map((option) => (
+          <div className="settings-grid">
+          {generalOptionMeta.map((option) => (
             <label className="setting-field" key={option.key}>
               <span>
                 <strong>{option.title}</strong>
@@ -165,6 +196,56 @@ export default function SettingPage() {
             </label>
           ))}
         </div>
+      </Card>
+
+      <Card bordered={false} className="dashboard-card settings-card" style={{ marginTop: 16 }}>
+        <Space vertical align="start" style={{ width: '100%' }}>
+          <div>
+            <Typography.Title heading={5} style={{ marginBottom: 4 }}>签到设置</Typography.Title>
+            <Typography.Paragraph type="tertiary">
+              控制个人页签到入口和每日签到随机奖励范围。
+            </Typography.Paragraph>
+          </div>
+          <div className="settings-grid" style={{ width: '100%' }}>
+            {checkinOptionMeta.map((option) => (
+              <label className="setting-field" key={option.key}>
+                <span>
+                  <strong>{option.title}</strong>
+                  <em>{option.description}</em>
+                </span>
+                {option.type === 'boolean' ? (
+                  <Switch
+                    checked={values[option.key] === 'true'}
+                    onChange={(checked) => setValues((current) => ({ ...current, [option.key]: String(checked) }))}
+                  />
+                ) : option.type === 'number' ? (
+                  <InputNumber
+                    min={0}
+                    value={values[option.key] === undefined || values[option.key] === '' ? undefined : Number(values[option.key])}
+                    disabled={!checkinEnabled && option.key !== 'checkin_enabled'}
+                    onChange={(value) => setValues((current) => ({ ...current, [option.key]: value === null || value === undefined ? '' : String(value) }))}
+                  />
+                ) : option.type === 'textarea' ? (
+                  <TextArea
+                    rows={5}
+                    value={values[option.key] ?? ''}
+                    placeholder={option.key}
+                    onChange={(value) => setValues((current) => ({ ...current, [option.key]: value }))}
+                  />
+                ) : (
+                  <Input
+                    value={values[option.key] ?? ''}
+                    placeholder={option.key}
+                    onChange={(value) => setValues((current) => ({ ...current, [option.key]: value }))}
+                  />
+                )}
+              </label>
+            ))}
+          </div>
+          <Button theme="solid" type="primary" icon={<IconSave />} loading={savingCheckin} onClick={() => void saveCheckin()}>
+            保存签到设置
+          </Button>
+        </Space>
       </Card>
 
       <Card bordered={false} className="dashboard-card settings-card" style={{ marginTop: 16 }}>

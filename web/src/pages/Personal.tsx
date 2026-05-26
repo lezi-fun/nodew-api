@@ -174,6 +174,7 @@ export default function PersonalPage() {
 
   const emailVerifiedAt = user?.emailVerifiedAt;
   const checkinRecords = checkinStatus?.records ?? [];
+  const checkinEnabled = checkinStatus?.enabled !== false;
   const recentCheckins = [...checkinRecords].reverse().slice(0, 6);
   const calendarCells = checkinStatus ? getCalendarCells(currentMonth, checkinRecords, checkinStatus.today) : [];
   const monthLabel = formatMonthLabel(currentMonth);
@@ -236,109 +237,113 @@ export default function PersonalPage() {
             </Button>
           </Space>
         </Card>
-        <Card title="每日签到" bordered={false} className="dashboard-card">
-          <Space vertical align="start">
-            <Typography.Text type="tertiary">今日状态</Typography.Text>
-            <Typography.Title heading={4} style={{ margin: 0 }}>
-              {loadingCheckin ? '加载中' : checkinStatus?.checkedInToday ? '已签到' : '未签到'}
-            </Typography.Title>
-            <Typography.Text type="tertiary">
-              {checkinStatus?.checkedInToday
-                ? `今天已领取 ${formatQuota(checkinStatus.rewardQuota)} 额度`
-                : `今天可领取 ${formatQuota(checkinStatus?.rewardQuota ?? '100')} 额度`}
-            </Typography.Text>
-            <Typography.Text type="tertiary">
-              最近一次签到：{formatDateTime(checkinStatus?.lastCheckinAt)}
-            </Typography.Text>
-            <Button
-              theme="solid"
-              type="primary"
-              loading={checkingIn}
-              disabled={loadingCheckin || !checkinStatus || Boolean(checkinStatus.checkedInToday)}
-              onClick={() => void claimCheckin()}
-            >
-              {checkinStatus?.checkedInToday ? '今天已签到' : '立即签到'}
-            </Button>
-          </Space>
-        </Card>
-        <Card title="签到月历与历史统计" bordered={false} className="dashboard-card" style={{ gridColumn: '1 / -1' }}>
-          <Space vertical align="start" style={{ width: '100%' }}>
-            <div className="checkin-panel-header">
-              <div>
-                <Typography.Title heading={4} style={{ margin: 0 }}>{monthLabel}</Typography.Title>
+        {checkinEnabled ? (
+          <>
+            <Card title="每日签到" bordered={false} className="dashboard-card">
+              <Space vertical align="start">
+                <Typography.Text type="tertiary">今日状态</Typography.Text>
+                <Typography.Title heading={4} style={{ margin: 0 }}>
+                  {loadingCheckin ? '加载中' : checkinStatus?.checkedInToday ? '已签到' : '未签到'}
+                </Typography.Title>
                 <Typography.Text type="tertiary">
-                  累计签到 {checkinStatus?.totalCheckins ?? 0} 次，累计获得 {formatQuota(checkinStatus?.totalQuota)} 额度
+                  {checkinStatus?.checkedInToday
+                    ? `今天已领取 ${formatQuota(checkinStatus.lastRewardQuota)} 额度`
+                    : '今日可签到'}
                 </Typography.Text>
-              </div>
-              <Space>
-                <Button onClick={handlePreviousMonth}>上一月</Button>
-                <Button onClick={handleCurrentMonth}>本月</Button>
-                <Button onClick={handleNextMonth}>下一月</Button>
+                <Typography.Text type="tertiary">
+                  最近一次签到：{formatDateTime(checkinStatus?.lastCheckinAt)}
+                </Typography.Text>
+                <Button
+                  theme="solid"
+                  type="primary"
+                  loading={checkingIn}
+                  disabled={loadingCheckin || !checkinStatus || Boolean(checkinStatus.checkedInToday)}
+                  onClick={() => void claimCheckin()}
+                >
+                  {checkinStatus?.checkedInToday ? '今天已签到' : '立即签到'}
+                </Button>
               </Space>
-            </div>
-
-            <div className="checkin-summary-grid">
-              <div className="checkin-summary-card">
-                <Typography.Text type="tertiary">本月签到</Typography.Text>
-                <Typography.Title heading={4} style={{ margin: 0 }}>{checkinStatus?.monthCheckins ?? 0}</Typography.Title>
-              </div>
-              <div className="checkin-summary-card">
-                <Typography.Text type="tertiary">本月获得</Typography.Text>
-                <Typography.Title heading={4} style={{ margin: 0 }}>{formatQuota(checkinStatus?.monthQuota)}</Typography.Title>
-              </div>
-              <div className="checkin-summary-card">
-                <Typography.Text type="tertiary">当前连签</Typography.Text>
-                <Typography.Title heading={4} style={{ margin: 0 }}>{checkinStatus?.currentStreak ?? 0}</Typography.Title>
-              </div>
-              <div className="checkin-summary-card">
-                <Typography.Text type="tertiary">最长连签</Typography.Text>
-                <Typography.Title heading={4} style={{ margin: 0 }}>{checkinStatus?.longestStreak ?? 0}</Typography.Title>
-              </div>
-            </div>
-
-            <div className="checkin-calendar">
-              {weekdayLabels.map((label) => (
-                <div className="checkin-calendar-weekday" key={label}>{label}</div>
-              ))}
-              {loadingCheckin
-                ? Array.from({ length: 42 }, (_, index) => (
-                    <div className="checkin-calendar-cell placeholder" key={`placeholder-${index}`} />
-                  ))
-                : calendarCells.map((cell, index) => (
-                    cell ? (
-                      <div
-                        className={`checkin-calendar-cell${cell.checkedIn ? ' checked-in' : ''}${cell.isToday ? ' today' : ''}`}
-                        key={cell.date}
-                      >
-                        <span className="checkin-calendar-day">{cell.day}</span>
-                        <span className="checkin-calendar-meta">
-                          {cell.checkedIn ? `+${formatQuota(cell.rewardQuota)}` : '未签'}
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="checkin-calendar-cell placeholder" key={`empty-${index}`} />
-                    )
-                  ))}
-            </div>
-
-            <div className="checkin-history">
-              <Typography.Text type="tertiary">最近签到记录</Typography.Text>
-              {recentCheckins.length ? (
-                <div className="checkin-history-list">
-                  {recentCheckins.map((record) => (
-                    <div className="checkin-history-item" key={record.checkinDate}>
-                      <span>{record.checkinDate}</span>
-                      <strong>+{formatQuota(record.rewardQuota)}</strong>
-                      <em>{formatDateTime(record.createdAt)}</em>
-                    </div>
-                  ))}
+            </Card>
+            <Card title="签到月历与历史统计" bordered={false} className="dashboard-card" style={{ gridColumn: '1 / -1' }}>
+              <Space vertical align="start" style={{ width: '100%' }}>
+                <div className="checkin-panel-header">
+                  <div>
+                    <Typography.Title heading={4} style={{ margin: 0 }}>{monthLabel}</Typography.Title>
+                    <Typography.Text type="tertiary">
+                      累计签到 {checkinStatus?.totalCheckins ?? 0} 次，累计获得 {formatQuota(checkinStatus?.totalQuota)} 额度
+                    </Typography.Text>
+                  </div>
+                  <Space>
+                    <Button onClick={handlePreviousMonth}>上一月</Button>
+                    <Button onClick={handleCurrentMonth}>本月</Button>
+                    <Button onClick={handleNextMonth}>下一月</Button>
+                  </Space>
                 </div>
-              ) : (
-                <Typography.Text type="tertiary">本月暂无签到记录。</Typography.Text>
-              )}
-            </div>
-          </Space>
-        </Card>
+
+                <div className="checkin-summary-grid">
+                  <div className="checkin-summary-card">
+                    <Typography.Text type="tertiary">本月签到</Typography.Text>
+                    <Typography.Title heading={4} style={{ margin: 0 }}>{checkinStatus?.monthCheckins ?? 0}</Typography.Title>
+                  </div>
+                  <div className="checkin-summary-card">
+                    <Typography.Text type="tertiary">本月获得</Typography.Text>
+                    <Typography.Title heading={4} style={{ margin: 0 }}>{formatQuota(checkinStatus?.monthQuota)}</Typography.Title>
+                  </div>
+                  <div className="checkin-summary-card">
+                    <Typography.Text type="tertiary">当前连签</Typography.Text>
+                    <Typography.Title heading={4} style={{ margin: 0 }}>{checkinStatus?.currentStreak ?? 0}</Typography.Title>
+                  </div>
+                  <div className="checkin-summary-card">
+                    <Typography.Text type="tertiary">最长连签</Typography.Text>
+                    <Typography.Title heading={4} style={{ margin: 0 }}>{checkinStatus?.longestStreak ?? 0}</Typography.Title>
+                  </div>
+                </div>
+
+                <div className="checkin-calendar">
+                  {weekdayLabels.map((label) => (
+                    <div className="checkin-calendar-weekday" key={label}>{label}</div>
+                  ))}
+                  {loadingCheckin
+                    ? Array.from({ length: 42 }, (_, index) => (
+                        <div className="checkin-calendar-cell placeholder" key={`placeholder-${index}`} />
+                      ))
+                    : calendarCells.map((cell, index) => (
+                        cell ? (
+                          <div
+                            className={`checkin-calendar-cell${cell.checkedIn ? ' checked-in' : ''}${cell.isToday ? ' today' : ''}`}
+                            key={cell.date}
+                          >
+                            <span className="checkin-calendar-day">{cell.day}</span>
+                            <span className="checkin-calendar-meta">
+                              {cell.checkedIn ? `+${formatQuota(cell.rewardQuota)}` : '未签'}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="checkin-calendar-cell placeholder" key={`empty-${index}`} />
+                        )
+                      ))}
+                </div>
+
+                <div className="checkin-history">
+                  <Typography.Text type="tertiary">最近签到记录</Typography.Text>
+                  {recentCheckins.length ? (
+                    <div className="checkin-history-list">
+                      {recentCheckins.map((record) => (
+                        <div className="checkin-history-item" key={record.checkinDate}>
+                          <span>{record.checkinDate}</span>
+                          <strong>+{formatQuota(record.rewardQuota)}</strong>
+                          <em>{formatDateTime(record.createdAt)}</em>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <Typography.Text type="tertiary">本月暂无签到记录。</Typography.Text>
+                  )}
+                </div>
+              </Space>
+            </Card>
+          </>
+        ) : null}
         <Card title="密码安全" bordered={false} className="dashboard-card">
           <div className="form-grid">
             <label>

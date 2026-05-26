@@ -16,6 +16,9 @@ const optionKeySchema = z.enum([
   'registration_email_verification_required',
   'self_use_mode_enabled',
   'demo_site_enabled',
+  'checkin_enabled',
+  'checkin_min_quota',
+  'checkin_max_quota',
   'checkin_reward_quota',
   'site_name',
   'site_description',
@@ -85,7 +88,7 @@ const optionsRoutes: FastifyPluginAsync = async (app) => {
   }, async (request) => {
     const params = z.object({ key: optionKeySchema }).parse(request.params);
     const body = updateOptionBodySchema.parse(request.body);
-    const value = params.key === 'checkin_reward_quota'
+    const value = params.key === 'checkin_reward_quota' || params.key === 'checkin_min_quota' || params.key === 'checkin_max_quota'
       ? z.coerce.bigint().positive().parse(body.value).toString()
       : typeof body.value === 'string'
         ? body.value

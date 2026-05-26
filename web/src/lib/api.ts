@@ -8,6 +8,7 @@ export type SetupStatus = {
     registrationEmailVerificationRequired?: boolean;
     selfUseModeEnabled?: boolean;
     demoSiteEnabled?: boolean;
+    checkinEnabled?: boolean;
     siteName?: string | null;
     siteDescription?: string | null;
     defaultModel?: string | null;
@@ -137,6 +138,9 @@ export type SystemOptionKey =
   | 'registration_email_verification_required'
   | 'self_use_mode_enabled'
   | 'demo_site_enabled'
+  | 'checkin_enabled'
+  | 'checkin_min_quota'
+  | 'checkin_max_quota'
   | 'checkin_reward_quota'
   | 'site_name'
   | 'site_description'
@@ -282,7 +286,8 @@ export type CheckinStatus = {
   enabled: boolean;
   checkedInToday: boolean;
   today: string;
-  rewardQuota: string;
+  minQuota: string;
+  maxQuota: string;
   lastCheckinAt: string | null;
   lastCheckinDate: string | null;
   lastRewardQuota: string | null;
