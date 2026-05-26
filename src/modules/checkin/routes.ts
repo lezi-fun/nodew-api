@@ -1,9 +1,11 @@
 import { Prisma } from '@prisma/client';
 import type { FastifyPluginAsync } from 'fastify';
+import { z } from 'zod';
 
 import { prisma } from '../../lib/prisma.js';
 
-const checkinRewardQuota = 100n;
+const checkinRewardQuotaKey = 'checkin_reward_quota';
+const checkinRewardQuotaDefault = 100n;
 const checkinTimeZone = 'Asia/Shanghai';
 
 const checkinDateFormatter = new Intl.DateTimeFormat('en-CA', {
@@ -26,7 +28,34 @@ const getCheckinDateKey = (date = new Date()) => {
   return `${year}-${month}-${day}`;
 };
 
-const serializeRecord = (record: {
+const parseRewardQuota = (value: string | null | undefined) => {
+  if (value === null || value === undefined || !value.trim()) {
+    return checkinRewardQuotaDefault;
+  }
+
+  try {
+    const parsed = BigInt(value.trim());
+
+    return parsed > 0n ? parsed : checkinRewardQuotaDefault;
+  } catch {
+    return checkinRewardQuotaDefault;
+  }
+};
+
+const getCheckinRewardQuota = async () => {
+  const option = await prisma.systemOption.findUnique({
+    where: { key: checkinRewardQuotaKey },
+    select: { value: true },
+  });
+
+  return parseRewardQuota(option?.value);
+};
+
+const monthQuerySchema = z.object({
+  month: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+});
+
+const serializeCheckinRecord = (record: {
   checkinDate: string;
   rewardQuota: bigint;
   createdAt: Date;
@@ -36,14 +65,66 @@ const serializeRecord = (record: {
   createdAt: record.createdAt.toISOString(),
 });
 
+const parseCheckinDate = (value: string) => new Date(`${value}T00:00:00+08:00`);
+
+const diffInDays = (later: string, earlier: string) =>
+  Math.round((parseCheckinDate(later).getTime() - parseCheckinDate(earlier).getTime()) / (1000 * 60 * 60 * 24));
+
+const calculateCurrentStreak = (records: Array<{ checkinDate: string }>) => {
+  if (!records.length) {
+    return 0;
+  }
+
+  let streak = 1;
+
+  for (let index = records.length - 1; index > 0; index -= 1) {
+    const current = records[index]!;
+    const previous = records[index - 1]!;
+
+    if (diffInDays(current.checkinDate, previous.checkinDate) !== 1) {
+      break;
+    }
+
+    streak += 1;
+  }
+
+  return streak;
+};
+
+const calculateLongestStreak = (records: Array<{ checkinDate: string }>) => {
+  if (!records.length) {
+    return 0;
+  }
+
+  let longest = 1;
+  let streak = 1;
+
+  for (let index = 1; index < records.length; index += 1) {
+    const current = records[index]!;
+    const previous = records[index - 1]!;
+
+    if (diffInDays(current.checkinDate, previous.checkinDate) === 1) {
+      streak += 1;
+    } else {
+      streak = 1;
+    }
+
+    longest = Math.max(longest, streak);
+  }
+
+  return longest;
+};
+
 const checkinRoutes: FastifyPluginAsync = async (app) => {
   app.get('/checkin/status', {
     preHandler: app.requireUser,
   }, async (request) => {
     const userId = request.currentUser!.id;
+    const { month = getCheckinDateKey().slice(0, 7) } = monthQuerySchema.parse(request.query);
     const today = getCheckinDateKey();
+    const rewardQuota = await getCheckinRewardQuota();
 
-    const [todayRecord, lastRecord] = await Promise.all([
+    const [todayRecord, lastRecord, monthRecords, allRecords, totalCheckins, totalQuotaAggregate] = await Promise.all([
       prisma.userCheckinRecord.findFirst({
         where: {
           userId,
@@ -64,16 +145,59 @@ const checkinRoutes: FastifyPluginAsync = async (app) => {
           createdAt: true,
         },
       }),
+      prisma.userCheckinRecord.findMany({
+        where: {
+          userId,
+          checkinDate: {
+            startsWith: month,
+          },
+        },
+        orderBy: { checkinDate: 'asc' },
+        select: {
+          checkinDate: true,
+          rewardQuota: true,
+          createdAt: true,
+        },
+      }),
+      prisma.userCheckinRecord.findMany({
+        where: { userId },
+        orderBy: { checkinDate: 'asc' },
+        select: {
+          checkinDate: true,
+        },
+      }),
+      prisma.userCheckinRecord.count({
+        where: { userId },
+      }),
+      prisma.userCheckinRecord.aggregate({
+        where: { userId },
+        _sum: {
+          rewardQuota: true,
+        },
+      }),
     ]);
+    const monthQuota = monthRecords.reduce((sum, record) => sum + record.rewardQuota, 0n);
+    const totalQuota = totalQuotaAggregate._sum.rewardQuota ?? 0n;
+    const currentStreak = calculateCurrentStreak(allRecords);
+    const longestStreak = calculateLongestStreak(allRecords);
 
     return {
       status: {
+        enabled: true,
         checkedInToday: Boolean(todayRecord),
         today,
-        rewardQuota: checkinRewardQuota.toString(),
+        rewardQuota: rewardQuota.toString(),
         lastCheckinAt: lastRecord?.createdAt.toISOString() ?? null,
         lastCheckinDate: lastRecord?.checkinDate ?? null,
         lastRewardQuota: lastRecord?.rewardQuota.toString() ?? null,
+        month,
+        monthCheckins: monthRecords.length,
+        monthQuota: monthQuota.toString(),
+        totalCheckins,
+        totalQuota: totalQuota.toString(),
+        currentStreak,
+        longestStreak,
+        records: monthRecords.map(serializeCheckinRecord),
       },
     };
   });
@@ -83,6 +207,7 @@ const checkinRoutes: FastifyPluginAsync = async (app) => {
   }, async (request) => {
     const userId = request.currentUser!.id;
     const today = getCheckinDateKey();
+    const rewardQuota = await getCheckinRewardQuota();
 
     const existingCheckin = await prisma.userCheckinRecord.findFirst({
       where: {
@@ -104,7 +229,7 @@ const checkinRoutes: FastifyPluginAsync = async (app) => {
           data: {
             userId,
             checkinDate: today,
-            rewardQuota: checkinRewardQuota,
+            rewardQuota,
           },
           select: {
             checkinDate: true,
@@ -116,7 +241,7 @@ const checkinRoutes: FastifyPluginAsync = async (app) => {
         await tx.user.update({
           where: { id: userId },
           data: {
-            quotaRemaining: { increment: checkinRewardQuota },
+            quotaRemaining: { increment: rewardQuota },
           },
         });
 
@@ -126,7 +251,7 @@ const checkinRoutes: FastifyPluginAsync = async (app) => {
       return {
         success: true,
         rewardQuota: record.rewardQuota.toString(),
-        record: serializeRecord(record),
+        record: serializeCheckinRecord(record),
       };
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {

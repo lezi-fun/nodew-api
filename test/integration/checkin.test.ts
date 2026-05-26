@@ -6,6 +6,11 @@ describe('checkin integration', () => {
   it('reports status and grants daily quota once', async () => {
     const user = await createUser();
     const token = await createSessionForUser(user.id);
+    await prisma.systemOption.upsert({
+      where: { key: 'checkin_reward_quota' },
+      update: { value: '250' },
+      create: { key: 'checkin_reward_quota', value: '250' },
+    });
     const app = await createTestApp();
 
     try {
@@ -22,7 +27,9 @@ describe('checkin integration', () => {
       expect(beforeResponse.statusCode).toBe(200);
       expect(beforeResponse.json().status).toMatchObject({
         checkedInToday: false,
-        rewardQuota: '100',
+        rewardQuota: '250',
+        totalCheckins: 0,
+        totalQuota: '0',
       });
 
       const claimResponse = await app.inject({
@@ -36,7 +43,7 @@ describe('checkin integration', () => {
       const claimBody = claimResponse.json();
       expect(claimBody).toMatchObject({
         success: true,
-        rewardQuota: '100',
+        rewardQuota: '250',
       });
       expect(claimBody.record.checkinDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 
@@ -47,7 +54,7 @@ describe('checkin integration', () => {
         },
       });
 
-      expect(storedRecord?.rewardQuota.toString()).toBe('100');
+      expect(storedRecord?.rewardQuota.toString()).toBe('250');
 
       const storedUser = await prisma.user.findUnique({
         where: { id: user.id },
@@ -56,7 +63,7 @@ describe('checkin integration', () => {
         },
       });
 
-      expect(storedUser?.quotaRemaining.toString()).toBe('10100');
+      expect(storedUser?.quotaRemaining.toString()).toBe('10250');
 
       const afterResponse = await app.inject({
         method: 'GET',
@@ -65,9 +72,22 @@ describe('checkin integration', () => {
       });
 
       expect(afterResponse.statusCode).toBe(200);
-      expect(afterResponse.json().status).toMatchObject({
+      const statusBody = afterResponse.json().status;
+      expect(statusBody).toMatchObject({
         checkedInToday: true,
         lastCheckinDate: claimBody.record.checkinDate,
+        month: claimBody.record.checkinDate.slice(0, 7),
+        monthCheckins: 1,
+        monthQuota: '250',
+        totalCheckins: 1,
+        totalQuota: '250',
+        currentStreak: 1,
+        longestStreak: 1,
+      });
+      expect(statusBody.records).toHaveLength(1);
+      expect(statusBody.records[0]).toMatchObject({
+        checkinDate: claimBody.record.checkinDate,
+        rewardQuota: '250',
       });
 
       const duplicateResponse = await app.inject({

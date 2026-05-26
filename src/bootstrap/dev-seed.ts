@@ -14,6 +14,7 @@ const defaultOptions = {
   registration_enabled: 'false',
   self_use_mode_enabled: 'false',
   demo_site_enabled: 'false',
+  checkin_reward_quota: '100',
   site_name: 'NodEW-api',
   site_description: 'Modern Node.js LLM gateway',
   default_model: 'gpt-4o-mini',

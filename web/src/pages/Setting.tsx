@@ -23,6 +23,7 @@ const optionMeta: Array<{
   { key: 'registration_email_verification_required', title: '注册前验证邮箱', description: '开启后，用户必须先点击验证邮件或输入验证码，才能完成注册。', type: 'boolean' },
   { key: 'self_use_mode_enabled', title: '自用模式', description: '隐藏注册和部分公开入口。', type: 'boolean' },
   { key: 'demo_site_enabled', title: '演示站点', description: '用于标记演示环境。', type: 'boolean' },
+  { key: 'checkin_reward_quota', title: '签到奖励额度', description: '用户每日签到后自动获得的额度，默认 100。', type: 'text' },
 ];
 
 const toMap = (items: SystemOptionItem[]) =>
@@ -59,7 +60,11 @@ export default function SettingPage() {
         api.getMailStatus(),
         api.getMailConfig(),
       ]);
-      setValues(toMap(response.items ?? []));
+      const optionMap = toMap(response.items ?? []);
+      setValues({
+        ...optionMap,
+        checkin_reward_quota: optionMap.checkin_reward_quota ?? '100',
+      });
       setMailStatus(mailResponse.item);
       setMailConfig(mailConfigResponse.item);
       setTestMailRecipient((current) => current || user?.email || '');

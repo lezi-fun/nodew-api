@@ -16,6 +16,7 @@ const optionKeySchema = z.enum([
   'registration_email_verification_required',
   'self_use_mode_enabled',
   'demo_site_enabled',
+  'checkin_reward_quota',
   'site_name',
   'site_description',
   'default_model',
@@ -84,7 +85,11 @@ const optionsRoutes: FastifyPluginAsync = async (app) => {
   }, async (request) => {
     const params = z.object({ key: optionKeySchema }).parse(request.params);
     const body = updateOptionBodySchema.parse(request.body);
-    const value = typeof body.value === 'string' ? body.value : String(body.value);
+    const value = params.key === 'checkin_reward_quota'
+      ? z.coerce.bigint().positive().parse(body.value).toString()
+      : typeof body.value === 'string'
+        ? body.value
+        : String(body.value);
 
     if (params.key === 'registration_email_verification_required' && value === 'true' && !await isMailDeliveryEnabled()) {
       throw app.httpErrors.badRequest('Mail delivery must be enabled before requiring email verification for registration');

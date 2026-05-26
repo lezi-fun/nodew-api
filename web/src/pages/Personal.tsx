@@ -1,11 +1,53 @@
 import { Button, Card, Input, Select, Space, Toast, Typography } from '@douyinfe/semi-ui';
 import { IconSave, IconUser } from '@douyinfe/semi-icons';
 import { useContext, useEffect, useState } from 'react';
+import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 
 import { UserContext } from '../context/User';
 import { api, type CheckinStatus } from '../lib/api';
 import { formatDateTime, formatQuota } from '../lib/format';
+
+const weekdayLabels = ['一', '二', '三', '四', '五', '六', '日'];
+
+type CheckinCalendarCell = {
+  date: string;
+  day: number;
+  checkedIn: boolean;
+  rewardQuota: string | null;
+  createdAt: string | null;
+  isToday: boolean;
+};
+
+const shiftMonth = (month: string, offset: number) => dayjs(`${month}-01`).add(offset, 'month').format('YYYY-MM');
+
+const formatMonthLabel = (month: string) => dayjs(`${month}-01`).format('YYYY年MM月');
+
+const getCalendarCells = (month: string, records: CheckinStatus['records'], today: string) => {
+  const year = Number(month.slice(0, 4));
+  const monthIndex = Number(month.slice(5, 7));
+  const daysInMonth = new Date(year, monthIndex, 0).getDate();
+  const firstDay = new Date(`${month}-01T00:00:00+08:00`);
+  const leadingEmpty = (firstDay.getDay() + 6) % 7;
+  const recordMap = new Map(records.map((record) => [record.checkinDate, record]));
+  const cells: Array<CheckinCalendarCell | null> = Array.from({ length: leadingEmpty }, () => null);
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const date = `${month}-${String(day).padStart(2, '0')}`;
+    const record = recordMap.get(date);
+
+    cells.push({
+      date,
+      day,
+      checkedIn: Boolean(record),
+      rewardQuota: record?.rewardQuota ?? null,
+      createdAt: record?.createdAt ?? null,
+      isToday: date === today,
+    });
+  }
+
+  return cells;
+};
 
 export default function PersonalPage() {
   const { user, refresh } = useContext(UserContext);
@@ -18,6 +60,7 @@ export default function PersonalPage() {
   const [sendingVerification, setSendingVerification] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
   const [checkinStatus, setCheckinStatus] = useState<CheckinStatus | null>(null);
+  const [currentMonth, setCurrentMonth] = useState(() => dayjs().format('YYYY-MM'));
   const [loadingCheckin, setLoadingCheckin] = useState(true);
   const [checkingIn, setCheckingIn] = useState(false);
 
@@ -34,7 +77,7 @@ export default function PersonalPage() {
       setLoadingCheckin(true);
 
       try {
-        const response = await api.getCheckinStatus();
+        const response = await api.getCheckinStatus({ month: currentMonth });
 
         if (active) {
           setCheckinStatus(response.status);
@@ -55,7 +98,7 @@ export default function PersonalPage() {
     return () => {
       active = false;
     };
-  }, [user?.id]);
+  }, [user?.id, currentMonth]);
 
   const saveProfile = async () => {
     setSavingProfile(true);
@@ -119,7 +162,7 @@ export default function PersonalPage() {
     try {
       await api.checkIn();
       await refresh();
-      const response = await api.getCheckinStatus();
+      const response = await api.getCheckinStatus({ month: currentMonth });
       setCheckinStatus(response.status);
       Toast.success('签到成功');
     } catch (error) {
@@ -130,6 +173,13 @@ export default function PersonalPage() {
   };
 
   const emailVerifiedAt = user?.emailVerifiedAt;
+  const checkinRecords = checkinStatus?.records ?? [];
+  const recentCheckins = [...checkinRecords].reverse().slice(0, 6);
+  const calendarCells = checkinStatus ? getCalendarCells(currentMonth, checkinRecords, checkinStatus.today) : [];
+  const monthLabel = formatMonthLabel(currentMonth);
+  const handlePreviousMonth = () => setCurrentMonth((current) => shiftMonth(current, -1));
+  const handleNextMonth = () => setCurrentMonth((current) => shiftMonth(current, 1));
+  const handleCurrentMonth = () => setCurrentMonth(dayjs().format('YYYY-MM'));
 
   return (
     <main className="console-page personal-page">
@@ -209,6 +259,84 @@ export default function PersonalPage() {
             >
               {checkinStatus?.checkedInToday ? '今天已签到' : '立即签到'}
             </Button>
+          </Space>
+        </Card>
+        <Card title="签到月历与历史统计" bordered={false} className="dashboard-card" style={{ gridColumn: '1 / -1' }}>
+          <Space vertical align="start" style={{ width: '100%' }}>
+            <div className="checkin-panel-header">
+              <div>
+                <Typography.Title heading={4} style={{ margin: 0 }}>{monthLabel}</Typography.Title>
+                <Typography.Text type="tertiary">
+                  累计签到 {checkinStatus?.totalCheckins ?? 0} 次，累计获得 {formatQuota(checkinStatus?.totalQuota)} 额度
+                </Typography.Text>
+              </div>
+              <Space>
+                <Button onClick={handlePreviousMonth}>上一月</Button>
+                <Button onClick={handleCurrentMonth}>本月</Button>
+                <Button onClick={handleNextMonth}>下一月</Button>
+              </Space>
+            </div>
+
+            <div className="checkin-summary-grid">
+              <div className="checkin-summary-card">
+                <Typography.Text type="tertiary">本月签到</Typography.Text>
+                <Typography.Title heading={4} style={{ margin: 0 }}>{checkinStatus?.monthCheckins ?? 0}</Typography.Title>
+              </div>
+              <div className="checkin-summary-card">
+                <Typography.Text type="tertiary">本月获得</Typography.Text>
+                <Typography.Title heading={4} style={{ margin: 0 }}>{formatQuota(checkinStatus?.monthQuota)}</Typography.Title>
+              </div>
+              <div className="checkin-summary-card">
+                <Typography.Text type="tertiary">当前连签</Typography.Text>
+                <Typography.Title heading={4} style={{ margin: 0 }}>{checkinStatus?.currentStreak ?? 0}</Typography.Title>
+              </div>
+              <div className="checkin-summary-card">
+                <Typography.Text type="tertiary">最长连签</Typography.Text>
+                <Typography.Title heading={4} style={{ margin: 0 }}>{checkinStatus?.longestStreak ?? 0}</Typography.Title>
+              </div>
+            </div>
+
+            <div className="checkin-calendar">
+              {weekdayLabels.map((label) => (
+                <div className="checkin-calendar-weekday" key={label}>{label}</div>
+              ))}
+              {loadingCheckin
+                ? Array.from({ length: 42 }, (_, index) => (
+                    <div className="checkin-calendar-cell placeholder" key={`placeholder-${index}`} />
+                  ))
+                : calendarCells.map((cell, index) => (
+                    cell ? (
+                      <div
+                        className={`checkin-calendar-cell${cell.checkedIn ? ' checked-in' : ''}${cell.isToday ? ' today' : ''}`}
+                        key={cell.date}
+                      >
+                        <span className="checkin-calendar-day">{cell.day}</span>
+                        <span className="checkin-calendar-meta">
+                          {cell.checkedIn ? `+${formatQuota(cell.rewardQuota)}` : '未签'}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="checkin-calendar-cell placeholder" key={`empty-${index}`} />
+                    )
+                  ))}
+            </div>
+
+            <div className="checkin-history">
+              <Typography.Text type="tertiary">最近签到记录</Typography.Text>
+              {recentCheckins.length ? (
+                <div className="checkin-history-list">
+                  {recentCheckins.map((record) => (
+                    <div className="checkin-history-item" key={record.checkinDate}>
+                      <span>{record.checkinDate}</span>
+                      <strong>+{formatQuota(record.rewardQuota)}</strong>
+                      <em>{formatDateTime(record.createdAt)}</em>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <Typography.Text type="tertiary">本月暂无签到记录。</Typography.Text>
+              )}
+            </div>
           </Space>
         </Card>
         <Card title="密码安全" bordered={false} className="dashboard-card">

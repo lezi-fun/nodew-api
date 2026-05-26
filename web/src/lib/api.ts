@@ -137,6 +137,7 @@ export type SystemOptionKey =
   | 'registration_email_verification_required'
   | 'self_use_mode_enabled'
   | 'demo_site_enabled'
+  | 'checkin_reward_quota'
   | 'site_name'
   | 'site_description'
   | 'default_model'
@@ -278,12 +279,25 @@ export type MailConfig = {
 };
 
 export type CheckinStatus = {
+  enabled: boolean;
   checkedInToday: boolean;
   today: string;
   rewardQuota: string;
   lastCheckinAt: string | null;
   lastCheckinDate: string | null;
   lastRewardQuota: string | null;
+  month: string;
+  monthCheckins: number;
+  monthQuota: string;
+  totalCheckins: number;
+  totalQuota: string;
+  currentStreak: number;
+  longestStreak: number;
+  records: Array<{
+    checkinDate: string;
+    rewardQuota: string;
+    createdAt: string;
+  }>;
 };
 
 export type CheckinResult = {
@@ -597,7 +611,7 @@ export const api = {
     (await client.put<{ item: MailConfig; status: MailStatus }>('/api/options/mail/config', payload)).data,
   sendTestMail: async (payload?: { email?: string }) =>
     (await client.post<{ success: boolean; email: string }>('/api/options/mail/test', payload ?? {})).data,
-  getCheckinStatus: async () => (await client.get<{ status: CheckinStatus }>('/api/checkin/status')).data,
+  getCheckinStatus: async (params?: { month?: string }) => (await client.get<{ status: CheckinStatus }>('/api/checkin/status', { params })).data,
   checkIn: async () => (await client.post<CheckinResult>('/api/checkin')).data,
   listUsageLogs: async (params?: UsageQuery) => (await client.get<ListResponse<UsageLogItem>>('/api/usage', { params })).data,
   listSelfUsageLogs: async (params?: UsageQuery) => (await client.get<ListResponse<UsageLogItem>>('/api/usage/self', { params })).data,
