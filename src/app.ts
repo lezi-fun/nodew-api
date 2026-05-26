@@ -20,6 +20,7 @@ import usersRoutes from './modules/admin/users/routes.js';
 import channelRoutes from './modules/channels/routes.js';
 import compatibilityRoutes from './modules/compatibility/routes.js';
 import dashboardRoutes from './modules/dashboard/routes.js';
+import checkinRoutes from './modules/checkin/routes.js';
 import relayRoutes from './modules/relay/routes.js';
 import selfRoutes from './modules/self/routes.js';
 import setupRoutes from './modules/setup/routes.js';
@@ -98,6 +99,7 @@ export const createApp = async (appEnv: AppEnv = parseEnv()) => {
     await api.register(storageRoutes);
     await api.register(groupsRoutes);
     await api.register(redemptionsRoutes);
+    await api.register(checkinRoutes);
     await api.register(channelRoutes);
     await api.register(usageRoutes);
     await api.register(compatibilityRoutes);

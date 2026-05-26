@@ -62,6 +62,7 @@ model User {
   createdApiKeys              APIKey[]     @relation("APIKeyCreator")
   createdRedemptions          Redemption[] @relation("RedemptionCreator")
   redeemedRedemptions         Redemption[] @relation("RedeemedByUser")
+  checkinRecords              UserCheckinRecord[]
 
   @@index([role])
   @@index([status])
@@ -83,6 +84,19 @@ model PendingUserRegistration {
 
   @@index([username])
   @@index([verificationExpiresAt])
+}
+
+model UserCheckinRecord {
+  id          String   @id @default(cuid())
+  userId      String
+  checkinDate String
+  rewardQuota BigInt   @default(100)
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, checkinDate])
+  @@index([checkinDate])
+  @@index([userId, createdAt])
 }
 
 model Group {

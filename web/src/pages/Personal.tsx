@@ -1,10 +1,10 @@
 import { Button, Card, Input, Select, Space, Toast, Typography } from '@douyinfe/semi-ui';
 import { IconSave, IconUser } from '@douyinfe/semi-icons';
-import { useContext, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { UserContext } from '../context/User';
-import { api } from '../lib/api';
+import { api, type CheckinStatus } from '../lib/api';
 import { formatDateTime, formatQuota } from '../lib/format';
 
 export default function PersonalPage() {
@@ -17,6 +17,45 @@ export default function PersonalPage() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [sendingVerification, setSendingVerification] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
+  const [checkinStatus, setCheckinStatus] = useState<CheckinStatus | null>(null);
+  const [loadingCheckin, setLoadingCheckin] = useState(true);
+  const [checkingIn, setCheckingIn] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadCheckinStatus = async () => {
+      if (!user) {
+        setCheckinStatus(null);
+        setLoadingCheckin(false);
+        return;
+      }
+
+      setLoadingCheckin(true);
+
+      try {
+        const response = await api.getCheckinStatus();
+
+        if (active) {
+          setCheckinStatus(response.status);
+        }
+      } catch (error) {
+        if (active) {
+          Toast.error(error instanceof Error ? error.message : '加载签到状态失败');
+        }
+      } finally {
+        if (active) {
+          setLoadingCheckin(false);
+        }
+      }
+    };
+
+    void loadCheckinStatus();
+
+    return () => {
+      active = false;
+    };
+  }, [user?.id]);
 
   const saveProfile = async () => {
     setSavingProfile(true);
@@ -75,6 +114,21 @@ export default function PersonalPage() {
     }
   };
 
+  const claimCheckin = async () => {
+    setCheckingIn(true);
+    try {
+      await api.checkIn();
+      await refresh();
+      const response = await api.getCheckinStatus();
+      setCheckinStatus(response.status);
+      Toast.success('签到成功');
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : '签到失败');
+    } finally {
+      setCheckingIn(false);
+    }
+  };
+
   const emailVerifiedAt = user?.emailVerifiedAt;
 
   return (
@@ -129,6 +183,31 @@ export default function PersonalPage() {
               onClick={() => void requestVerification()}
             >
               {emailVerifiedAt ? '邮箱已验证' : '发送验证链接'}
+            </Button>
+          </Space>
+        </Card>
+        <Card title="每日签到" bordered={false} className="dashboard-card">
+          <Space vertical align="start">
+            <Typography.Text type="tertiary">今日状态</Typography.Text>
+            <Typography.Title heading={4} style={{ margin: 0 }}>
+              {loadingCheckin ? '加载中' : checkinStatus?.checkedInToday ? '已签到' : '未签到'}
+            </Typography.Title>
+            <Typography.Text type="tertiary">
+              {checkinStatus?.checkedInToday
+                ? `今天已领取 ${formatQuota(checkinStatus.rewardQuota)} 额度`
+                : `今天可领取 ${formatQuota(checkinStatus?.rewardQuota ?? '100')} 额度`}
+            </Typography.Text>
+            <Typography.Text type="tertiary">
+              最近一次签到：{formatDateTime(checkinStatus?.lastCheckinAt)}
+            </Typography.Text>
+            <Button
+              theme="solid"
+              type="primary"
+              loading={checkingIn}
+              disabled={loadingCheckin || !checkinStatus || Boolean(checkinStatus.checkedInToday)}
+              onClick={() => void claimCheckin()}
+            >
+              {checkinStatus?.checkedInToday ? '今天已签到' : '立即签到'}
             </Button>
           </Space>
         </Card>

@@ -277,6 +277,25 @@ export type MailConfig = {
   resendApiKey: string;
 };
 
+export type CheckinStatus = {
+  checkedInToday: boolean;
+  today: string;
+  rewardQuota: string;
+  lastCheckinAt: string | null;
+  lastCheckinDate: string | null;
+  lastRewardQuota: string | null;
+};
+
+export type CheckinResult = {
+  success: boolean;
+  rewardQuota: string;
+  record: {
+    checkinDate: string;
+    rewardQuota: string;
+    createdAt: string;
+  };
+};
+
 export type TaskListData = {
   items: TaskItem[];
   total: number;
@@ -578,6 +597,8 @@ export const api = {
     (await client.put<{ item: MailConfig; status: MailStatus }>('/api/options/mail/config', payload)).data,
   sendTestMail: async (payload?: { email?: string }) =>
     (await client.post<{ success: boolean; email: string }>('/api/options/mail/test', payload ?? {})).data,
+  getCheckinStatus: async () => (await client.get<{ status: CheckinStatus }>('/api/checkin/status')).data,
+  checkIn: async () => (await client.post<CheckinResult>('/api/checkin')).data,
   listUsageLogs: async (params?: UsageQuery) => (await client.get<ListResponse<UsageLogItem>>('/api/usage', { params })).data,
   listSelfUsageLogs: async (params?: UsageQuery) => (await client.get<ListResponse<UsageLogItem>>('/api/usage/self', { params })).data,
   getUsageSummary: async () => (await client.get<UsageSummary>('/api/usage/summary')).data,
