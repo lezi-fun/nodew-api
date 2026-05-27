@@ -36,6 +36,23 @@ These values can be supplied through environment variables, or entered later fro
 
 When the admin setting for registration email verification is enabled, mail delivery must also be enabled. The admin settings page exposes current mail status, editable mail fields, and a test-mail action to verify the configuration.
 
+## Daily check-in
+
+Daily check-in settings are stored in system options rather than environment variables.
+
+| Option key | Description |
+| --- | --- |
+| `checkin_enabled` | Enables or disables the check-in entry on the personal page. |
+| `checkin_min_quota` | Minimum quota awarded by a successful daily check-in. |
+| `checkin_max_quota` | Maximum quota awarded by a successful daily check-in. |
+
+Behavior notes:
+
+- When `checkin_enabled` is `false`, the personal page hides the check-in entry.
+- Each successful check-in awards a random quota value between `checkin_min_quota` and `checkin_max_quota`.
+- The personal page shows check-in status, month history, total history, current streak, and longest streak.
+- Legacy deployments that still only have `checkin_reward_quota` stored are read as a fallback until the new min/max settings are saved.
+
 ## Object storage
 
 Object storage is optional and disabled by default. Enable it when generated images, videos, task files, or future upload assets must survive Serverless function restarts.

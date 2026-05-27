@@ -12,6 +12,7 @@ Console and administration routes are exposed under `/api`.
 | Logs | Inspect relay usage and billing-oriented records. |
 | Models | Inspect model availability inferred from active channels. |
 | Settings | Configure runtime and console-facing behavior. |
+| Check-in | Read personal check-in status and issue daily quota rewards. |
 
 ## Public site content
 
@@ -30,6 +31,22 @@ The console exposes a small content layer through system options. Admin users ca
 
 `GET /api/site` returns the public site metadata, links, content options, and a small status summary.
 
+## Settings options
+
+The admin settings page writes selected configuration keys through `/api/options/:key`.
+
+Relevant account and check-in keys include:
+
+| Option key | Purpose |
+| --- | --- |
+| `registration_enabled` | Allows or blocks new user registration. |
+| `registration_email_verification_required` | Requires successful email verification before account creation. |
+| `self_use_mode_enabled` | Hides registration and some public entry points. |
+| `demo_site_enabled` | Marks the instance as a demo deployment. |
+| `checkin_enabled` | Enables or disables daily check-in on the personal page. |
+| `checkin_min_quota` | Minimum random quota reward for a successful daily check-in. |
+| `checkin_max_quota` | Maximum random quota reward for a successful daily check-in. |
+
 ## Session authentication
 
 The web console uses the backend authentication APIs for login, registration, setup, email verification, password reset, and user profile retrieval.
@@ -44,6 +61,15 @@ The web console uses the backend authentication APIs for login, registration, se
 - `POST /api/user/email/verify`
 - `GET /api/user/self`
 - `PATCH /api/user/self`
+
+### Check-in routes
+
+- `GET /api/checkin/status`
+- `POST /api/checkin`
+
+`GET /api/checkin/status` returns whether check-in is enabled, whether the current user already checked in today, the configured min/max quota range, monthly records, cumulative totals, and streak data.
+
+`POST /api/checkin` creates the current day's record and increments the user's remaining quota by a random value inside the configured range.
 
 ## Compatibility routes
 

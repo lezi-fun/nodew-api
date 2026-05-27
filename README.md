@@ -42,6 +42,7 @@ Current capabilities include:
 - Channel management with provider metadata, weights, priorities, health checks, and model sync.
 - Token management with quota, expiry, and model allow/block metadata.
 - Account security flows, including email verification, password reset, and session management.
+- Daily check-in with configurable random quota rewards, monthly history, and streak statistics.
 - Usage logs and billing-oriented request accounting.
 - Admin console for dashboard, channels, tokens, users, redemptions, logs, models, deployment, settings, wallet, and playground.
 - PostgreSQL by default, with a dedicated MySQL Prisma schema for MySQL deployments.
@@ -106,6 +107,12 @@ If you plan to require email verification before registration from the admin set
 - Users must open the verification link from the email or enter the verification code on the registration page.
 - The account is created only after verification succeeds.
 - The settings page shows current mail delivery status and includes a test-mail action.
+
+The admin settings page also includes a dedicated check-in section:
+
+- `checkin_enabled` controls whether the personal page shows the check-in entry.
+- `checkin_min_quota` and `checkin_max_quota` define the random reward range for each successful check-in.
+- The personal page shows current status, calendar history, monthly totals, and streak statistics.
 
 Prepare Prisma:
 
@@ -236,6 +243,11 @@ Relay endpoints:
 - `POST /v1/audio/translations`
 
 Admin and console APIs are exposed under `/api`.
+
+Account utility endpoints:
+
+- `GET /api/checkin/status`
+- `POST /api/checkin`
 
 ## License
 

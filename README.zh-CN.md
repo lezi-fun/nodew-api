@@ -42,6 +42,7 @@ NodEW-api 使用 Fastify、Prisma、TypeScript、React、Vite 和 Semi UI 构建
 - 渠道管理，支持供应商 metadata、权重、优先级、连通性测试和模型同步。
 - 令牌管理，支持额度、过期时间、模型 allow/block 策略。
 - 账号安全流程，包含邮箱验证、密码重置和会话管理。
+- 每日签到，支持后台配置随机奖励区间、月历记录和连签统计。
 - 使用日志和面向计费的请求统计。
 - 管理控制台，包含数据看板、渠道、令牌、用户、兑换码、日志、模型、部署、系统设置、钱包和操练场。
 - 默认支持 PostgreSQL，并提供独立的 MySQL Prisma schema。
@@ -106,6 +107,12 @@ RESEND_API_KEY="re_xxx"
 - 用户必须先点击验证邮件中的链接，或者在注册页输入验证码。
 - 验证完成后才能真正创建账号。
 - 后台系统设置页会显示当前邮件通道状态，支持直接修改邮件配置，并且可以发送测试邮件。
+
+后台“系统设置”页现在也包含独立的签到设置区块：
+
+- `checkin_enabled` 控制个人页是否显示签到入口。
+- `checkin_min_quota` 和 `checkin_max_quota` 控制每次签到成功后的随机奖励范围。
+- 个人页会显示签到状态、月历历史、本月统计和连签统计。
 
 准备 Prisma：
 
@@ -236,6 +243,11 @@ Relay 接口：
 - `POST /v1/audio/translations`
 
 管理控制台 API 位于 `/api`。
+
+账号辅助接口还包括：
+
+- `GET /api/checkin/status`
+- `POST /api/checkin`
 
 ## 许可证
 

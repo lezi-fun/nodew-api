@@ -53,6 +53,14 @@ You can keep these values in environment variables, or fill them later from the 
 
 If you want users to verify their email before an account is created, enable the registration verification switch from the admin settings page after mail delivery is working. The settings page also includes mail configuration fields, a mail-status panel, and a test-mail action.
 
+The admin settings page also includes a dedicated daily check-in section. There you can:
+
+- enable or disable the personal-page check-in entry,
+- set the minimum random reward quota,
+- set the maximum random reward quota.
+
+After signing in, users can open the personal page to view daily check-in status, monthly history, cumulative totals, and streak statistics.
+
 ## Database
 
 ```bash
