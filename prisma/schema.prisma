@@ -59,6 +59,8 @@ model User {
   group                       Group?       @relation(fields: [groupId], references: [id], onDelete: SetNull)
   apiKeys                     APIKey[]
   usageLogs                   UsageLog[]
+  twoFA                       TwoFA?
+  twoFABackupCodes            TwoFABackupCode[]
   createdApiKeys              APIKey[]     @relation("APIKeyCreator")
   createdRedemptions          Redemption[] @relation("RedemptionCreator")
   redeemedRedemptions         Redemption[] @relation("RedeemedByUser")
@@ -97,6 +99,39 @@ model UserCheckinRecord {
   @@unique([userId, checkinDate])
   @@index([checkinDate])
   @@index([userId, createdAt])
+}
+
+model TwoFA {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  secret         String
+  isEnabled      Boolean  @default(false)
+  failedAttempts Int      @default(0)
+  lockedUntil    DateTime?
+  lastUsedAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deletedAt      DateTime?
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([isEnabled])
+  @@index([lockedUntil])
+  @@index([deletedAt])
+}
+
+model TwoFABackupCode {
+  id        String   @id @default(cuid())
+  userId    String
+  codeHash  String
+  isUsed    Boolean  @default(false)
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  deletedAt DateTime?
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, isUsed])
+  @@index([deletedAt])
 }
 
 model Group {
