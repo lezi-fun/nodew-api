@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { UserContext } from '../context/User';
 import { api, type CheckinStatus } from '../lib/api';
 import { formatDateTime, formatQuota } from '../lib/format';
+import TwoFASettingCard from '../components/security/TwoFASettingCard';
 
 const weekdayLabels = ['一', '二', '三', '四', '五', '六', '日'];
 
@@ -189,7 +190,7 @@ export default function PersonalPage() {
           <div className="console-eyebrow">Account</div>
           <Typography.Title heading={2} style={{ margin: '6px 0 8px' }}>个人设置</Typography.Title>
           <Typography.Paragraph className="console-description">
-            管理个人资料、语言偏好和登录密码。
+            管理个人资料、安全设置、语言偏好和登录密码。
           </Typography.Paragraph>
         </div>
         <div className="dashboard-user-card">
@@ -237,6 +238,7 @@ export default function PersonalPage() {
             </Button>
           </Space>
         </Card>
+        <TwoFASettingCard />
         {checkinEnabled ? (
           <>
             <Card title="每日签到" bordered={false} className="dashboard-card">

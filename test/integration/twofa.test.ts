@@ -126,6 +126,77 @@ describe('two-factor authentication integration', () => {
     }
   });
 
+  it('regenerates backup codes after TOTP confirmation', async () => {
+    const user = await createUser();
+    const token = await createSessionForUser(user.id);
+    const app = await createTestApp();
+
+    try {
+      const cookies = {
+        nodew_session: app.signCookie(token),
+      };
+
+      const setupResponse = await app.inject({
+        method: 'POST',
+        url: '/api/user/2fa/setup',
+        cookies,
+      });
+
+      expect(setupResponse.statusCode).toBe(200);
+      const setupBody = setupResponse.json().item;
+
+      const enableResponse = await app.inject({
+        method: 'POST',
+        url: '/api/user/2fa/enable',
+        cookies,
+        payload: {
+          code: generateTotpCode(setupBody.secret),
+        },
+      });
+
+      expect(enableResponse.statusCode).toBe(200);
+
+      const regenerateResponse = await app.inject({
+        method: 'POST',
+        url: '/api/user/2fa/backup-codes',
+        cookies,
+        payload: {
+          code: generateTotpCode(setupBody.secret),
+        },
+      });
+
+      expect(regenerateResponse.statusCode).toBe(200);
+      const regenerateBody = regenerateResponse.json().item;
+      expect(regenerateBody.backupCodes).toHaveLength(4);
+      expect(regenerateBody.backupCodes.every((code: string) => /^[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(code))).toBe(true);
+
+      const statusAfterRegenerateResponse = await app.inject({
+        method: 'GET',
+        url: '/api/user/2fa/status',
+        cookies,
+      });
+
+      expect(statusAfterRegenerateResponse.statusCode).toBe(200);
+      expect(statusAfterRegenerateResponse.json().item).toMatchObject({
+        enabled: true,
+        locked: false,
+        backupCodesRemaining: 4,
+      });
+
+      const backupCodeState = await prisma.twoFABackupCode.findMany({
+        where: { userId: user.id },
+        select: {
+          isUsed: true,
+        },
+      });
+
+      expect(backupCodeState).toHaveLength(4);
+      expect(backupCodeState.filter((entry) => entry.isUsed)).toHaveLength(0);
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
   it('requires a second factor before login and accepts backup codes', async () => {
     const user = await createUser();
     const token = await createSessionForUser(user.id);

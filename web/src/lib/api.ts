@@ -81,6 +81,22 @@ export type LoginResult =
       requiresTwoFA: true;
     };
 
+export type TwoFAStatus = {
+  enabled: boolean;
+  locked: boolean;
+  backupCodesRemaining: number;
+};
+
+export type TwoFASetupResult = {
+  secret: string;
+  qrCodeData: string;
+  backupCodes: string[];
+};
+
+export type TwoFABackupCodesResult = {
+  backupCodes: string[];
+};
+
 export type ChannelItem = {
   id: string;
   name: string;
@@ -496,6 +512,12 @@ export const api = {
     (await client.post<LoginResult>('/api/user/login', payload)).data,
   verifyTwoFactorLogin: async (payload: { code: string }) =>
     (await client.post<{ success: true; user: CurrentUser }>('/api/user/login/2fa', payload)).data,
+  getTwoFAStatus: async () => (await client.get<{ item: TwoFAStatus }>('/api/user/2fa/status')).data,
+  setupTwoFA: async () => (await client.post<{ item: TwoFASetupResult }>('/api/user/2fa/setup')).data,
+  enableTwoFA: async (payload: { code: string }) => (await client.post<{ success: boolean }>('/api/user/2fa/enable', payload)).data,
+  disableTwoFA: async (payload: { code: string }) => (await client.post<{ success: boolean }>('/api/user/2fa/disable', payload)).data,
+  regenerateTwoFABackupCodes: async (payload: { code: string }) =>
+    (await client.post<{ item: TwoFABackupCodesResult }>('/api/user/2fa/backup-codes', payload)).data,
   register: async (payload: {
     email: string;
     username: string;

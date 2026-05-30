@@ -32,6 +32,10 @@ const twoFADisableBodySchema = z.object({
   code: z.string().trim().min(1).max(32),
 });
 
+const twoFARegenerateBackupCodesBodySchema = z.object({
+  code: z.string().trim().min(1).max(32),
+});
+
 const selfSelect = {
   id: true,
   email: true,
@@ -256,6 +260,40 @@ const disableTwoFA = async (userId: string, code: string) => {
   });
 };
 
+const regenerateTwoFABackupCodes = async (userId: string, code: string) => {
+  const twoFA = await prisma.twoFA.findUnique({
+    where: { userId },
+    select: twoFASelect,
+  });
+
+  if (!twoFA || !twoFA.isEnabled) {
+    throw new Error('Two-factor authentication is not enabled');
+  }
+
+  if (!validateTotpCode(twoFA.secret, code, { window: 1 })) {
+    throw new Error('Verification code is invalid');
+  }
+
+  const backupCodes = generateBackupCodes();
+
+  await prisma.$transaction(async (tx) => {
+    await tx.twoFABackupCode.deleteMany({
+      where: { userId },
+    });
+
+    await tx.twoFABackupCode.createMany({
+      data: backupCodes.map((backupCode) => ({
+        userId,
+        codeHash: hashPassword(normalizeBackupCode(backupCode)),
+      })),
+    });
+  });
+
+  return {
+    backupCodes,
+  };
+};
+
 const selfRoutes: FastifyPluginAsync = async (app) => {
   app.get('/user/self', {
     preHandler: app.requireUser,
@@ -399,6 +437,26 @@ const selfRoutes: FastifyPluginAsync = async (app) => {
     return {
       success: true,
     };
+  });
+
+  app.post('/user/2fa/backup-codes', {
+    preHandler: app.requireUser,
+  }, async (request) => {
+    const body = twoFARegenerateBackupCodesBodySchema.parse(request.body);
+
+    try {
+      const result = await regenerateTwoFABackupCodes(request.currentUser!.id, body.code);
+
+      return {
+        item: result,
+      };
+    } catch (error) {
+      if (error instanceof Error) {
+        throw app.httpErrors.badRequest(error.message);
+      }
+
+      throw error;
+    }
   });
 };
 
