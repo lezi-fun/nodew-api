@@ -3,6 +3,27 @@ import { generateTotpCode } from '../../src/lib/totp.js';
 import { closeTestApp, createTestApp } from '../helpers/app.js';
 import { createSessionForUser, createUser } from '../helpers/factories.js';
 
+const extractCookieValue = (response: { headers: Record<string, unknown> }, cookieName: string) => {
+  const rawSetCookie = response.headers['set-cookie'];
+  const cookies = Array.isArray(rawSetCookie)
+    ? rawSetCookie
+    : typeof rawSetCookie === 'string'
+      ? [rawSetCookie]
+      : [];
+  const entry = cookies.find((cookie) => typeof cookie === 'string' && cookie.startsWith(`${cookieName}=`));
+  const rawValue = entry ? entry.split(';')[0]?.slice(cookieName.length + 1) ?? null : null;
+
+  if (!rawValue) {
+    return null;
+  }
+
+  try {
+    return decodeURIComponent(rawValue);
+  } catch {
+    return rawValue;
+  }
+};
+
 describe('two-factor authentication integration', () => {
   it('initializes, enables, reports, and disables 2FA', async () => {
     const user = await createUser();
@@ -100,6 +121,96 @@ describe('two-factor authentication integration', () => {
       });
 
       expect(storedTwoFA).toBeNull();
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
+  it('requires a second factor before login and accepts backup codes', async () => {
+    const user = await createUser();
+    const token = await createSessionForUser(user.id);
+    const app = await createTestApp();
+
+    try {
+      const cookies = {
+        nodew_session: app.signCookie(token),
+      };
+
+      const setupResponse = await app.inject({
+        method: 'POST',
+        url: '/api/user/2fa/setup',
+        cookies,
+      });
+
+      expect(setupResponse.statusCode).toBe(200);
+      const setupBody = setupResponse.json().item;
+
+      const enableResponse = await app.inject({
+        method: 'POST',
+        url: '/api/user/2fa/enable',
+        cookies,
+        payload: {
+          code: generateTotpCode(setupBody.secret),
+        },
+      });
+
+      expect(enableResponse.statusCode).toBe(200);
+
+      const loginResponse = await app.inject({
+        method: 'POST',
+        url: '/api/user/login',
+        payload: {
+          email: user.email,
+          password: 'testtest',
+        },
+      });
+
+      expect(loginResponse.statusCode).toBe(200);
+      expect(loginResponse.json()).toEqual({
+        success: true,
+        requiresTwoFA: true,
+      });
+
+      const challengeCookie = extractCookieValue(loginResponse, 'nodew_login_2fa');
+      expect(challengeCookie).toBeTruthy();
+
+      const verifyResponse = await app.inject({
+        method: 'POST',
+        url: '/api/user/login/2fa',
+        cookies: {
+          nodew_login_2fa: challengeCookie!,
+        },
+        payload: {
+          code: setupBody.backupCodes[0],
+        },
+      });
+
+      expect(verifyResponse.statusCode).toBe(200);
+      expect(verifyResponse.json().success).toBe(true);
+      expect(verifyResponse.json().user.email).toBe(user.email);
+
+      const sessionCookie = extractCookieValue(verifyResponse, 'nodew_session');
+      expect(sessionCookie).toBeTruthy();
+
+      const currentUserResponse = await app.inject({
+        method: 'GET',
+        url: '/api/user/self',
+        cookies: {
+          nodew_session: sessionCookie!,
+        },
+      });
+
+      expect(currentUserResponse.statusCode).toBe(200);
+      expect(currentUserResponse.json().user.email).toBe(user.email);
+
+      const backupCodeState = await prisma.twoFABackupCode.findMany({
+        where: { userId: user.id },
+        select: {
+          isUsed: true,
+        },
+      });
+
+      expect(backupCodeState.filter((entry) => entry.isUsed)).toHaveLength(1);
     } finally {
       await closeTestApp(app);
     }

@@ -70,6 +70,17 @@ export type CurrentUser = {
   createdAt: string;
 };
 
+export type LoginResult =
+  | {
+      success: true;
+      user: CurrentUser;
+      requiresTwoFA?: false;
+    }
+  | {
+      success: true;
+      requiresTwoFA: true;
+    };
+
 export type ChannelItem = {
   id: string;
   name: string;
@@ -482,7 +493,9 @@ export const api = {
     displayName?: string;
   }) => (await client.post<{ user: CurrentUser; isInitialized: boolean }>('/api/setup', payload)).data,
   login: async (payload: { email: string; password: string }) =>
-    (await client.post<{ user: CurrentUser }>('/api/user/login', payload)).data,
+    (await client.post<LoginResult>('/api/user/login', payload)).data,
+  verifyTwoFactorLogin: async (payload: { code: string }) =>
+    (await client.post<{ success: true; user: CurrentUser }>('/api/user/login/2fa', payload)).data,
   register: async (payload: {
     email: string;
     username: string;

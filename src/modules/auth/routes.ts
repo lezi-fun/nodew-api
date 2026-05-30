@@ -12,6 +12,11 @@ import {
   verifyRedemptionCode,
 } from '../../lib/crypto.js';
 import {
+  isValidBackupCodeFormat,
+  normalizeBackupCode,
+  validateTotpCode,
+} from '../../lib/totp.js';
+import {
   buildEmailVerificationMessage,
   buildPasswordResetMessage,
   buildRegistrationVerificationMessage,
@@ -79,6 +84,10 @@ const verifyRegistrationBodySchema = z.object({
   message: 'Verification token or code is required',
 });
 
+const twoFALoginBodySchema = z.object({
+  code: z.string().trim().min(1).max(32),
+});
+
 const redeemRedemptionBodySchema = z.object({
   code: z.string().trim().min(1).max(128),
 });
@@ -99,6 +108,31 @@ const loginUserSelect = {
   passwordHash: true,
 } as const;
 
+const twoFASelect = {
+  id: true,
+  userId: true,
+  secret: true,
+  isEnabled: true,
+  failedAttempts: true,
+  lockedUntil: true,
+  lastUsedAt: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+const backupCodeSelect = {
+  id: true,
+  codeHash: true,
+} as const;
+
+const twoFALoginChallengeCookieName = 'nodew_login_2fa';
+const twoFALoginChallengeTtlMs = 5 * 60 * 1000;
+
+const twoFALoginChallengeSchema = z.object({
+  userId: z.string().min(1),
+  issuedAt: z.number().int().nonnegative(),
+});
+
 const serializeAuthUser = (user: {
   id: string;
   email: string;
@@ -110,10 +144,10 @@ const serializeAuthUser = (user: {
   lastLoginAt: Date | null;
 }) => user;
 
-const createSessionForUser = async (userId: string) => {
+const createSessionForUser = async (userId: string, client: Pick<typeof prisma, 'user'> = prisma) => {
   const sessionToken = generateAccessToken();
 
-  return prisma.user.update({
+  return client.user.update({
     where: { id: userId },
     data: {
       accessToken: sessionToken,
@@ -291,11 +325,184 @@ const authRoutes: FastifyPluginAsync = async (app) => {
       return reply.forbidden('User is disabled');
     }
 
+    const twoFA = await prisma.twoFA.findUnique({
+      where: { userId: user.id },
+      select: {
+        isEnabled: true,
+      },
+    });
+
+    if (twoFA?.isEnabled) {
+      reply.setCookie(twoFALoginChallengeCookieName, JSON.stringify({
+        userId: user.id,
+        issuedAt: Date.now(),
+      }), {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        signed: true,
+        maxAge: Math.floor(twoFALoginChallengeTtlMs / 1000),
+      });
+
+      return {
+        success: true,
+        requiresTwoFA: true,
+      };
+    }
+
     const { user: updatedUser, sessionToken } = await createSessionForUser(user.id);
 
     setSessionCookie(reply, sessionToken);
 
     return {
+      success: true,
+      user: serializeAuthUser(updatedUser),
+    };
+  });
+
+  app.post('/user/login/2fa', async (request, reply) => {
+    const body = twoFALoginBodySchema.parse(request.body);
+    const challengeCookie = request.cookies[twoFALoginChallengeCookieName];
+
+    if (!challengeCookie) {
+      throw app.httpErrors.unauthorized('Two-factor login challenge is required');
+    }
+
+    const signedChallenge = request.unsignCookie(challengeCookie);
+
+    if (!signedChallenge.valid) {
+      reply.clearCookie(twoFALoginChallengeCookieName, {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        signed: true,
+      });
+      throw app.httpErrors.unauthorized('Two-factor login challenge is invalid or expired');
+    }
+
+    let parsedChallenge: z.infer<typeof twoFALoginChallengeSchema>;
+
+    try {
+      parsedChallenge = twoFALoginChallengeSchema.parse(JSON.parse(signedChallenge.value));
+    } catch {
+      reply.clearCookie(twoFALoginChallengeCookieName, {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        signed: true,
+      });
+      throw app.httpErrors.unauthorized('Two-factor login challenge is invalid or expired');
+    }
+
+    if (Date.now() - parsedChallenge.issuedAt > twoFALoginChallengeTtlMs) {
+      reply.clearCookie(twoFALoginChallengeCookieName, {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        signed: true,
+      });
+      throw app.httpErrors.unauthorized('Two-factor login challenge is invalid or expired');
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: parsedChallenge.userId },
+      select: loginUserSelect,
+    });
+
+    if (!user) {
+      reply.clearCookie(twoFALoginChallengeCookieName, {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        signed: true,
+      });
+      throw app.httpErrors.unauthorized('Two-factor login challenge is invalid or expired');
+    }
+
+    if (user.status !== 'ACTIVE') {
+      throw app.httpErrors.forbidden('User is disabled');
+    }
+
+    const twoFA = await prisma.twoFA.findUnique({
+      where: { userId: user.id },
+      select: twoFASelect,
+    });
+
+    if (!twoFA || !twoFA.isEnabled) {
+      reply.clearCookie(twoFALoginChallengeCookieName, {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        signed: true,
+      });
+      throw app.httpErrors.badRequest('Two-factor authentication is not enabled');
+    }
+
+    if (twoFA.lockedUntil && twoFA.lockedUntil > new Date()) {
+      throw app.httpErrors.forbidden('Two-factor authentication is temporarily locked');
+    }
+
+    const submittedCode = body.code.trim();
+    const totpValid = validateTotpCode(twoFA.secret, submittedCode, { window: 1 });
+    let matchedBackupCodeId: string | null = null;
+
+    if (!totpValid) {
+      const normalizedBackupCode = normalizeBackupCode(submittedCode);
+
+      if (isValidBackupCodeFormat(normalizedBackupCode)) {
+        const backupCodes = await prisma.twoFABackupCode.findMany({
+          where: {
+            userId: user.id,
+            isUsed: false,
+          },
+          select: backupCodeSelect,
+        });
+
+        const matchedBackupCode = backupCodes.find((backupCode) => verifyPassword(normalizedBackupCode, backupCode.codeHash));
+
+        if (matchedBackupCode) {
+          matchedBackupCodeId = matchedBackupCode.id;
+        }
+      }
+    }
+
+    if (!totpValid && !matchedBackupCodeId) {
+      throw app.httpErrors.badRequest('Verification code or backup code is invalid');
+    }
+
+    const { user: updatedUser, sessionToken } = await prisma.$transaction(async (tx) => {
+      if (matchedBackupCodeId) {
+        await tx.twoFABackupCode.update({
+          where: { id: matchedBackupCodeId },
+          data: {
+            isUsed: true,
+            usedAt: new Date(),
+          },
+        });
+      }
+
+      await tx.twoFA.update({
+        where: { userId: user.id },
+        data: {
+          failedAttempts: 0,
+          lockedUntil: null,
+          lastUsedAt: new Date(),
+        },
+      });
+
+      return createSessionForUser(user.id, tx);
+    });
+
+    reply.clearCookie(twoFALoginChallengeCookieName, {
+      httpOnly: true,
+      sameSite: 'lax',
+      path: '/',
+      signed: true,
+    });
+    setSessionCookie(reply, sessionToken);
+
+    return {
+      success: true,
       user: serializeAuthUser(updatedUser),
     };
   });
