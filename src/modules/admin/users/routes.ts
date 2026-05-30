@@ -62,6 +62,12 @@ const userSelect = {
   group: {
     select: groupSelect,
   },
+  passkeyCredential: {
+    select: {
+      createdAt: true,
+      lastUsedAt: true,
+    },
+  },
   quotaRemaining: true,
   quotaUsed: true,
   lastLoginAt: true,
@@ -83,6 +89,10 @@ const serializeUser = (user: {
   quotaUsed: bigint;
   lastLoginAt: Date | null;
   settings: Prisma.JsonValue | null;
+  passkeyCredential: {
+    createdAt: Date;
+    lastUsedAt: Date | null;
+  } | null;
   createdAt: Date;
   updatedAt: Date;
 }) => ({
@@ -351,6 +361,24 @@ const usersRoutes: FastifyPluginAsync = async (app) => {
 
     return {
       accessToken,
+    };
+  });
+
+  app.delete('/users/:id/passkey', {
+    preHandler: app.requireAdminUser,
+  }, async (request) => {
+    const params = userParamsSchema.parse(request.params);
+
+    const deleted = await prisma.passkeyCredential.deleteMany({
+      where: { userId: params.id },
+    });
+
+    if (deleted.count === 0) {
+      throw app.httpErrors.notFound('Passkey not found');
+    }
+
+    return {
+      success: true,
     };
   });
 };

@@ -1,10 +1,11 @@
 import type { FastifyPluginAsync } from 'fastify';
 
+import { getPasskeySettings } from '../../lib/passkey.js';
 import { prisma } from '../../lib/prisma.js';
 
 const statusRoutes: FastifyPluginAsync = async (app) => {
   app.get('/status', async () => {
-    const [setupState, userCount, adminCount, apiKeyCount, activeApiKeyCount, channelCount] = await Promise.all([
+    const [setupState, userCount, adminCount, apiKeyCount, activeApiKeyCount, channelCount, passkeySettings] = await Promise.all([
       prisma.setupState.findFirst({
         select: {
           isInitialized: true,
@@ -16,6 +17,7 @@ const statusRoutes: FastifyPluginAsync = async (app) => {
       prisma.aPIKey.count(),
       prisma.aPIKey.count({ where: { status: 'ACTIVE' } }),
       prisma.channel.count(),
+      getPasskeySettings(),
     ]);
 
     return {
@@ -32,6 +34,9 @@ const statusRoutes: FastifyPluginAsync = async (app) => {
         apiKeys: apiKeyCount,
         activeApiKeys: activeApiKeyCount,
         channels: channelCount,
+      },
+      passkey: {
+        enabled: passkeySettings.enabled,
       },
     };
   });

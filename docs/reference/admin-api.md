@@ -46,6 +46,13 @@ Relevant account and check-in keys include:
 | `checkin_enabled` | Enables or disables daily check-in on the personal page. |
 | `checkin_min_quota` | Minimum random quota reward for a successful daily check-in. |
 | `checkin_max_quota` | Maximum random quota reward for a successful daily check-in. |
+| `passkey_enabled` | Enables or disables Passkey registration and login. |
+| `passkey_rp_display_name` | WebAuthn RP display name. |
+| `passkey_rp_id` | WebAuthn RP ID. |
+| `passkey_origins` | Allowed WebAuthn origins (comma/newline separated). |
+| `passkey_allow_insecure_origin` | Whether HTTP origins are allowed for Passkey. |
+| `passkey_user_verification` | WebAuthn user verification requirement. |
+| `passkey_attachment_preference` | Preferred authenticator attachment type. |
 
 ## Session authentication
 
@@ -59,6 +66,15 @@ The web console uses the backend authentication APIs for login, registration, se
 - `POST /api/user/password/reset`
 - `POST /api/user/email/verification`
 - `POST /api/user/email/verify`
+- `POST /api/user/passkey/login/begin`
+- `POST /api/user/passkey/login/finish`
+- `GET /api/user/passkey`
+- `POST /api/user/passkey/register/begin`
+- `POST /api/user/passkey/register/finish`
+- `POST /api/user/passkey/verify/begin`
+- `POST /api/user/passkey/verify/finish`
+- `DELETE /api/user/passkey`
+- `POST /api/verify`
 - `GET /api/user/self`
 - `PATCH /api/user/self`
 
@@ -70,6 +86,10 @@ The web console uses the backend authentication APIs for login, registration, se
 `GET /api/checkin/status` returns whether check-in is enabled, whether the current user already checked in today, the configured min/max quota range, monthly records, cumulative totals, and streak data.
 
 `POST /api/checkin` creates the current day's record and increments the user's remaining quota by a random value inside the configured range.
+
+## User security admin operations
+
+- `DELETE /api/users/:id/passkey` resets a user's Passkey binding.
 
 ## Compatibility routes
 

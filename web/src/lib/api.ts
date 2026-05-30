@@ -1,4 +1,10 @@
 import axios from 'axios';
+import type {
+  AuthenticationResponseJSON,
+  PublicKeyCredentialCreationOptionsJSON,
+  PublicKeyCredentialRequestOptionsJSON,
+  RegistrationResponseJSON,
+} from '@simplewebauthn/browser';
 
 export type SetupStatus = {
   isInitialized: boolean;
@@ -8,6 +14,7 @@ export type SetupStatus = {
     registrationEmailVerificationRequired?: boolean;
     selfUseModeEnabled?: boolean;
     demoSiteEnabled?: boolean;
+    passkeyEnabled?: boolean;
     checkinEnabled?: boolean;
     siteName?: string | null;
     siteDescription?: string | null;
@@ -52,6 +59,9 @@ export type AppStatus = ServiceStatus & {
     apiKeys: number;
     activeApiKeys: number;
     channels: number;
+  };
+  passkey?: {
+    enabled: boolean;
   };
 };
 
@@ -130,6 +140,7 @@ export type TokenItem = {
 
 export type UserItem = CurrentUser & {
   group?: { id: string; name: string } | null;
+  passkeyCredential?: { createdAt: string; lastUsedAt: string | null } | null;
   updatedAt?: string;
 };
 
@@ -169,6 +180,13 @@ export type SystemOptionKey =
   | 'checkin_min_quota'
   | 'checkin_max_quota'
   | 'checkin_reward_quota'
+  | 'passkey_enabled'
+  | 'passkey_rp_display_name'
+  | 'passkey_rp_id'
+  | 'passkey_origins'
+  | 'passkey_allow_insecure_origin'
+  | 'passkey_user_verification'
+  | 'passkey_attachment_preference'
   | 'site_name'
   | 'site_description'
   | 'default_model'
@@ -342,6 +360,18 @@ export type CheckinResult = {
   };
 };
 
+export type PasskeyStatus = {
+  enabled: boolean;
+  lastUsedAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  attachment: string | null;
+  signCount: number;
+  userVerified: boolean;
+  backupEligible: boolean;
+  backupState: boolean;
+};
+
 export type TaskListData = {
   items: TaskItem[];
   total: number;
@@ -512,6 +542,10 @@ export const api = {
     (await client.post<LoginResult>('/api/user/login', payload)).data,
   verifyTwoFactorLogin: async (payload: { code: string }) =>
     (await client.post<{ success: true; user: CurrentUser }>('/api/user/login/2fa', payload)).data,
+  passkeyLoginBegin: async () =>
+    (await client.post<{ item: PublicKeyCredentialRequestOptionsJSON }>('/api/user/passkey/login/begin')).data,
+  passkeyLoginFinish: async (payload: { response: AuthenticationResponseJSON }) =>
+    (await client.post<{ success: true; user: CurrentUser }>('/api/user/passkey/login/finish', payload)).data,
   getTwoFAStatus: async () => (await client.get<{ item: TwoFAStatus }>('/api/user/2fa/status')).data,
   setupTwoFA: async () => (await client.post<{ item: TwoFASetupResult }>('/api/user/2fa/setup')).data,
   enableTwoFA: async (payload: { code: string }) => (await client.post<{ success: boolean }>('/api/user/2fa/enable', payload)).data,
@@ -566,6 +600,16 @@ export const api = {
     (await client.patch<{ user: CurrentUser }>('/api/user/self', payload)).data,
   changeCurrentUserPassword: async (payload: { currentPassword: string; newPassword: string }) =>
     (await client.post<{ success: boolean }>('/api/user/self/password', payload)).data,
+  getPasskeyStatus: async () => (await client.get<{ item: PasskeyStatus }>('/api/user/passkey')).data,
+  passkeyRegisterBegin: async () =>
+    (await client.post<{ item: PublicKeyCredentialCreationOptionsJSON }>('/api/user/passkey/register/begin')).data,
+  passkeyRegisterFinish: async (payload: { response: RegistrationResponseJSON }) =>
+    (await client.post<{ success: boolean }>('/api/user/passkey/register/finish', payload)).data,
+  passkeyVerifyBegin: async () =>
+    (await client.post<{ item: PublicKeyCredentialRequestOptionsJSON }>('/api/user/passkey/verify/begin')).data,
+  passkeyVerifyFinish: async (payload: { response: AuthenticationResponseJSON }) =>
+    (await client.post<{ success: boolean; verifiedUntil: string }>('/api/user/passkey/verify/finish', payload)).data,
+  deletePasskey: async () => (await client.delete<{ success: boolean }>('/api/user/passkey')).data,
   listChannels: async () => (await client.get<ListResponse<ChannelItem>>('/api/channels')).data,
   createChannel: async (payload: ChannelPayload & { apiKey: string }) =>
     (await client.post<{ item: ChannelItem }>('/api/channels', payload)).data,
@@ -636,6 +680,7 @@ export const api = {
   deleteUser: async (id: string) => (await client.delete<{ success: boolean }>(`/api/users/${id}`)).data,
   resetUserPassword: async (id: string, payload: { password: string; revokeSession?: boolean }) =>
     (await client.post<{ success: boolean }>(`/api/users/${id}/password`, payload)).data,
+  resetUserPasskey: async (id: string) => (await client.delete<{ success: boolean }>(`/api/users/${id}/passkey`)).data,
   revokeUserSession: async (id: string) =>
     (await client.post<{ success: boolean }>(`/api/users/${id}/session/revoke`)).data,
   generateUserAccessToken: async (id: string) =>

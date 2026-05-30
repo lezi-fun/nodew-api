@@ -41,7 +41,7 @@ NodEW-api 使用 Fastify、Prisma、TypeScript、React、Vite 和 Semi UI 构建
 - `/v1` 下的 OpenAI 兼容 Relay 接口，支持 Chat Completions 和流式响应。
 - 渠道管理，支持供应商 metadata、权重、优先级、连通性测试和模型同步。
 - 令牌管理，支持额度、过期时间、模型 allow/block 策略。
-- 账号安全流程，包含邮箱验证、密码重置和会话管理。
+- 账号安全流程，包含邮箱验证、密码重置、2FA、Passkey 和会话管理。
 - 每日签到，支持后台配置随机奖励区间、月历记录和连签统计。
 - 使用日志和面向计费的请求统计。
 - 管理控制台，包含数据看板、渠道、令牌、用户、兑换码、日志、模型、部署、系统设置、钱包和操练场。
@@ -113,6 +113,12 @@ RESEND_API_KEY="re_xxx"
 - `checkin_enabled` 控制个人页是否显示签到入口。
 - `checkin_min_quota` 和 `checkin_max_quota` 控制每次签到成功后的随机奖励范围。
 - 个人页会显示签到状态、月历历史、本月统计和连签统计。
+
+同一个设置页也已经补了 Passkey 设置区块：
+
+- `passkey_enabled` 控制是否开放 Passkey 注册与登录；
+- `passkey_rp_display_name`、`passkey_rp_id`、`passkey_origins` 配置 WebAuthn 站点标识；
+- `passkey_user_verification`、`passkey_attachment_preference` 控制验证级别和设备偏好。
 
 准备 Prisma：
 
@@ -248,6 +254,14 @@ Relay 接口：
 
 - `GET /api/checkin/status`
 - `POST /api/checkin`
+- `GET /api/user/passkey`
+- `POST /api/user/passkey/register/begin`
+- `POST /api/user/passkey/register/finish`
+- `POST /api/user/passkey/login/begin`
+- `POST /api/user/passkey/login/finish`
+- `POST /api/user/passkey/verify/begin`
+- `POST /api/user/passkey/verify/finish`
+- `DELETE /api/user/passkey`
 
 ## 许可证
 

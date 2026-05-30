@@ -13,6 +13,7 @@
   "dependencies": {
     "@douyinfe/semi-icons": "^2.69.1",
     "@douyinfe/semi-ui": "^2.69.1",
+    "@simplewebauthn/browser": "^13.3.0",
     "axios": "^1.15.0",
     "dayjs": "^1.11.11",
     "i18next": "^23.16.8",

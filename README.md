@@ -41,7 +41,7 @@ Current capabilities include:
 - OpenAI-compatible relay endpoints under `/v1`, including chat completions and streaming responses.
 - Channel management with provider metadata, weights, priorities, health checks, and model sync.
 - Token management with quota, expiry, and model allow/block metadata.
-- Account security flows, including email verification, password reset, and session management.
+- Account security flows, including email verification, password reset, 2FA, Passkey, and session management.
 - Daily check-in with configurable random quota rewards, monthly history, and streak statistics.
 - Usage logs and billing-oriented request accounting.
 - Admin console for dashboard, channels, tokens, users, redemptions, logs, models, deployment, settings, wallet, and playground.
@@ -113,6 +113,12 @@ The admin settings page also includes a dedicated check-in section:
 - `checkin_enabled` controls whether the personal page shows the check-in entry.
 - `checkin_min_quota` and `checkin_max_quota` define the random reward range for each successful check-in.
 - The personal page shows current status, calendar history, monthly totals, and streak statistics.
+
+The same settings page now includes a Passkey section:
+
+- `passkey_enabled` toggles whether Passkey registration and login are available.
+- `passkey_rp_display_name`, `passkey_rp_id`, and `passkey_origins` control WebAuthn relying-party identity.
+- `passkey_user_verification` and `passkey_attachment_preference` tune registration/authenticator behavior.
 
 Prepare Prisma:
 
@@ -248,6 +254,14 @@ Account utility endpoints:
 
 - `GET /api/checkin/status`
 - `POST /api/checkin`
+- `GET /api/user/passkey`
+- `POST /api/user/passkey/register/begin`
+- `POST /api/user/passkey/register/finish`
+- `POST /api/user/passkey/login/begin`
+- `POST /api/user/passkey/login/finish`
+- `POST /api/user/passkey/verify/begin`
+- `POST /api/user/passkey/verify/finish`
+- `DELETE /api/user/passkey`
 
 ## License
 

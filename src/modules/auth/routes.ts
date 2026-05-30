@@ -1,5 +1,11 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import {
+  verifyAuthenticationResponse,
+  verifyRegistrationResponse,
+  type AuthenticationResponseJSON,
+  type RegistrationResponseJSON,
+} from '@simplewebauthn/server';
 
 import {
   generateAccessToken,
@@ -23,6 +29,24 @@ import {
   sendMailMessage,
 } from '../../lib/mailer.js';
 import { isMailDeliveryEnabled } from '../../lib/mail-config.js';
+import {
+  buildPasskeyCredentialCreateData,
+  buildPasskeyCredentialUpdateData,
+  buildPasskeyLoginOptions,
+  buildPasskeyRegistrationOptions,
+  buildPasskeyVerifyOptions,
+  clearPasskeyChallengeCookie,
+  clearSecureVerificationCookie,
+  getPasskeySettings,
+  passkeyChallengeCookieNames,
+  passkeyCredentialSelect,
+  passkeyCredentialToWebAuthnCredential,
+  readPasskeyChallengeCookie,
+  readSecureVerificationCookie,
+  secureVerificationTtlMs,
+  setPasskeyChallengeCookie,
+  setSecureVerificationCookie,
+} from '../../lib/passkey.js';
 import { prisma } from '../../lib/prisma.js';
 import { clearSessionCookie, setSessionCookie } from '../../plugins/auth.js';
 import { canUseEmailVerificationToken, setEmailVerificationToken } from './email-verification.js';
@@ -86,6 +110,15 @@ const verifyRegistrationBodySchema = z.object({
 
 const twoFALoginBodySchema = z.object({
   code: z.string().trim().min(1).max(32),
+});
+
+const passkeyResponseBodySchema = z.object({
+  response: z.any(),
+});
+
+const verifyBodySchema = z.object({
+  method: z.enum(['2fa', 'passkey']),
+  code: z.string().trim().min(1).max(32).optional(),
 });
 
 const redeemRedemptionBodySchema = z.object({
@@ -155,6 +188,12 @@ const createSessionForUser = async (userId: string, client: Pick<typeof prisma, 
     },
     select: authUserSelect,
   }).then((user) => ({ user, sessionToken }));
+};
+
+const isPasskeyUserVerificationRequired = async () => {
+  const settings = await getPasskeySettings();
+
+  return settings.userVerification === 'required';
 };
 
 const authRoutes: FastifyPluginAsync = async (app) => {
@@ -353,6 +392,7 @@ const authRoutes: FastifyPluginAsync = async (app) => {
     const { user: updatedUser, sessionToken } = await createSessionForUser(user.id);
 
     setSessionCookie(reply, sessionToken);
+    clearSecureVerificationCookie(reply);
 
     return {
       success: true,
@@ -420,6 +460,7 @@ const authRoutes: FastifyPluginAsync = async (app) => {
     }
 
     if (user.status !== 'ACTIVE') {
+      clearPasskeyChallengeCookie(reply, passkeyChallengeCookieNames.login);
       throw app.httpErrors.forbidden('User is disabled');
     }
 
@@ -500,10 +541,444 @@ const authRoutes: FastifyPluginAsync = async (app) => {
       signed: true,
     });
     setSessionCookie(reply, sessionToken);
+    clearSecureVerificationCookie(reply);
 
     return {
       success: true,
       user: serializeAuthUser(updatedUser),
+    };
+  });
+
+  app.post('/user/passkey/login/begin', async (request, reply) => {
+    try {
+      const { options, context } = await buildPasskeyLoginOptions(request);
+
+      setPasskeyChallengeCookie(reply, passkeyChallengeCookieNames.login, {
+        challenge: options.challenge,
+        origin: context.requestOrigin,
+        rpId: context.rpId,
+        issuedAt: Date.now(),
+      });
+
+      return {
+        item: options,
+      };
+    } catch (error) {
+      if (error instanceof Error) {
+        throw app.httpErrors.badRequest(error.message);
+      }
+
+      throw error;
+    }
+  });
+
+  app.post('/user/passkey/login/finish', async (request, reply) => {
+    const body = passkeyResponseBodySchema.parse(request.body);
+    const challenge = readPasskeyChallengeCookie(request, passkeyChallengeCookieNames.login);
+
+    if (!challenge) {
+      throw app.httpErrors.unauthorized('Passkey login challenge is invalid or expired');
+    }
+
+    const response = body.response as AuthenticationResponseJSON;
+    const credential = await prisma.passkeyCredential.findUnique({
+      where: { credentialId: response.id },
+      select: passkeyCredentialSelect,
+    });
+
+    if (!credential) {
+      clearPasskeyChallengeCookie(reply, passkeyChallengeCookieNames.login);
+      throw app.httpErrors.unauthorized('Passkey credential not found');
+    }
+
+    if (response.response.userHandle) {
+      const userHandle = Buffer.from(response.response.userHandle, 'base64url').toString('utf8');
+
+      if (userHandle && userHandle !== credential.userId) {
+        clearPasskeyChallengeCookie(reply, passkeyChallengeCookieNames.login);
+        throw app.httpErrors.unauthorized('Passkey credential does not match the submitted user');
+      }
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: credential.userId },
+      select: loginUserSelect,
+    });
+
+    if (!user) {
+      clearPasskeyChallengeCookie(reply, passkeyChallengeCookieNames.login);
+      throw app.httpErrors.unauthorized('Passkey credential not found');
+    }
+
+    if (user.status !== 'ACTIVE') {
+      throw app.httpErrors.forbidden('User is disabled');
+    }
+
+    const requireUserVerification = await isPasskeyUserVerificationRequired();
+    const verification = await verifyAuthenticationResponse({
+      response,
+      expectedChallenge: challenge.challenge,
+      expectedOrigin: challenge.origin,
+      expectedRPID: challenge.rpId,
+      credential: passkeyCredentialToWebAuthnCredential(credential),
+      requireUserVerification,
+    });
+
+    if (!verification.verified) {
+      clearPasskeyChallengeCookie(reply, passkeyChallengeCookieNames.login);
+      throw app.httpErrors.unauthorized('Passkey verification failed');
+    }
+
+    const { user: updatedUser, sessionToken } = await prisma.$transaction(async (tx) => {
+      await tx.passkeyCredential.update({
+        where: { userId: user.id },
+        data: buildPasskeyCredentialUpdateData({
+          authenticationResponse: response,
+          verification,
+        }),
+      });
+
+      return createSessionForUser(user.id, tx);
+    });
+
+    clearPasskeyChallengeCookie(reply, passkeyChallengeCookieNames.login);
+    clearSecureVerificationCookie(reply);
+    setSessionCookie(reply, sessionToken);
+
+    return {
+      success: true,
+      user: serializeAuthUser(updatedUser),
+    };
+  });
+
+  app.get('/user/passkey', {
+    preHandler: app.requireUser,
+  }, async (request) => {
+    if (request.currentUser!.status !== 'ACTIVE') {
+      throw app.httpErrors.forbidden('User is disabled');
+    }
+
+    const credential = await prisma.passkeyCredential.findUnique({
+      where: { userId: request.currentUser!.id },
+      select: passkeyCredentialSelect,
+    });
+
+    return {
+      item: {
+        enabled: Boolean(credential),
+        lastUsedAt: credential?.lastUsedAt?.toISOString() ?? null,
+        createdAt: credential?.createdAt.toISOString() ?? null,
+        updatedAt: credential?.updatedAt.toISOString() ?? null,
+        attachment: credential?.attachment ?? null,
+        signCount: credential?.signCount ?? 0,
+        userVerified: credential?.userVerified ?? false,
+        backupEligible: credential?.backupEligible ?? false,
+        backupState: credential?.backupState ?? false,
+      },
+    };
+  });
+
+  app.post('/user/passkey/register/begin', {
+    preHandler: app.requireUser,
+  }, async (request, reply) => {
+    if (request.currentUser!.status !== 'ACTIVE') {
+      throw app.httpErrors.forbidden('User is disabled');
+    }
+
+    try {
+      const existingCredential = await prisma.passkeyCredential.findUnique({
+        where: { userId: request.currentUser!.id },
+        select: passkeyCredentialSelect,
+      });
+      const { options, context } = await buildPasskeyRegistrationOptions({
+        request,
+        user: request.currentUser!,
+        existingCredential,
+      });
+
+      setPasskeyChallengeCookie(reply, passkeyChallengeCookieNames.registration, {
+        challenge: options.challenge,
+        origin: context.requestOrigin,
+        rpId: context.rpId,
+        issuedAt: Date.now(),
+        userId: request.currentUser!.id,
+      });
+
+      return {
+        item: options,
+      };
+    } catch (error) {
+      if (error instanceof Error) {
+        throw app.httpErrors.badRequest(error.message);
+      }
+
+      throw error;
+    }
+  });
+
+  app.post('/user/passkey/register/finish', {
+    preHandler: app.requireUser,
+  }, async (request, reply) => {
+    if (request.currentUser!.status !== 'ACTIVE') {
+      throw app.httpErrors.forbidden('User is disabled');
+    }
+
+    const body = passkeyResponseBodySchema.parse(request.body);
+    const challenge = readPasskeyChallengeCookie(request, passkeyChallengeCookieNames.registration);
+
+    if (!challenge || challenge.userId !== request.currentUser!.id) {
+      clearPasskeyChallengeCookie(reply, passkeyChallengeCookieNames.registration);
+      throw app.httpErrors.unauthorized('Passkey registration challenge is invalid or expired');
+    }
+
+    const response = body.response as RegistrationResponseJSON;
+    const requireUserVerification = await isPasskeyUserVerificationRequired();
+    const verification = await verifyRegistrationResponse({
+      response,
+      expectedChallenge: challenge.challenge,
+      expectedOrigin: challenge.origin,
+      expectedRPID: challenge.rpId,
+      requireUserVerification,
+    });
+
+    if (!verification.verified) {
+      clearPasskeyChallengeCookie(reply, passkeyChallengeCookieNames.registration);
+      throw app.httpErrors.badRequest('Passkey registration failed');
+    }
+
+    const credentialData = buildPasskeyCredentialCreateData({
+      userId: request.currentUser!.id,
+      registrationResponse: response,
+      verification,
+    });
+
+    await prisma.$transaction(async (tx) => {
+      await tx.passkeyCredential.deleteMany({
+        where: { userId: request.currentUser!.id },
+      });
+
+      await tx.passkeyCredential.create({
+        data: credentialData,
+      });
+    });
+
+    clearPasskeyChallengeCookie(reply, passkeyChallengeCookieNames.registration);
+
+    return {
+      success: true,
+    };
+  });
+
+  app.post('/user/passkey/verify/begin', {
+    preHandler: app.requireUser,
+  }, async (request, reply) => {
+    if (request.currentUser!.status !== 'ACTIVE') {
+      throw app.httpErrors.forbidden('User is disabled');
+    }
+
+    const credential = await prisma.passkeyCredential.findUnique({
+      where: { userId: request.currentUser!.id },
+      select: passkeyCredentialSelect,
+    });
+
+    if (!credential) {
+      throw app.httpErrors.notFound('Passkey not found');
+    }
+
+    try {
+      const { options, context } = await buildPasskeyVerifyOptions({
+        request,
+        credential,
+      });
+
+      setPasskeyChallengeCookie(reply, passkeyChallengeCookieNames.verify, {
+        challenge: options.challenge,
+        origin: context.requestOrigin,
+        rpId: context.rpId,
+        issuedAt: Date.now(),
+        userId: request.currentUser!.id,
+      });
+
+      return {
+        item: options,
+      };
+    } catch (error) {
+      if (error instanceof Error) {
+        throw app.httpErrors.badRequest(error.message);
+      }
+
+      throw error;
+    }
+  });
+
+  app.post('/user/passkey/verify/finish', {
+    preHandler: app.requireUser,
+  }, async (request, reply) => {
+    if (request.currentUser!.status !== 'ACTIVE') {
+      throw app.httpErrors.forbidden('User is disabled');
+    }
+
+    const body = passkeyResponseBodySchema.parse(request.body);
+    const challenge = readPasskeyChallengeCookie(request, passkeyChallengeCookieNames.verify);
+
+    if (!challenge || challenge.userId !== request.currentUser!.id) {
+      clearPasskeyChallengeCookie(reply, passkeyChallengeCookieNames.verify);
+      throw app.httpErrors.unauthorized('Passkey verification challenge is invalid or expired');
+    }
+
+    const response = body.response as AuthenticationResponseJSON;
+    const credential = await prisma.passkeyCredential.findUnique({
+      where: { credentialId: response.id },
+      select: passkeyCredentialSelect,
+    });
+
+    if (!credential || credential.userId !== request.currentUser!.id) {
+      clearPasskeyChallengeCookie(reply, passkeyChallengeCookieNames.verify);
+      throw app.httpErrors.unauthorized('Passkey credential not found');
+    }
+
+    const requireUserVerification = await isPasskeyUserVerificationRequired();
+    const verification = await verifyAuthenticationResponse({
+      response,
+      expectedChallenge: challenge.challenge,
+      expectedOrigin: challenge.origin,
+      expectedRPID: challenge.rpId,
+      credential: passkeyCredentialToWebAuthnCredential(credential),
+      requireUserVerification,
+    });
+
+    if (!verification.verified) {
+      clearPasskeyChallengeCookie(reply, passkeyChallengeCookieNames.verify);
+      throw app.httpErrors.badRequest('Passkey verification failed');
+    }
+
+    await prisma.passkeyCredential.update({
+      where: { userId: request.currentUser!.id },
+      data: buildPasskeyCredentialUpdateData({
+        authenticationResponse: response,
+        verification,
+      }),
+    });
+
+    clearPasskeyChallengeCookie(reply, passkeyChallengeCookieNames.verify);
+    setSecureVerificationCookie(reply, { userId: request.currentUser!.id });
+
+    return {
+      success: true,
+      verifiedUntil: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+    };
+  });
+
+  app.delete('/user/passkey', {
+    preHandler: app.requireUser,
+  }, async (request, reply) => {
+    if (request.currentUser!.status !== 'ACTIVE') {
+      throw app.httpErrors.forbidden('User is disabled');
+    }
+
+    await prisma.passkeyCredential.deleteMany({
+      where: { userId: request.currentUser!.id },
+    });
+    clearSecureVerificationCookie(reply);
+    return {
+      success: true,
+    };
+  });
+
+  app.post('/verify', {
+    preHandler: app.requireUser,
+  }, async (request, reply) => {
+    if (request.currentUser!.status !== 'ACTIVE') {
+      throw app.httpErrors.forbidden('User is disabled');
+    }
+
+    const body = verifyBodySchema.parse(request.body);
+
+    if (body.method === 'passkey') {
+      const secureCookie = readSecureVerificationCookie(request);
+
+      if (!secureCookie || secureCookie.userId !== request.currentUser!.id) {
+        throw app.httpErrors.badRequest('Please complete Passkey verification first');
+      }
+
+      setSecureVerificationCookie(reply, { userId: request.currentUser!.id });
+
+      return {
+        success: true,
+        verifiedUntil: new Date(Date.now() + secureVerificationTtlMs).toISOString(),
+      };
+    }
+
+    if (!body.code) {
+      throw app.httpErrors.badRequest('Verification code is required');
+    }
+
+    const twoFA = await prisma.twoFA.findUnique({
+      where: { userId: request.currentUser!.id },
+      select: twoFASelect,
+    });
+
+    if (!twoFA || !twoFA.isEnabled) {
+      throw app.httpErrors.badRequest('Two-factor authentication is not enabled');
+    }
+
+    if (twoFA.lockedUntil && twoFA.lockedUntil > new Date()) {
+      throw app.httpErrors.forbidden('Two-factor authentication is temporarily locked');
+    }
+
+    const submittedCode = body.code.trim();
+    const totpValid = validateTotpCode(twoFA.secret, submittedCode, { window: 1 });
+    let matchedBackupCodeId: string | null = null;
+
+    if (!totpValid) {
+      const normalizedBackupCode = normalizeBackupCode(submittedCode);
+
+      if (isValidBackupCodeFormat(normalizedBackupCode)) {
+        const backupCodes = await prisma.twoFABackupCode.findMany({
+          where: {
+            userId: request.currentUser!.id,
+            isUsed: false,
+          },
+          select: backupCodeSelect,
+        });
+        const matchedBackupCode = backupCodes.find((backupCode) => verifyPassword(normalizedBackupCode, backupCode.codeHash));
+
+        if (matchedBackupCode) {
+          matchedBackupCodeId = matchedBackupCode.id;
+        }
+      }
+    }
+
+    if (!totpValid && !matchedBackupCodeId) {
+      throw app.httpErrors.badRequest('Verification code or backup code is invalid');
+    }
+
+    await prisma.$transaction(async (tx) => {
+      if (matchedBackupCodeId) {
+        await tx.twoFABackupCode.update({
+          where: { id: matchedBackupCodeId },
+          data: {
+            isUsed: true,
+            usedAt: new Date(),
+          },
+        });
+      }
+
+      await tx.twoFA.update({
+        where: { userId: request.currentUser!.id },
+        data: {
+          failedAttempts: 0,
+          lockedUntil: null,
+          lastUsedAt: new Date(),
+        },
+      });
+    });
+
+    setSecureVerificationCookie(reply, { userId: request.currentUser!.id });
+
+    return {
+      success: true,
+      verifiedUntil: new Date(Date.now() + secureVerificationTtlMs).toISOString(),
     };
   });
 
@@ -714,6 +1189,7 @@ const authRoutes: FastifyPluginAsync = async (app) => {
     });
 
     clearSessionCookie(reply);
+    clearSecureVerificationCookie(reply);
 
     return {
       success: true,
@@ -732,6 +1208,7 @@ const authRoutes: FastifyPluginAsync = async (app) => {
     const { sessionToken } = await createSessionForUser(currentUser.id);
 
     setSessionCookie(reply, sessionToken);
+    clearSecureVerificationCookie(reply);
 
     return {
       accessToken: sessionToken,

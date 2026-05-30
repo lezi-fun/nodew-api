@@ -36,6 +36,42 @@ const checkinOptionMeta: Array<{
   { key: 'checkin_max_quota', title: '签到最大额度', description: '签到奖励的最大额度。', type: 'number' },
 ];
 
+const passkeyOptionMeta: Array<{
+  key: SystemOptionKey;
+  title: string;
+  description: string;
+  type: 'text' | 'textarea' | 'boolean' | 'select';
+  options?: Array<{ label: string; value: string }>;
+}> = [
+  { key: 'passkey_enabled', title: '启用 Passkey 登录', description: '开启后允许使用 Passkey 注册和登录。', type: 'boolean' },
+  { key: 'passkey_rp_display_name', title: 'RP 显示名', description: 'WebAuthn 凭证展示给用户的站点名称。', type: 'text' },
+  { key: 'passkey_rp_id', title: 'RP ID', description: '一般填主域名，如 example.com，留空则自动推导。', type: 'text' },
+  { key: 'passkey_origins', title: '允许 Origins', description: '支持多个，逗号或换行分隔。留空时自动使用当前访问来源。', type: 'textarea' },
+  { key: 'passkey_allow_insecure_origin', title: '允许 HTTP Origin', description: '仅开发环境建议开启。', type: 'boolean' },
+  {
+    key: 'passkey_user_verification',
+    title: '用户验证级别',
+    description: 'WebAuthn userVerification 配置。',
+    type: 'select',
+    options: [
+      { label: 'preferred', value: 'preferred' },
+      { label: 'required', value: 'required' },
+      { label: 'discouraged', value: 'discouraged' },
+    ],
+  },
+  {
+    key: 'passkey_attachment_preference',
+    title: '设备类型偏好',
+    description: '可选 platform 或 cross-platform，留空不限制。',
+    type: 'select',
+    options: [
+      { label: '不限制', value: '' },
+      { label: 'platform', value: 'platform' },
+      { label: 'cross-platform', value: 'cross-platform' },
+    ],
+  },
+];
+
 const editableOptionMeta = generalOptionMeta;
 
 const toMap = (items: SystemOptionItem[]) =>
@@ -62,6 +98,7 @@ export default function SettingPage() {
   const [mailConfig, setMailConfig] = useState<MailConfig>(emptyMailConfig);
   const [savingMail, setSavingMail] = useState(false);
   const [savingCheckin, setSavingCheckin] = useState(false);
+  const [savingPasskey, setSavingPasskey] = useState(false);
   const [testingMail, setTestingMail] = useState(false);
   const [testMailRecipient, setTestMailRecipient] = useState('');
 
@@ -80,6 +117,13 @@ export default function SettingPage() {
         checkin_enabled: optionMap.checkin_enabled ?? 'true',
         checkin_min_quota: optionMap.checkin_min_quota ?? legacyCheckinQuota ?? '1000',
         checkin_max_quota: optionMap.checkin_max_quota ?? legacyCheckinQuota ?? '10000',
+        passkey_enabled: optionMap.passkey_enabled ?? 'false',
+        passkey_rp_display_name: optionMap.passkey_rp_display_name ?? '',
+        passkey_rp_id: optionMap.passkey_rp_id ?? '',
+        passkey_origins: optionMap.passkey_origins ?? '',
+        passkey_allow_insecure_origin: optionMap.passkey_allow_insecure_origin ?? 'false',
+        passkey_user_verification: optionMap.passkey_user_verification ?? 'preferred',
+        passkey_attachment_preference: optionMap.passkey_attachment_preference ?? '',
       });
       setMailStatus(mailResponse.item);
       setMailConfig(mailConfigResponse.item);
@@ -121,6 +165,19 @@ export default function SettingPage() {
     }
   };
 
+  const savePasskey = async () => {
+    setSavingPasskey(true);
+    try {
+      await Promise.all(passkeyOptionMeta.map((option) => api.updateOption(option.key, values[option.key] ?? '')));
+      Toast.success('Passkey 设置已保存');
+      await load();
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : '保存 Passkey 设置失败');
+    } finally {
+      setSavingPasskey(false);
+    }
+  };
+
   const saveMailConfig = async () => {
     setSavingMail(true);
     try {
@@ -149,6 +206,7 @@ export default function SettingPage() {
   };
 
   const checkinEnabled = values.checkin_enabled !== 'false';
+  const passkeyEnabled = values.passkey_enabled === 'true';
 
   return (
     <main className="console-page settings-page">
@@ -244,6 +302,61 @@ export default function SettingPage() {
           </div>
           <Button theme="solid" type="primary" icon={<IconSave />} loading={savingCheckin} onClick={() => void saveCheckin()}>
             保存签到设置
+          </Button>
+        </Space>
+      </Card>
+
+      <Card bordered={false} className="dashboard-card settings-card" style={{ marginTop: 16 }}>
+        <Space vertical align="start" style={{ width: '100%' }}>
+          <div>
+            <Typography.Title heading={5} style={{ marginBottom: 4 }}>Passkey 设置</Typography.Title>
+            <Typography.Paragraph type="tertiary">
+              配置 Passkey 登录的站点标识、允许来源和验证策略。
+            </Typography.Paragraph>
+          </div>
+          <div className="settings-grid" style={{ width: '100%' }}>
+            {passkeyOptionMeta.map((option) => (
+              <label className="setting-field" key={option.key}>
+                <span>
+                  <strong>{option.title}</strong>
+                  <em>{option.description}</em>
+                </span>
+                {option.type === 'boolean' ? (
+                  <Switch
+                    checked={values[option.key] === 'true'}
+                    onChange={(checked) => setValues((current) => ({ ...current, [option.key]: String(checked) }))}
+                  />
+                ) : option.type === 'textarea' ? (
+                  <TextArea
+                    rows={4}
+                    value={values[option.key] ?? ''}
+                    placeholder={option.key}
+                    disabled={!passkeyEnabled && option.key !== 'passkey_enabled'}
+                    onChange={(value) => setValues((current) => ({ ...current, [option.key]: value }))}
+                  />
+                ) : option.type === 'select' ? (
+                  <Select
+                    value={values[option.key] ?? ''}
+                    disabled={!passkeyEnabled && option.key !== 'passkey_enabled'}
+                    onChange={(value) => setValues((current) => ({ ...current, [option.key]: String(value) }))}
+                  >
+                    {(option.options ?? []).map((item) => (
+                      <Select.Option key={item.value} value={item.value}>{item.label}</Select.Option>
+                    ))}
+                  </Select>
+                ) : (
+                  <Input
+                    value={values[option.key] ?? ''}
+                    placeholder={option.key}
+                    disabled={!passkeyEnabled && option.key !== 'passkey_enabled'}
+                    onChange={(value) => setValues((current) => ({ ...current, [option.key]: value }))}
+                  />
+                )}
+              </label>
+            ))}
+          </div>
+          <Button theme="solid" type="primary" icon={<IconSave />} loading={savingPasskey} onClick={() => void savePasskey()}>
+            保存 Passkey 设置
           </Button>
         </Space>
       </Card>

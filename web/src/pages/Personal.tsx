@@ -8,6 +8,7 @@ import { UserContext } from '../context/User';
 import { api, type CheckinStatus } from '../lib/api';
 import { formatDateTime, formatQuota } from '../lib/format';
 import TwoFASettingCard from '../components/security/TwoFASettingCard';
+import PasskeySettingCard from '../components/security/PasskeySettingCard';
 
 const weekdayLabels = ['一', '二', '三', '四', '五', '六', '日'];
 
@@ -239,6 +240,7 @@ export default function PersonalPage() {
           </Space>
         </Card>
         <TwoFASettingCard />
+        <PasskeySettingCard />
         {checkinEnabled ? (
           <>
             <Card title="每日签到" bordered={false} className="dashboard-card">

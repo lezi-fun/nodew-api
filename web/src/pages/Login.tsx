@@ -1,21 +1,58 @@
 import { Button, Card, Form, Toast, Typography } from '@douyinfe/semi-ui';
-import { useContext, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { browserSupportsWebAuthn, startAuthentication } from '@simplewebauthn/browser';
 
+import { StatusContext } from '../context/Status';
 import { UserContext } from '../context/User';
 import { api } from '../lib/api';
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const { refresh } = useContext(UserContext);
+  const { status } = useContext(StatusContext);
   const [loading, setLoading] = useState(false);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
+  const [browserSupportsPasskey, setBrowserSupportsPasskey] = useState(false);
   const [challengeEmail, setChallengeEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    setBrowserSupportsPasskey(browserSupportsWebAuthn());
+  }, []);
+
+  const passkeyEnabled = status?.passkey?.enabled === true;
+
+  const loginWithPasskey = async () => {
+    setPasskeyLoading(true);
+    try {
+      const beginResponse = await api.passkeyLoginBegin();
+      const response = await startAuthentication({
+        optionsJSON: beginResponse.item,
+      });
+      await api.passkeyLoginFinish({ response });
+      await refresh();
+      setChallengeEmail(null);
+      Toast.success('Passkey 登录成功');
+      navigate('/console');
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : 'Passkey 登录失败');
+    } finally {
+      setPasskeyLoading(false);
+    }
+  };
 
   return (
     <main className="auth-page">
       <Card className="auth-card" bordered={false}>
         <Typography.Title heading={3}>登录</Typography.Title>
         <Typography.Paragraph type="tertiary">使用本地账号进入 NodEW-api 控制台。</Typography.Paragraph>
+        {!challengeEmail && passkeyEnabled && browserSupportsPasskey ? (
+          <div style={{ marginBottom: 16 }}>
+            <Button theme="solid" type="primary" loading={passkeyLoading} onClick={() => void loginWithPasskey()} block>
+              使用 Passkey 登录
+            </Button>
+          </div>
+        ) : null}
         {challengeEmail ? (
           <>
             <Typography.Paragraph type="tertiary">

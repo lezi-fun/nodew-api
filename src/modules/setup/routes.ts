@@ -24,7 +24,7 @@ const getSetupConfig = async () => {
   const options = await prisma.systemOption.findMany({
     where: {
       key: {
-        in: ['registration_enabled', 'registration_email_verification_required', 'self_use_mode_enabled', 'demo_site_enabled', 'checkin_enabled', 'checkin_min_quota', 'checkin_max_quota', 'site_name', 'site_description', 'default_model'],
+        in: ['registration_enabled', 'registration_email_verification_required', 'self_use_mode_enabled', 'demo_site_enabled', 'passkey_enabled', 'checkin_enabled', 'checkin_min_quota', 'checkin_max_quota', 'site_name', 'site_description', 'default_model'],
       },
     },
   });
@@ -36,6 +36,7 @@ const getSetupConfig = async () => {
     registrationEmailVerificationRequired: parseBooleanOption(map.get('registration_email_verification_required'), false),
     selfUseModeEnabled: parseBooleanOption(map.get('self_use_mode_enabled'), false),
     demoSiteEnabled: parseBooleanOption(map.get('demo_site_enabled'), false),
+    passkeyEnabled: parseBooleanOption(map.get('passkey_enabled'), false),
     checkinEnabled: parseBooleanOption(map.get('checkin_enabled'), true),
     siteName: map.get('site_name') ?? null,
     siteDescription: map.get('site_description') ?? null,
@@ -101,6 +102,7 @@ const setupConfigKeys = {
   registrationEmailVerificationRequired: 'registration_email_verification_required',
   selfUseModeEnabled: 'self_use_mode_enabled',
   demoSiteEnabled: 'demo_site_enabled',
+  passkeyEnabled: 'passkey_enabled',
   checkinEnabled: 'checkin_enabled',
   checkinMinQuota: 'checkin_min_quota',
   checkinMaxQuota: 'checkin_max_quota',
@@ -114,6 +116,7 @@ const setupConfigDefaults = {
   registrationEmailVerificationRequired: false,
   selfUseModeEnabled: false,
   demoSiteEnabled: false,
+  passkeyEnabled: false,
   checkinEnabled: true,
   checkinMinQuota: 1000,
   checkinMaxQuota: 10000,
@@ -124,6 +127,7 @@ const persistSetupOptions = async (tx: Prisma.TransactionClient, body: z.infer<t
   await upsertSystemOption(tx, setupConfigKeys.registrationEmailVerificationRequired, String(setupConfigDefaults.registrationEmailVerificationRequired));
   await upsertBooleanSystemOption(tx, setupConfigKeys.selfUseModeEnabled, body.selfUseModeEnabled, setupConfigDefaults.selfUseModeEnabled);
   await upsertBooleanSystemOption(tx, setupConfigKeys.demoSiteEnabled, body.demoSiteEnabled, setupConfigDefaults.demoSiteEnabled);
+  await upsertSystemOption(tx, setupConfigKeys.passkeyEnabled, String(setupConfigDefaults.passkeyEnabled));
   await upsertSystemOption(tx, setupConfigKeys.checkinEnabled, String(setupConfigDefaults.checkinEnabled));
   await upsertSystemOption(tx, setupConfigKeys.checkinMinQuota, String(setupConfigDefaults.checkinMinQuota));
   await upsertSystemOption(tx, setupConfigKeys.checkinMaxQuota, String(setupConfigDefaults.checkinMaxQuota));

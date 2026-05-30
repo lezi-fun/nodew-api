@@ -20,6 +20,13 @@ const optionKeySchema = z.enum([
   'checkin_min_quota',
   'checkin_max_quota',
   'checkin_reward_quota',
+  'passkey_enabled',
+  'passkey_rp_display_name',
+  'passkey_rp_id',
+  'passkey_origins',
+  'passkey_allow_insecure_origin',
+  'passkey_user_verification',
+  'passkey_attachment_preference',
   'site_name',
   'site_description',
   'default_model',
@@ -88,11 +95,23 @@ const optionsRoutes: FastifyPluginAsync = async (app) => {
   }, async (request) => {
     const params = z.object({ key: optionKeySchema }).parse(request.params);
     const body = updateOptionBodySchema.parse(request.body);
-    const value = params.key === 'checkin_reward_quota' || params.key === 'checkin_min_quota' || params.key === 'checkin_max_quota'
-      ? z.coerce.bigint().positive().parse(body.value).toString()
-      : typeof body.value === 'string'
+    const value = (() => {
+      if (params.key === 'checkin_reward_quota' || params.key === 'checkin_min_quota' || params.key === 'checkin_max_quota') {
+        return z.coerce.bigint().positive().parse(body.value).toString();
+      }
+
+      if (params.key === 'passkey_user_verification') {
+        return z.enum(['required', 'preferred', 'discouraged']).parse(String(body.value));
+      }
+
+      if (params.key === 'passkey_attachment_preference') {
+        return z.enum(['', 'platform', 'cross-platform']).parse(String(body.value));
+      }
+
+      return typeof body.value === 'string'
         ? body.value
         : String(body.value);
+    })();
 
     if (params.key === 'registration_email_verification_required' && value === 'true' && !await isMailDeliveryEnabled()) {
       throw app.httpErrors.badRequest('Mail delivery must be enabled before requiring email verification for registration');

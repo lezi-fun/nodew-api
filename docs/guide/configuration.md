@@ -53,6 +53,20 @@ Behavior notes:
 - The personal page shows check-in status, month history, total history, current streak, and longest streak.
 - Legacy deployments that still only have `checkin_reward_quota` stored are read as a fallback until the new min/max settings are saved.
 
+## Passkey
+
+Passkey settings are also stored in system options and can be edited from the admin settings page.
+
+| Option key | Description |
+| --- | --- |
+| `passkey_enabled` | Enables or disables Passkey registration and login. |
+| `passkey_rp_display_name` | WebAuthn RP display name shown during registration. |
+| `passkey_rp_id` | WebAuthn RP ID (usually the root domain). Leave empty to auto-resolve. |
+| `passkey_origins` | Allowed WebAuthn origins (comma or newline separated). Leave empty to auto-resolve from request origin. |
+| `passkey_allow_insecure_origin` | Allows `http://` origins. Recommended only for development. |
+| `passkey_user_verification` | User verification requirement: `preferred`, `required`, or `discouraged`. |
+| `passkey_attachment_preference` | Authenticator preference: empty, `platform`, or `cross-platform`. |
+
 ## Object storage
 
 Object storage is optional and disabled by default. Enable it when generated images, videos, task files, or future upload assets must survive Serverless function restarts.

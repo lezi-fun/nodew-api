@@ -189,6 +189,20 @@ export default function UserPage() {
     }
   };
 
+  const resetPasskey = async (target: UserItem) => {
+    if (!window.confirm(`重置用户「${target.email}」的 Passkey 绑定？`)) {
+      return;
+    }
+
+    try {
+      await api.resetUserPasskey(target.id);
+      Toast.success('Passkey 已重置');
+      await load();
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : '重置 Passkey 失败');
+    }
+  };
+
   const generateAccessToken = async (target: UserItem) => {
     try {
       const response = await api.generateUserAccessToken(target.id);
@@ -276,6 +290,7 @@ export default function UserPage() {
                   ? <Button size="small" type="warning" icon={<IconLock />} onClick={() => void updateStatus(record, 'DISABLED')}>禁用</Button>
                   : <Button size="small" icon={<IconUnlock />} onClick={() => void updateStatus(record, 'ACTIVE')}>启用</Button>}
                 <Button size="small" icon={<IconRefresh />} onClick={() => setPasswordUser(record)}>重置密码</Button>
+                <Button size="small" onClick={() => void resetPasskey(record)}>重置 Passkey</Button>
                 <Button size="small" icon={<IconKey />} onClick={() => void generateAccessToken(record)}>Token</Button>
                 <Button size="small" onClick={() => void revokeSession(record)}>撤销会话</Button>
                 <Button
@@ -357,6 +372,12 @@ export default function UserPage() {
                 </Typography.Text>
                 <Typography.Text>
                   最后登录：{formatDateTime(editingUser.lastLoginAt)}
+                </Typography.Text>
+                <Typography.Text>
+                  Passkey：{editingUser.passkeyCredential ? '已绑定' : '未绑定'}
+                </Typography.Text>
+                <Typography.Text>
+                  Passkey 最近使用：{formatDateTime(editingUser.passkeyCredential?.lastUsedAt ?? null)}
                 </Typography.Text>
               </Space>
             </div>

@@ -61,6 +61,8 @@ The admin settings page also includes a dedicated daily check-in section. There 
 
 After signing in, users can open the personal page to view daily check-in status, monthly history, cumulative totals, and streak statistics.
 
+The same settings page includes a Passkey section. You can enable Passkey login and adjust RP/origin/user-verification parameters before users register Passkeys from the personal page or use Passkey login on the sign-in page.
+
 ## Database
 
 ```bash
