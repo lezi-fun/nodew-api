@@ -61,6 +61,7 @@ model User {
   usageLogs                   UsageLog[]
   twoFA                       TwoFA?
   twoFABackupCodes            TwoFABackupCode[]
+  passkeyCredential           PasskeyCredential?
   createdApiKeys              APIKey[]     @relation("APIKeyCreator")
   createdRedemptions          Redemption[] @relation("RedemptionCreator")
   redeemedRedemptions         Redemption[] @relation("RedeemedByUser")
@@ -131,6 +132,30 @@ model TwoFABackupCode {
 
   @@index([userId])
   @@index([userId, isUsed])
+  @@index([deletedAt])
+}
+
+model PasskeyCredential {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  credentialId   String   @unique @db.VarChar(512)
+  publicKey      String   @db.Text
+  attestationType String   @db.VarChar(255)
+  aaguid         String   @db.VarChar(512)
+  signCount      Int      @default(0)
+  cloneWarning   Boolean  @default(false)
+  userPresent    Boolean  @default(false)
+  userVerified    Boolean  @default(false)
+  backupEligible Boolean  @default(false)
+  backupState    Boolean  @default(false)
+  transports     String   @db.Text
+  attachment     String   @db.VarChar(32)
+  lastUsedAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deletedAt      DateTime?
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([deletedAt])
 }
 
