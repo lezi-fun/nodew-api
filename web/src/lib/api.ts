@@ -140,6 +140,7 @@ export type TokenItem = {
 
 export type UserItem = CurrentUser & {
   group?: { id: string; name: string } | null;
+  twoFA?: { isEnabled: boolean; lastUsedAt: string | null } | null;
   passkeyCredential?: { createdAt: string; lastUsedAt: string | null } | null;
   updatedAt?: string;
 };
@@ -680,6 +681,7 @@ export const api = {
   deleteUser: async (id: string) => (await client.delete<{ success: boolean }>(`/api/users/${id}`)).data,
   resetUserPassword: async (id: string, payload: { password: string; revokeSession?: boolean }) =>
     (await client.post<{ success: boolean }>(`/api/users/${id}/password`, payload)).data,
+  resetUserTwoFA: async (id: string) => (await client.delete<{ success: boolean }>(`/api/users/${id}/2fa`)).data,
   resetUserPasskey: async (id: string) => (await client.delete<{ success: boolean }>(`/api/users/${id}/passkey`)).data,
   revokeUserSession: async (id: string) =>
     (await client.post<{ success: boolean }>(`/api/users/${id}/session/revoke`)).data,

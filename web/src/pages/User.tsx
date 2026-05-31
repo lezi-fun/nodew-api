@@ -203,6 +203,20 @@ export default function UserPage() {
     }
   };
 
+  const resetTwoFA = async (target: UserItem) => {
+    if (!window.confirm(`强制禁用用户「${target.email}」的 2FA？`)) {
+      return;
+    }
+
+    try {
+      await api.resetUserTwoFA(target.id);
+      Toast.success('2FA 已禁用');
+      await load();
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : '禁用 2FA 失败');
+    }
+  };
+
   const generateAccessToken = async (target: UserItem) => {
     try {
       const response = await api.generateUserAccessToken(target.id);
@@ -276,6 +290,18 @@ export default function UserPage() {
               </Tag>
             ),
           },
+          {
+            title: '2FA',
+            dataIndex: 'twoFA',
+            render: (value) => {
+              const twoFA = value as UserItem['twoFA'];
+              return (
+                <Tag color={twoFA?.isEnabled ? 'green' : 'grey'}>
+                  {twoFA?.isEnabled ? '已启用' : '未启用'}
+                </Tag>
+              );
+            },
+          },
           { title: '分组', dataIndex: 'group', render: (value) => (value && typeof value === 'object' && 'name' in value ? String(value.name) : '-') },
           { title: '剩余额度', dataIndex: 'quotaRemaining', render: (value) => formatQuota(value as string) },
           { title: '已用额度', dataIndex: 'quotaUsed', render: (value) => formatQuota(value as string) },
@@ -290,6 +316,7 @@ export default function UserPage() {
                   ? <Button size="small" type="warning" icon={<IconLock />} onClick={() => void updateStatus(record, 'DISABLED')}>禁用</Button>
                   : <Button size="small" icon={<IconUnlock />} onClick={() => void updateStatus(record, 'ACTIVE')}>启用</Button>}
                 <Button size="small" icon={<IconRefresh />} onClick={() => setPasswordUser(record)}>重置密码</Button>
+                <Button size="small" disabled={!record.twoFA?.isEnabled} onClick={() => void resetTwoFA(record)}>禁用 2FA</Button>
                 <Button size="small" onClick={() => void resetPasskey(record)}>重置 Passkey</Button>
                 <Button size="small" icon={<IconKey />} onClick={() => void generateAccessToken(record)}>Token</Button>
                 <Button size="small" onClick={() => void revokeSession(record)}>撤销会话</Button>
@@ -372,6 +399,12 @@ export default function UserPage() {
                 </Typography.Text>
                 <Typography.Text>
                   最后登录：{formatDateTime(editingUser.lastLoginAt)}
+                </Typography.Text>
+                <Typography.Text>
+                  2FA：{editingUser.twoFA?.isEnabled ? '已启用' : '未启用'}
+                </Typography.Text>
+                <Typography.Text>
+                  2FA 最近使用：{formatDateTime(editingUser.twoFA?.lastUsedAt ?? null)}
                 </Typography.Text>
                 <Typography.Text>
                   Passkey：{editingUser.passkeyCredential ? '已绑定' : '未绑定'}

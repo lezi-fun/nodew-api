@@ -62,6 +62,12 @@ const userSelect = {
   group: {
     select: groupSelect,
   },
+  twoFA: {
+    select: {
+      isEnabled: true,
+      lastUsedAt: true,
+    },
+  },
   passkeyCredential: {
     select: {
       createdAt: true,
@@ -89,6 +95,10 @@ const serializeUser = (user: {
   quotaUsed: bigint;
   lastLoginAt: Date | null;
   settings: Prisma.JsonValue | null;
+  twoFA: {
+    isEnabled: boolean;
+    lastUsedAt: Date | null;
+  } | null;
   passkeyCredential: {
     createdAt: Date;
     lastUsedAt: Date | null;
@@ -375,6 +385,30 @@ const usersRoutes: FastifyPluginAsync = async (app) => {
 
     if (deleted.count === 0) {
       throw app.httpErrors.notFound('Passkey not found');
+    }
+
+    return {
+      success: true,
+    };
+  });
+
+  app.delete('/users/:id/2fa', {
+    preHandler: app.requireAdminUser,
+  }, async (request) => {
+    const params = userParamsSchema.parse(request.params);
+
+    const deleted = await prisma.$transaction(async (tx) => {
+      await tx.twoFABackupCode.deleteMany({
+        where: { userId: params.id },
+      });
+
+      return tx.twoFA.deleteMany({
+        where: { userId: params.id },
+      });
+    });
+
+    if (deleted.count === 0) {
+      throw app.httpErrors.notFound('Two-factor authentication not found');
     }
 
     return {

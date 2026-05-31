@@ -1,7 +1,7 @@
 import { prisma } from '../../src/lib/prisma.js';
 import { generateTotpCode } from '../../src/lib/totp.js';
 import { closeTestApp, createTestApp } from '../helpers/app.js';
-import { createSessionForUser, createUser } from '../helpers/factories.js';
+import { createAdminUser, createSessionForUser, createUser } from '../helpers/factories.js';
 
 const extractCookieValue = (response: { headers: Record<string, unknown> }, cookieName: string) => {
   const rawSetCookie = response.headers['set-cookie'];
@@ -192,6 +192,76 @@ describe('two-factor authentication integration', () => {
 
       expect(backupCodeState).toHaveLength(4);
       expect(backupCodeState.filter((entry) => entry.isUsed)).toHaveLength(0);
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
+  it('allows an administrator to force disable user 2FA', async () => {
+    const user = await createUser();
+    const admin = await createAdminUser();
+    const userToken = await createSessionForUser(user.id);
+    const adminToken = await createSessionForUser(admin.id);
+    const app = await createTestApp();
+
+    try {
+      const setupResponse = await app.inject({
+        method: 'POST',
+        url: '/api/user/2fa/setup',
+        cookies: {
+          nodew_session: app.signCookie(userToken),
+        },
+      });
+
+      expect(setupResponse.statusCode).toBe(200);
+      const setupBody = setupResponse.json().item;
+
+      const enableResponse = await app.inject({
+        method: 'POST',
+        url: '/api/user/2fa/enable',
+        cookies: {
+          nodew_session: app.signCookie(userToken),
+        },
+        payload: {
+          code: generateTotpCode(setupBody.secret),
+        },
+      });
+
+      expect(enableResponse.statusCode).toBe(200);
+
+      const adminListResponse = await app.inject({
+        method: 'GET',
+        url: '/api/users',
+        cookies: {
+          nodew_session: app.signCookie(adminToken),
+        },
+      });
+
+      expect(adminListResponse.statusCode).toBe(200);
+      const listedUser = adminListResponse.json().items.find((item: { id: string }) => item.id === user.id);
+      expect(listedUser.twoFA).toMatchObject({
+        isEnabled: true,
+      });
+
+      const resetResponse = await app.inject({
+        method: 'DELETE',
+        url: `/api/users/${user.id}/2fa`,
+        cookies: {
+          nodew_session: app.signCookie(adminToken),
+        },
+      });
+
+      expect(resetResponse.statusCode).toBe(200);
+      expect(resetResponse.json()).toEqual({
+        success: true,
+      });
+
+      await expect(prisma.twoFA.findUnique({
+        where: { userId: user.id },
+      })).resolves.toBeNull();
+      await expect(prisma.twoFABackupCode.count({
+        where: { userId: user.id },
+      })).resolves.toBe(0);
     } finally {
       await closeTestApp(app);
     }
