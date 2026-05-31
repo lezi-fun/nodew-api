@@ -602,3 +602,9 @@ export const readSecureVerificationCookie = (
     return null;
   }
 };
+
+export const hasValidSecureVerification = (request: FastifyRequest, userId: string) => {
+  const secureCookie = readSecureVerificationCookie(request);
+
+  return Boolean(secureCookie && secureCookie.userId === userId);
+};

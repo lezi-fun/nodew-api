@@ -24,6 +24,32 @@ const extractCookieValue = (response: { headers: Record<string, unknown> }, cook
   }
 };
 
+const verifySecureAction = async (
+  app: Awaited<ReturnType<typeof createTestApp>>,
+  cookies: Record<string, string>,
+  code: string,
+) => {
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/verify',
+    cookies,
+    payload: {
+      method: '2fa',
+      code,
+    },
+  });
+
+  expect(response.statusCode).toBe(200);
+
+  const secureCookie = extractCookieValue(response, 'nodew_secure_verified_at');
+  expect(secureCookie).toBeTruthy();
+
+  return {
+    ...cookies,
+    nodew_secure_verified_at: secureCookie!,
+  };
+};
+
 describe('two-factor authentication integration', () => {
   it('initializes, enables, reports, and disables 2FA', async () => {
     const user = await createUser();
@@ -88,13 +114,12 @@ describe('two-factor authentication integration', () => {
         backupCodesRemaining: 4,
       });
 
+      const secureCookies = await verifySecureAction(app, cookies, generateTotpCode(setupBody.secret));
+
       const disableResponse = await app.inject({
         method: 'POST',
         url: '/api/user/2fa/disable',
-        cookies,
-        payload: {
-          code: generateTotpCode(setupBody.secret),
-        },
+        cookies: secureCookies,
       });
 
       expect(disableResponse.statusCode).toBe(200);
@@ -156,13 +181,12 @@ describe('two-factor authentication integration', () => {
 
       expect(enableResponse.statusCode).toBe(200);
 
+      const secureCookies = await verifySecureAction(app, cookies, generateTotpCode(setupBody.secret));
+
       const regenerateResponse = await app.inject({
         method: 'POST',
         url: '/api/user/2fa/backup-codes',
-        cookies,
-        payload: {
-          code: generateTotpCode(setupBody.secret),
-        },
+        cookies: secureCookies,
       });
 
       expect(regenerateResponse.statusCode).toBe(200);

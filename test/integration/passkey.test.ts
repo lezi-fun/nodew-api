@@ -109,6 +109,44 @@ describe('passkey integration', () => {
     }
   });
 
+  it('requires secure verification before deleting a passkey binding', async () => {
+    const user = await createUser();
+    const token = await createSessionForUser(user.id);
+    const app = await createTestApp();
+
+    try {
+      await prisma.passkeyCredential.create({
+        data: {
+          userId: user.id,
+          credentialId: `cred-delete-${Date.now()}`,
+          publicKey: Buffer.from('public-key').toString('base64url'),
+          attestationType: 'none',
+          aaguid: Buffer.from('aaguid').toString('base64url'),
+          signCount: 0,
+          cloneWarning: false,
+          userPresent: true,
+          userVerified: true,
+          backupEligible: false,
+          backupState: false,
+          transports: '["internal"]',
+          attachment: 'platform',
+        },
+      });
+
+      const deleteResponse = await app.inject({
+        method: 'DELETE',
+        url: '/api/user/passkey',
+        cookies: {
+          nodew_session: app.signCookie(token),
+        },
+      });
+
+      expect(deleteResponse.statusCode).toBe(403);
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
   it('lets an admin reset a user passkey binding', async () => {
     const admin = await createAdminUser();
     const user = await createUser();
@@ -158,4 +196,3 @@ describe('passkey integration', () => {
     }
   });
 });
-

@@ -8,10 +8,10 @@ import {
   buildOtpAuthUri,
   generateBackupCodes,
   generateTotpSecret,
-  isValidBackupCodeFormat,
   normalizeBackupCode,
   validateTotpCode,
 } from '../../lib/totp.js';
+import { clearSecureVerificationCookie, hasValidSecureVerification } from '../../lib/passkey.js';
 import { updateUserPassword } from '../auth/password-reset.js';
 
 const updateSelfBodySchema = z.object({
@@ -25,14 +25,6 @@ const changePasswordBodySchema = z.object({
 });
 
 const twoFAEnableBodySchema = z.object({
-  code: z.string().trim().min(1).max(32),
-});
-
-const twoFADisableBodySchema = z.object({
-  code: z.string().trim().min(1).max(32),
-});
-
-const twoFARegenerateBackupCodesBodySchema = z.object({
   code: z.string().trim().min(1).max(32),
 });
 
@@ -80,11 +72,6 @@ const twoFASelect = {
   lastUsedAt: true,
   createdAt: true,
   updatedAt: true,
-} as const;
-
-const backupCodeSelect = {
-  id: true,
-  codeHash: true,
 } as const;
 
 const resolveTwoFAIssuer = async () => {
@@ -216,7 +203,7 @@ const enableTwoFA = async (userId: string, code: string) => {
   });
 };
 
-const disableTwoFA = async (userId: string, code: string) => {
+const disableTwoFA = async (userId: string) => {
   const twoFA = await prisma.twoFA.findUnique({
     where: { userId },
     select: twoFASelect,
@@ -224,30 +211,6 @@ const disableTwoFA = async (userId: string, code: string) => {
 
   if (!twoFA || !twoFA.isEnabled) {
     throw new Error('Two-factor authentication is not enabled');
-  }
-
-  const totpValid = validateTotpCode(twoFA.secret, code, { window: 1 });
-
-  if (!totpValid) {
-    const normalizedBackupCode = normalizeBackupCode(code);
-
-    if (!isValidBackupCodeFormat(normalizedBackupCode)) {
-      throw new Error('Verification code or backup code is invalid');
-    }
-
-    const backupCodes = await prisma.twoFABackupCode.findMany({
-      where: {
-        userId,
-        isUsed: false,
-      },
-      select: backupCodeSelect,
-    });
-
-    const matchedBackupCode = backupCodes.find((backupCode) => verifyPassword(normalizedBackupCode, backupCode.codeHash));
-
-    if (!matchedBackupCode) {
-      throw new Error('Verification code or backup code is invalid');
-    }
   }
 
   await prisma.$transaction(async (tx) => {
@@ -260,7 +223,7 @@ const disableTwoFA = async (userId: string, code: string) => {
   });
 };
 
-const regenerateTwoFABackupCodes = async (userId: string, code: string) => {
+const regenerateTwoFABackupCodes = async (userId: string) => {
   const twoFA = await prisma.twoFA.findUnique({
     where: { userId },
     select: twoFASelect,
@@ -268,10 +231,6 @@ const regenerateTwoFABackupCodes = async (userId: string, code: string) => {
 
   if (!twoFA || !twoFA.isEnabled) {
     throw new Error('Two-factor authentication is not enabled');
-  }
-
-  if (!validateTotpCode(twoFA.secret, code, { window: 1 })) {
-    throw new Error('Verification code is invalid');
   }
 
   const backupCodes = generateBackupCodes();
@@ -422,10 +381,12 @@ const selfRoutes: FastifyPluginAsync = async (app) => {
   app.post('/user/2fa/disable', {
     preHandler: app.requireUser,
   }, async (request) => {
-    const body = twoFADisableBodySchema.parse(request.body);
+    if (!hasValidSecureVerification(request, request.currentUser!.id)) {
+      throw app.httpErrors.forbidden('Please complete secure verification first');
+    }
 
     try {
-      await disableTwoFA(request.currentUser!.id, body.code);
+      await disableTwoFA(request.currentUser!.id);
     } catch (error) {
       if (error instanceof Error) {
         throw app.httpErrors.badRequest(error.message);
@@ -442,10 +403,12 @@ const selfRoutes: FastifyPluginAsync = async (app) => {
   app.post('/user/2fa/backup-codes', {
     preHandler: app.requireUser,
   }, async (request) => {
-    const body = twoFARegenerateBackupCodesBodySchema.parse(request.body);
+    if (!hasValidSecureVerification(request, request.currentUser!.id)) {
+      throw app.httpErrors.forbidden('Please complete secure verification first');
+    }
 
     try {
-      const result = await regenerateTwoFABackupCodes(request.currentUser!.id, body.code);
+      const result = await regenerateTwoFABackupCodes(request.currentUser!.id);
 
       return {
         item: result,

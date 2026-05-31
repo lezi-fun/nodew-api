@@ -107,6 +107,11 @@ export type TwoFABackupCodesResult = {
   backupCodes: string[];
 };
 
+export type SecureVerificationResult = {
+  success: boolean;
+  verifiedUntil: string;
+};
+
 export type ChannelItem = {
   id: string;
   name: string;
@@ -550,9 +555,9 @@ export const api = {
   getTwoFAStatus: async () => (await client.get<{ item: TwoFAStatus }>('/api/user/2fa/status')).data,
   setupTwoFA: async () => (await client.post<{ item: TwoFASetupResult }>('/api/user/2fa/setup')).data,
   enableTwoFA: async (payload: { code: string }) => (await client.post<{ success: boolean }>('/api/user/2fa/enable', payload)).data,
-  disableTwoFA: async (payload: { code: string }) => (await client.post<{ success: boolean }>('/api/user/2fa/disable', payload)).data,
-  regenerateTwoFABackupCodes: async (payload: { code: string }) =>
-    (await client.post<{ item: TwoFABackupCodesResult }>('/api/user/2fa/backup-codes', payload)).data,
+  disableTwoFA: async () => (await client.post<{ success: boolean }>('/api/user/2fa/disable')).data,
+  regenerateTwoFABackupCodes: async () =>
+    (await client.post<{ item: TwoFABackupCodesResult }>('/api/user/2fa/backup-codes')).data,
   register: async (payload: {
     email: string;
     username: string;
@@ -610,6 +615,8 @@ export const api = {
     (await client.post<{ item: PublicKeyCredentialRequestOptionsJSON }>('/api/user/passkey/verify/begin')).data,
   passkeyVerifyFinish: async (payload: { response: AuthenticationResponseJSON }) =>
     (await client.post<{ success: boolean; verifiedUntil: string }>('/api/user/passkey/verify/finish', payload)).data,
+  verifySecureAction: async (payload: { method: '2fa'; code: string } | { method: 'passkey' }) =>
+    (await client.post<SecureVerificationResult>('/api/verify', payload)).data,
   deletePasskey: async () => (await client.delete<{ success: boolean }>('/api/user/passkey')).data,
   listChannels: async () => (await client.get<ListResponse<ChannelItem>>('/api/channels')).data,
   createChannel: async (payload: ChannelPayload & { apiKey: string }) =>

@@ -4,6 +4,7 @@ import { useContext, useEffect, useState } from 'react';
 
 import { UserContext } from '../../context/User';
 import { api, type TwoFABackupCodesResult, type TwoFASetupResult, type TwoFAStatus } from '../../lib/api';
+import { useSecureVerification } from './useSecureVerification';
 
 const copyText = async (value: string, message: string) => {
   await navigator.clipboard.writeText(value);
@@ -34,8 +35,10 @@ export default function TwoFASettingCard() {
   const [setupResult, setSetupResult] = useState<TwoFASetupResult | null>(null);
   const [generatedBackupCodes, setGeneratedBackupCodes] = useState<TwoFABackupCodesResult | null>(null);
   const [setupCode, setSetupCode] = useState('');
-  const [disableCode, setDisableCode] = useState('');
-  const [regenerateCode, setRegenerateCode] = useState('');
+  const { requireVerification, modal: secureVerificationModal } = useSecureVerification({
+    title: '敏感操作验证',
+    description: '这类操作会影响账号安全，请先完成一次额外验证。',
+  });
 
   useEffect(() => {
     let active = true;
@@ -98,13 +101,11 @@ export default function TwoFASettingCard() {
 
   const closeDisableModal = () => {
     setDisableVisible(false);
-    setDisableCode('');
   };
 
   const closeRegenerateModal = () => {
     setRegenerateVisible(false);
     setGeneratedBackupCodes(null);
-    setRegenerateCode('');
   };
 
   const startSetup = async () => {
@@ -141,19 +142,15 @@ export default function TwoFASettingCard() {
   };
 
   const openDisableModal = () => {
-    setDisableCode('');
-    setDisableVisible(true);
+    requireVerification(() => {
+      setDisableVisible(true);
+    });
   };
 
   const disableTwoFA = async () => {
-    if (!disableCode.trim()) {
-      Toast.error('请输入验证码或备用码');
-      return;
-    }
-
     setDisableLoading(true);
     try {
-      await api.disableTwoFA({ code: disableCode.trim() });
+      await api.disableTwoFA();
       Toast.success('两步验证已禁用');
       closeDisableModal();
       await refreshStatus();
@@ -166,21 +163,16 @@ export default function TwoFASettingCard() {
 
   const openRegenerateModal = () => {
     setGeneratedBackupCodes(null);
-    setRegenerateCode('');
-    setRegenerateVisible(true);
+    requireVerification(() => {
+      setRegenerateVisible(true);
+    });
   };
 
   const regenerateBackupCodes = async () => {
-    if (!regenerateCode.trim()) {
-      Toast.error('请输入当前验证码');
-      return;
-    }
-
     setRegenerateLoading(true);
     try {
-      const response = await api.regenerateTwoFABackupCodes({ code: regenerateCode.trim() });
+      const response = await api.regenerateTwoFABackupCodes();
       setGeneratedBackupCodes(response.item);
-      setRegenerateCode('');
       Toast.success('备用码已重新生成');
       await refreshStatus();
     } catch (error) {
@@ -196,6 +188,7 @@ export default function TwoFASettingCard() {
 
   return (
     <>
+      {secureVerificationModal}
       <Card title={<span><IconShield /> 两步验证</span>} bordered={false} className="dashboard-card">
         <Space vertical align="start">
           <Typography.Text type="tertiary">安全状态</Typography.Text>
@@ -296,7 +289,7 @@ export default function TwoFASettingCard() {
       >
         <Space vertical align="start" style={{ width: '100%' }}>
           <Typography.Paragraph type="tertiary" style={{ marginBottom: 0 }}>
-            输入当前验证码后会立即替换旧备用码，原来的备用码会失效。
+            完成额外验证后会立即替换旧备用码，原来的备用码会失效。
           </Typography.Paragraph>
           {generatedBackupCodes ? (
             <Space vertical align="start" style={{ width: '100%' }}>
@@ -308,12 +301,7 @@ export default function TwoFASettingCard() {
                 复制全部备用码
               </Button>
             </Space>
-          ) : (
-            <label className="form-block" style={{ width: '100%' }}>
-              <span>当前验证码</span>
-              <Input value={regenerateCode} placeholder="123456" onChange={setRegenerateCode} />
-            </label>
-          )}
+          ) : null}
         </Space>
       </Modal>
 
@@ -328,12 +316,8 @@ export default function TwoFASettingCard() {
       >
         <Space vertical align="start" style={{ width: '100%' }}>
           <Typography.Paragraph type="tertiary" style={{ marginBottom: 0 }}>
-            请输入当前验证码或备用码完成禁用。
+            完成额外验证后即可禁用 2FA。
           </Typography.Paragraph>
-          <label className="form-block" style={{ width: '100%' }}>
-            <span>验证码 / 备用码</span>
-            <Input value={disableCode} placeholder="123456" onChange={setDisableCode} />
-          </label>
         </Space>
       </Modal>
     </>

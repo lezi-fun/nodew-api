@@ -7,6 +7,7 @@ import { StatusContext } from '../../context/Status';
 import { UserContext } from '../../context/User';
 import { api, type PasskeyStatus } from '../../lib/api';
 import { formatDateTime } from '../../lib/format';
+import { useSecureVerification } from './useSecureVerification';
 
 export default function PasskeySettingCard() {
   const { user } = useContext(UserContext);
@@ -17,6 +18,10 @@ export default function PasskeySettingCard() {
   const [deleting, setDeleting] = useState(false);
   const [supported, setSupported] = useState(false);
   const [passkeyStatus, setPasskeyStatus] = useState<PasskeyStatus | null>(null);
+  const { requireVerification, modal: secureVerificationModal } = useSecureVerification({
+    title: '解绑 Passkey',
+    description: '解绑前请先完成一次额外验证，避免账号被误操作。',
+  });
 
   useEffect(() => {
     setSupported(browserSupportsWebAuthn());
@@ -91,10 +96,6 @@ export default function PasskeySettingCard() {
   };
 
   const deletePasskey = async () => {
-    if (!window.confirm('解绑 Passkey 后将无法使用该方式登录，确认继续吗？')) {
-      return;
-    }
-
     setDeleting(true);
     try {
       await api.deletePasskey();
@@ -108,56 +109,65 @@ export default function PasskeySettingCard() {
   };
 
   return (
-    <Card title={<span><IconShield /> Passkey</span>} bordered={false} className="dashboard-card">
-      <Space vertical align="start">
-        <Typography.Text type="tertiary">安全状态</Typography.Text>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          {passkeyEnabled ? <Tag color="blue">系统已启用</Tag> : <Tag color="grey">系统未启用</Tag>}
-          {supported ? <Tag color="green">浏览器支持</Tag> : <Tag color="orange">浏览器不支持</Tag>}
-          {passkeyStatus?.enabled ? <Tag color="green">已绑定</Tag> : <Tag color="grey">未绑定</Tag>}
-        </div>
-        <Typography.Title heading={4} style={{ margin: 0 }}>
-          {loading ? '加载中' : passkeyStatus?.enabled ? 'Passkey 已启用' : 'Passkey 未启用'}
-        </Typography.Title>
-        <Typography.Text type="tertiary">
-          {passkeyEnabled
-            ? passkeyStatus?.enabled
-              ? `最近使用：${formatDateTime(passkeyStatus.lastUsedAt)}`
-              : '注册后可以用生物识别或安全密钥完成登录。'
-            : '管理员未开启 Passkey 登录。'}
-        </Typography.Text>
-        {passkeyStatus?.enabled ? (
+    <>
+      {secureVerificationModal}
+      <Card title={<span><IconShield /> Passkey</span>} bordered={false} className="dashboard-card">
+        <Space vertical align="start">
+          <Typography.Text type="tertiary">安全状态</Typography.Text>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            {passkeyEnabled ? <Tag color="blue">系统已启用</Tag> : <Tag color="grey">系统未启用</Tag>}
+            {supported ? <Tag color="green">浏览器支持</Tag> : <Tag color="orange">浏览器不支持</Tag>}
+            {passkeyStatus?.enabled ? <Tag color="green">已绑定</Tag> : <Tag color="grey">未绑定</Tag>}
+          </div>
+          <Typography.Title heading={4} style={{ margin: 0 }}>
+            {loading ? '加载中' : passkeyStatus?.enabled ? 'Passkey 已启用' : 'Passkey 未启用'}
+          </Typography.Title>
           <Typography.Text type="tertiary">
-            创建时间：{formatDateTime(passkeyStatus.createdAt)}
+            {passkeyEnabled
+              ? passkeyStatus?.enabled
+                ? `最近使用：${formatDateTime(passkeyStatus.lastUsedAt)}`
+                : '注册后可以用生物识别或安全密钥完成登录。'
+              : '管理员未开启 Passkey 登录。'}
           </Typography.Text>
-        ) : null}
-        <Space wrap>
           {passkeyStatus?.enabled ? (
-            <>
-              <Button icon={<IconShield />} loading={verifying} disabled={!passkeyEnabled || !supported} onClick={() => void verifyPasskey()}>
-                立即验证
+            <Typography.Text type="tertiary">
+              创建时间：{formatDateTime(passkeyStatus.createdAt)}
+            </Typography.Text>
+          ) : null}
+          <Space wrap>
+            {passkeyStatus?.enabled ? (
+              <>
+                <Button icon={<IconShield />} loading={verifying} disabled={!passkeyEnabled || !supported} onClick={() => void verifyPasskey()}>
+                  立即验证
+                </Button>
+                <Button
+                  type="danger"
+                  icon={<IconLock />}
+                  loading={deleting}
+                  disabled={!passkeyEnabled}
+                  onClick={() => requireVerification(() => deletePasskey())}
+                >
+                  解绑 Passkey
+                </Button>
+              </>
+            ) : (
+              <Button
+                theme="solid"
+                type="primary"
+                icon={<IconKey />}
+                loading={running}
+                disabled={!passkeyEnabled || !supported}
+                onClick={() => void registerPasskey()}
+              >
+                注册 Passkey
               </Button>
-              <Button type="danger" icon={<IconLock />} loading={deleting} disabled={!passkeyEnabled} onClick={() => void deletePasskey()}>
-                解绑 Passkey
-              </Button>
-            </>
-          ) : (
-            <Button
-              theme="solid"
-              type="primary"
-              icon={<IconKey />}
-              loading={running}
-              disabled={!passkeyEnabled || !supported}
-              onClick={() => void registerPasskey()}
-            >
-              注册 Passkey
+            )}
+            <Button icon={<IconRefresh />} loading={loading} onClick={() => void loadStatus()}>
+              刷新状态
             </Button>
-          )}
-          <Button icon={<IconRefresh />} loading={loading} onClick={() => void loadStatus()}>
-            刷新状态
-          </Button>
+          </Space>
         </Space>
-      </Space>
-    </Card>
+      </Card>
+    </>
   );
 }

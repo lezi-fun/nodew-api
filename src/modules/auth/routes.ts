@@ -38,6 +38,7 @@ import {
   clearPasskeyChallengeCookie,
   clearSecureVerificationCookie,
   getPasskeySettings,
+  hasValidSecureVerification,
   passkeyChallengeCookieNames,
   passkeyCredentialSelect,
   passkeyCredentialToWebAuthnCredential,
@@ -874,6 +875,10 @@ const authRoutes: FastifyPluginAsync = async (app) => {
   }, async (request, reply) => {
     if (request.currentUser!.status !== 'ACTIVE') {
       throw app.httpErrors.forbidden('User is disabled');
+    }
+
+    if (!hasValidSecureVerification(request, request.currentUser!.id)) {
+      throw app.httpErrors.forbidden('Please complete secure verification first');
     }
 
     await prisma.passkeyCredential.deleteMany({
