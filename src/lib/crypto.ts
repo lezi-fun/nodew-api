@@ -83,7 +83,16 @@ export const verifyApiKey = (apiKey: string, storedHash: string) => verifyPasswo
 
 export const getApiKeyPrefix = (apiKey: string) => apiKey.slice(0, 12);
 
-export const maskApiKey = (prefix: string) => `${prefix}••••••••••••••••`;
+export const maskApiKey = (value: string) => {
+  if (value.length <= 8) {
+    return `${value}*****`;
+  }
+
+  const headLength = Math.min(8, Math.max(4, Math.floor(value.length / 4)));
+  const tailLength = Math.min(8, Math.max(4, Math.floor(value.length / 4)));
+
+  return `${value.slice(0, headLength)}*****${value.slice(-tailLength)}`;
+};
 
 export const generateRedemptionCode = () => randomBytes(18).toString('hex').toUpperCase();
 

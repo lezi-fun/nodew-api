@@ -70,6 +70,8 @@ const copyText = async (value: string, message: string) => {
   Toast.success(message);
 };
 
+const createdTokenCache = new Map<string, string>();
+
 export default function TokenPage() {
   const [rows, setRows] = useState<TokenItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -136,6 +138,7 @@ export default function TokenPage() {
           ...(draft.expiresAt.trim() ? { expiresAt: draft.expiresAt.trim() } : {}),
           ...(metadata ? { metadata } : {}),
         });
+        createdTokenCache.set(response.item.id, response.item.key);
         setCreatedToken(response.item);
         Toast.success('令牌已创建');
       }
@@ -170,6 +173,17 @@ export default function TokenPage() {
     } catch (error) {
       Toast.error(error instanceof Error ? error.message : '删除令牌失败');
     }
+  };
+
+  const copyToken = async (token: TokenItem) => {
+    const plaintextKey = createdTokenCache.get(token.id);
+
+    if (!plaintextKey) {
+      Toast.warning('当前只能复制本次创建后仍在本会话内保留的明文 key。刷新后请使用创建弹窗中保存的 key。');
+      return;
+    }
+
+    await copyText(plaintextKey, 'API Key 已复制');
   };
 
   return (
@@ -230,7 +244,7 @@ export default function TokenPage() {
             dataIndex: 'id',
             render: (_value, record) => (
               <Space wrap>
-                <Button size="small" icon={<IconCopy />} onClick={() => void copyText(record.keyPrefix, 'Key Prefix 已复制')}>复制</Button>
+                <Button size="small" icon={<IconCopy />} onClick={() => void copyToken(record)}>复制</Button>
                 <Button size="small" icon={<IconEdit />} onClick={() => openEdit(record)}>编辑</Button>
                 {record.status === 'ACTIVE'
                   ? <Button size="small" type="warning" icon={<IconLock />} onClick={() => void updateStatus(record, 'REVOKED')}>撤销</Button>
