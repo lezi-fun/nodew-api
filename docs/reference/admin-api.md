@@ -75,6 +75,8 @@ The web console uses the backend authentication APIs for login, registration, se
 - `POST /api/user/passkey/verify/finish`
 - `DELETE /api/user/passkey`
 - `POST /api/verify`
+- `POST /api/user/2fa/disable`
+- `POST /api/user/2fa/backup-codes`
 - `GET /api/user/self`
 - `PATCH /api/user/self`
 
@@ -89,7 +91,19 @@ The web console uses the backend authentication APIs for login, registration, se
 
 ## User security admin operations
 
+- `DELETE /api/users/:id/2fa` force-disables a user's 2FA and deletes all remaining backup codes.
 - `DELETE /api/users/:id/passkey` resets a user's Passkey binding.
+
+## Shared secure verification
+
+`POST /api/verify` creates a short-lived signed verification window for sensitive self-service actions.
+
+- `method: "2fa"` accepts a current TOTP code or an unused backup code.
+- `method: "passkey"` requires a successful `POST /api/user/passkey/verify/finish` call first, then extends the same verification window.
+- The current self-service sensitive routes protected by this window are:
+  - `POST /api/user/2fa/disable`
+  - `POST /api/user/2fa/backup-codes`
+  - `DELETE /api/user/passkey`
 
 ## Compatibility routes
 

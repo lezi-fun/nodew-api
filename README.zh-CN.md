@@ -120,6 +120,14 @@ RESEND_API_KEY="re_xxx"
 - `passkey_rp_display_name`、`passkey_rp_id`、`passkey_origins` 配置 WebAuthn 站点标识；
 - `passkey_user_verification`、`passkey_attachment_preference` 控制验证级别和设备偏好。
 
+个人页里的敏感安全操作现在统一走二次验证弹窗：
+
+- 禁用 2FA
+- 重新生成 2FA 备用码
+- 解绑 Passkey
+
+用户可以用 2FA 验证码 / 备用码，或者用 Passkey 完成这次验证。后端也会校验同一段短时验证态，因此绕过前端直接调用这些接口会被拒绝。
+
 准备 Prisma：
 
 ```bash
@@ -262,6 +270,9 @@ Relay 接口：
 - `POST /api/user/passkey/verify/begin`
 - `POST /api/user/passkey/verify/finish`
 - `DELETE /api/user/passkey`
+- `POST /api/user/2fa/disable`
+- `POST /api/user/2fa/backup-codes`
+- `POST /api/verify`
 
 ## 许可证
 

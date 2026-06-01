@@ -120,6 +120,14 @@ The same settings page now includes a Passkey section:
 - `passkey_rp_display_name`, `passkey_rp_id`, and `passkey_origins` control WebAuthn relying-party identity.
 - `passkey_user_verification` and `passkey_attachment_preference` tune registration/authenticator behavior.
 
+Sensitive security actions on the personal page now use a shared verification dialog:
+
+- Disabling 2FA
+- Regenerating 2FA backup codes
+- Deleting Passkey
+
+Users can complete this verification with either a 2FA code / backup code or a Passkey. The backend also enforces the same verification window, so calling these endpoints directly without a fresh verification state is rejected.
+
 Prepare Prisma:
 
 ```bash
@@ -262,6 +270,9 @@ Account utility endpoints:
 - `POST /api/user/passkey/verify/begin`
 - `POST /api/user/passkey/verify/finish`
 - `DELETE /api/user/passkey`
+- `POST /api/user/2fa/disable`
+- `POST /api/user/2fa/backup-codes`
+- `POST /api/verify`
 
 ## License
 

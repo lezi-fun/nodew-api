@@ -67,6 +67,15 @@ Passkey settings are also stored in system options and can be edited from the ad
 | `passkey_user_verification` | User verification requirement: `preferred`, `required`, or `discouraged`. |
 | `passkey_attachment_preference` | Authenticator preference: empty, `platform`, or `cross-platform`. |
 
+## Secure verification window
+
+High-risk personal security actions use a shared verification window instead of trusting the page state alone.
+
+- `POST /api/verify` accepts either a 2FA code / backup code or a Passkey verification result.
+- After verification succeeds, the server issues a short-lived signed cookie.
+- `POST /api/user/2fa/disable`, `POST /api/user/2fa/backup-codes`, and `DELETE /api/user/passkey` require that cookie.
+- Direct requests without a fresh verification state are rejected with `403`.
+
 ## Object storage
 
 Object storage is optional and disabled by default. Enable it when generated images, videos, task files, or future upload assets must survive Serverless function restarts.

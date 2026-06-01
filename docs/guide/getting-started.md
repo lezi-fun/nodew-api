@@ -63,6 +63,8 @@ After signing in, users can open the personal page to view daily check-in status
 
 The same settings page includes a Passkey section. You can enable Passkey login and adjust RP/origin/user-verification parameters before users register Passkeys from the personal page or use Passkey login on the sign-in page.
 
+After users enable 2FA or Passkey, the personal page also protects sensitive security actions with one shared verification flow. Disabling 2FA, regenerating backup codes, and deleting Passkey all require a fresh verification step before the request is accepted.
+
 ## Database
 
 ```bash
