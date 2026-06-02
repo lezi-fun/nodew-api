@@ -63,6 +63,11 @@ export type AppStatus = ServiceStatus & {
   passkey?: {
     enabled: boolean;
   };
+  oauth?: {
+    github?: {
+      enabled: boolean;
+    };
+  };
 };
 
 export type CurrentUser = {
@@ -111,6 +116,35 @@ export type SecureVerificationResult = {
   success: boolean;
   verifiedUntil: string;
 };
+
+export type OAuthProvider = 'github';
+
+export type OAuthStateResult = {
+  success: true;
+  data: {
+    state: string;
+    authorizeUrl: string;
+  };
+};
+
+export type OAuthCallbackResult =
+  | {
+      success: true;
+      action: 'login';
+      user: Pick<CurrentUser, 'id' | 'email' | 'username' | 'displayName' | 'emailVerifiedAt' | 'role' | 'status' | 'lastLoginAt'>;
+      redirectTo: string | null;
+    }
+  | {
+      success: true;
+      action: 'bind';
+      redirectTo: string | null;
+    }
+  | {
+      success: true;
+      requiresTwoFA: true;
+      email: string | null;
+      redirectTo: string | null;
+    };
 
 export type ChannelItem = {
   id: string;
@@ -617,6 +651,10 @@ export const api = {
     (await client.post<{ success: boolean; verifiedUntil: string }>('/api/user/passkey/verify/finish', payload)).data,
   verifySecureAction: async (payload: { method: '2fa'; code: string } | { method: 'passkey' }) =>
     (await client.post<SecureVerificationResult>('/api/verify', payload)).data,
+  getOAuthState: async (payload: { provider: OAuthProvider; mode?: 'login' | 'bind'; redirectTo?: string }) =>
+    (await client.get<OAuthStateResult>('/api/oauth/state', { params: payload })).data,
+  oauthCallback: async (provider: OAuthProvider, params: { code?: string; state?: string; error?: string; error_description?: string }) =>
+    (await client.get<OAuthCallbackResult>(`/api/oauth/${provider}`, { params })).data,
   deletePasskey: async () => (await client.delete<{ success: boolean }>('/api/user/passkey')).data,
   listChannels: async () => (await client.get<ListResponse<ChannelItem>>('/api/channels')).data,
   createChannel: async (payload: ChannelPayload & { apiKey: string }) =>

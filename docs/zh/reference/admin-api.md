@@ -34,6 +34,36 @@
 
 Web 控制台使用后端认证接口完成登录、注册、初始化和用户信息读取。
 
+### 认证路由
+
+- `GET /api/oauth/state`
+- `GET /api/oauth/github`
+- `POST /api/user/register`
+- `POST /api/user/login`
+- `POST /api/user/password/forgot`
+- `POST /api/user/password/reset`
+- `POST /api/user/email/verification`
+- `POST /api/user/email/verify`
+- `POST /api/user/passkey/login/begin`
+- `POST /api/user/passkey/login/finish`
+- `GET /api/user/passkey`
+- `POST /api/user/passkey/register/begin`
+- `POST /api/user/passkey/register/finish`
+- `POST /api/user/passkey/verify/begin`
+- `POST /api/user/passkey/verify/finish`
+- `DELETE /api/user/passkey`
+- `POST /api/verify`
+- `POST /api/user/2fa/disable`
+- `POST /api/user/2fa/backup-codes`
+- `GET /api/user/self`
+- `PATCH /api/user/self`
+
+### 第三方登录路由
+
+- `GET /api/oauth/state?provider=github` 创建签名 state cookie，并返回 GitHub 授权跳转地址。
+- `GET /api/oauth/github` 消费 OAuth 回调：已有绑定时直接登录；注册开启时可自动创建账号；如果请求已带登录态则进入绑定模式。
+- 当前只实现了 GitHub provider，但路由形状已经按后续多 provider 扩展预留。
+
 ## 兼容接口
 
 当前已经实现多个控制台兼容接口，用于在后端继续补齐功能时保持管理界面可用。

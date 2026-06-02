@@ -36,6 +36,29 @@ SESSION_SECRET="nodew-dev-session-secret"
 CHANNEL_SECRET="nodew-dev-channel-secret"
 ```
 
+可选的邮件发送配置：
+
+```bash
+APP_BASE_URL="http://127.0.0.1:3000"
+MAIL_PROVIDER="smtp"
+MAIL_FROM="noreply@example.com"
+SMTP_HOST="smtp.example.com"
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER="smtp-user"
+SMTP_PASS="smtp-password"
+```
+
+如果你要启用 GitHub 登录，再补上：
+
+```bash
+APP_BASE_URL="http://127.0.0.1:3000"
+GITHUB_OAUTH_CLIENT_ID="Iv1.xxxxx"
+GITHUB_OAUTH_CLIENT_SECRET="github-oauth-secret"
+```
+
+配置完成后，登录页会显示 GitHub 登录入口，后端会启用 `/api/oauth/state` 和 `/api/oauth/github` 回调链路。前端回调路径固定为 `/oauth/github`。
+
 ## 初始化数据库
 
 ```bash

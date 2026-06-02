@@ -42,6 +42,7 @@ Current capabilities include:
 - Channel management with provider metadata, weights, priorities, health checks, and model sync.
 - Token management with quota, expiry, and model allow/block metadata.
 - Account security flows, including email verification, password reset, 2FA, Passkey, and session management.
+- GitHub third-party login with callback handling, automatic account creation, and bind-mode support for authenticated sessions.
 - Daily check-in with configurable random quota rewards, monthly history, and streak statistics.
 - Usage logs and billing-oriented request accounting.
 - Admin console for dashboard, channels, tokens, users, redemptions, logs, models, deployment, settings, wallet, and playground.
@@ -127,6 +128,16 @@ Sensitive security actions on the personal page now use a shared verification di
 - Deleting Passkey
 
 Users can complete this verification with either a 2FA code / backup code or a Passkey. The backend also enforces the same verification window, so calling these endpoints directly without a fresh verification state is rejected.
+
+GitHub login is now available through environment-based configuration:
+
+```bash
+APP_BASE_URL="http://127.0.0.1:3000"
+GITHUB_OAUTH_CLIENT_ID="Iv1.xxxxx"
+GITHUB_OAUTH_CLIENT_SECRET="github-oauth-secret"
+```
+
+When these values are present, the login page shows a GitHub entry button and the backend enables the `/api/oauth/state` plus `/api/oauth/github` callback flow. The callback route also supports bind-mode when the request already has an authenticated session.
 
 Prepare Prisma:
 

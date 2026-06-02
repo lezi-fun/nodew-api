@@ -62,6 +62,7 @@ model User {
   twoFA                       TwoFA?
   twoFABackupCodes            TwoFABackupCode[]
   passkeyCredential           PasskeyCredential?
+  oauthBindings               UserOAuthBinding[]
   createdApiKeys              APIKey[]     @relation("APIKeyCreator")
   createdRedemptions          Redemption[] @relation("RedemptionCreator")
   redeemedRedemptions         Redemption[] @relation("RedeemedByUser")
@@ -156,6 +157,32 @@ model PasskeyCredential {
   deletedAt      DateTime?
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([deletedAt])
+}
+
+model UserOAuthBinding {
+  id              String   @id @default(cuid())
+  userId          String
+  provider        String   @db.VarChar(64)
+  providerUserId  String   @db.VarChar(191)
+  email           String?  @db.VarChar(255)
+  displayName     String?  @db.VarChar(255)
+  avatarUrl       String?  @db.Text
+  accessToken     String?  @db.Text
+  refreshToken    String?  @db.Text
+  scope           String?  @db.Text
+  tokenType       String?  @db.VarChar(64)
+  expiresAt       DateTime?
+  metadata        Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@unique([userId, provider])
+  @@index([userId])
+  @@index([provider])
   @@index([deletedAt])
 }
 

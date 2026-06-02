@@ -65,6 +65,13 @@ import {
   ensureUserIdentityAvailable,
   isRegistrationEmailVerificationRequired,
 } from './registration.js';
+import {
+  clearTwoFALoginChallengeCookie,
+  setTwoFALoginChallengeCookie,
+  twoFALoginChallengeCookieName,
+  twoFALoginChallengeSchema,
+  twoFALoginChallengeTtlMs,
+} from './twofa-login-challenge.js';
 
 const loginBodySchema = z.object({
   email: z.string().email(),
@@ -158,14 +165,6 @@ const backupCodeSelect = {
   id: true,
   codeHash: true,
 } as const;
-
-const twoFALoginChallengeCookieName = 'nodew_login_2fa';
-const twoFALoginChallengeTtlMs = 5 * 60 * 1000;
-
-const twoFALoginChallengeSchema = z.object({
-  userId: z.string().min(1),
-  issuedAt: z.number().int().nonnegative(),
-});
 
 const serializeAuthUser = (user: {
   id: string;
@@ -373,16 +372,7 @@ const authRoutes: FastifyPluginAsync = async (app) => {
     });
 
     if (twoFA?.isEnabled) {
-      reply.setCookie(twoFALoginChallengeCookieName, JSON.stringify({
-        userId: user.id,
-        issuedAt: Date.now(),
-      }), {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        signed: true,
-        maxAge: Math.floor(twoFALoginChallengeTtlMs / 1000),
-      });
+      setTwoFALoginChallengeCookie(reply, user.id);
 
       return {
         success: true,
@@ -412,12 +402,7 @@ const authRoutes: FastifyPluginAsync = async (app) => {
     const signedChallenge = request.unsignCookie(challengeCookie);
 
     if (!signedChallenge.valid) {
-      reply.clearCookie(twoFALoginChallengeCookieName, {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        signed: true,
-      });
+      clearTwoFALoginChallengeCookie(reply);
       throw app.httpErrors.unauthorized('Two-factor login challenge is invalid or expired');
     }
 
@@ -426,22 +411,12 @@ const authRoutes: FastifyPluginAsync = async (app) => {
     try {
       parsedChallenge = twoFALoginChallengeSchema.parse(JSON.parse(signedChallenge.value));
     } catch {
-      reply.clearCookie(twoFALoginChallengeCookieName, {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        signed: true,
-      });
+      clearTwoFALoginChallengeCookie(reply);
       throw app.httpErrors.unauthorized('Two-factor login challenge is invalid or expired');
     }
 
     if (Date.now() - parsedChallenge.issuedAt > twoFALoginChallengeTtlMs) {
-      reply.clearCookie(twoFALoginChallengeCookieName, {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        signed: true,
-      });
+      clearTwoFALoginChallengeCookie(reply);
       throw app.httpErrors.unauthorized('Two-factor login challenge is invalid or expired');
     }
 
@@ -451,12 +426,7 @@ const authRoutes: FastifyPluginAsync = async (app) => {
     });
 
     if (!user) {
-      reply.clearCookie(twoFALoginChallengeCookieName, {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        signed: true,
-      });
+      clearTwoFALoginChallengeCookie(reply);
       throw app.httpErrors.unauthorized('Two-factor login challenge is invalid or expired');
     }
 
@@ -471,12 +441,7 @@ const authRoutes: FastifyPluginAsync = async (app) => {
     });
 
     if (!twoFA || !twoFA.isEnabled) {
-      reply.clearCookie(twoFALoginChallengeCookieName, {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        signed: true,
-      });
+      clearTwoFALoginChallengeCookie(reply);
       throw app.httpErrors.badRequest('Two-factor authentication is not enabled');
     }
 
@@ -535,12 +500,7 @@ const authRoutes: FastifyPluginAsync = async (app) => {
       return createSessionForUser(user.id, tx);
     });
 
-    reply.clearCookie(twoFALoginChallengeCookieName, {
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/',
-      signed: true,
-    });
+    clearTwoFALoginChallengeCookie(reply);
     setSessionCookie(reply, sessionToken);
     clearSecureVerificationCookie(reply);
 

@@ -9,6 +9,7 @@ export const resetDatabase = async () => {
   await prisma.systemOption.deleteMany();
   await prisma.setupState.deleteMany();
   await prisma.pendingUserRegistration.deleteMany();
+  await prisma.userOAuthBinding.deleteMany();
   await prisma.twoFABackupCode.deleteMany();
   await prisma.twoFA.deleteMany();
   await prisma.userCheckinRecord.deleteMany();

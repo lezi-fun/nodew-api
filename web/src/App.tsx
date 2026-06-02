@@ -124,6 +124,7 @@ const TokenPage = recoverableLazy('token', () => import('./pages/Token'));
 const TopUpPage = recoverableLazy('topup', () => import('./pages/TopUp'));
 const UserPage = recoverableLazy('user', () => import('./pages/User'));
 const VerifyEmailPage = recoverableLazy('verify-email', () => import('./pages/VerifyEmail'));
+const OAuthCallbackPage = recoverableLazy('oauth-callback', () => import('./pages/OAuthCallback'));
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useContext(UserContext);
@@ -216,6 +217,7 @@ export default function App() {
           <Route path="/reset" element={<ResetPage />} />
           <Route path="/user/reset" element={<ResetConfirmPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/oauth/:provider" element={<OAuthCallbackPage />} />
           <Route path="/pricing" element={<PricingPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/console" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />

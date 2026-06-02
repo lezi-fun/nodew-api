@@ -36,6 +36,23 @@ These values can be supplied through environment variables, or entered later fro
 
 When the admin setting for registration email verification is enabled, mail delivery must also be enabled. The admin settings page exposes current mail status, editable mail fields, and a test-mail action to verify the configuration.
 
+## Third-party login
+
+Third-party login currently supports GitHub through environment-based configuration.
+
+| Variable | Required | Description |
+| --- | --- | --- |
+| `APP_BASE_URL` | Yes when GitHub login is enabled | Base console URL used to build the OAuth callback path. |
+| `GITHUB_OAUTH_CLIENT_ID` | Yes for GitHub login | GitHub OAuth application client ID. |
+| `GITHUB_OAUTH_CLIENT_SECRET` | Yes for GitHub login | GitHub OAuth application client secret. |
+
+Behavior notes:
+
+- The callback path is fixed to `/oauth/github` under `APP_BASE_URL`.
+- `GET /api/oauth/state` creates the signed state cookie and returns the provider authorize URL.
+- `GET /api/oauth/github` consumes the callback, creates an account when registration is enabled, or binds the GitHub identity to the current authenticated session.
+- The current provider scope is GitHub only. Additional providers can be added later without changing the route shape.
+
 ## Daily check-in
 
 Daily check-in settings are stored in system options rather than environment variables.

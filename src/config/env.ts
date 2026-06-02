@@ -25,6 +25,8 @@ const envSchema = z.object({
   SESSION_SECRET: z.string().min(16).default('nodew-dev-session-secret'),
   CHANNEL_SECRET: z.string().min(16).optional(),
   APP_BASE_URL: z.string().url().optional(),
+  GITHUB_OAUTH_CLIENT_ID: z.string().min(1).optional(),
+  GITHUB_OAUTH_CLIENT_SECRET: z.string().min(1).optional(),
   MAIL_PROVIDER: z.enum(['disabled', 'smtp', 'resend']).default('disabled'),
   MAIL_FROM: z.string().email().optional(),
   SMTP_HOST: z.string().min(1).optional(),

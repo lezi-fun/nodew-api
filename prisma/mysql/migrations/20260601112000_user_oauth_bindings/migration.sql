@@ -1,0 +1,26 @@
+CREATE TABLE `UserOAuthBinding` (
+    `id` VARCHAR(191) NOT NULL,
+    `userId` VARCHAR(191) NOT NULL,
+    `provider` VARCHAR(64) NOT NULL,
+    `providerUserId` VARCHAR(191) NOT NULL,
+    `email` VARCHAR(255) NULL,
+    `displayName` VARCHAR(255) NULL,
+    `avatarUrl` TEXT NULL,
+    `accessToken` TEXT NULL,
+    `refreshToken` TEXT NULL,
+    `scope` TEXT NULL,
+    `tokenType` VARCHAR(64) NULL,
+    `expiresAt` DATETIME(3) NULL,
+    `metadata` JSON NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+    `deletedAt` DATETIME(3) NULL,
+
+    PRIMARY KEY (`id`),
+    UNIQUE INDEX `UserOAuthBinding_provider_providerUserId_key`(`provider`, `providerUserId`),
+    UNIQUE INDEX `UserOAuthBinding_userId_provider_key`(`userId`, `provider`),
+    INDEX `UserOAuthBinding_userId_idx`(`userId`),
+    INDEX `UserOAuthBinding_provider_idx`(`provider`),
+    INDEX `UserOAuthBinding_deletedAt_idx`(`deletedAt`),
+    CONSTRAINT `UserOAuthBinding_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

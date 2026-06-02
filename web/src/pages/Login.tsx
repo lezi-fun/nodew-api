@@ -1,6 +1,6 @@
 import { Button, Card, Form, Toast, Typography } from '@douyinfe/semi-ui';
 import { useContext, useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { browserSupportsWebAuthn, startAuthentication } from '@simplewebauthn/browser';
 
 import { StatusContext } from '../context/Status';
@@ -9,18 +9,52 @@ import { api } from '../lib/api';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { refresh } = useContext(UserContext);
   const { status } = useContext(StatusContext);
   const [loading, setLoading] = useState(false);
   const [passkeyLoading, setPasskeyLoading] = useState(false);
+  const [githubLoading, setGithubLoading] = useState(false);
   const [browserSupportsPasskey, setBrowserSupportsPasskey] = useState(false);
   const [challengeEmail, setChallengeEmail] = useState<string | null>(null);
+  const [postLoginRedirectTo, setPostLoginRedirectTo] = useState<string | null>(null);
 
   useEffect(() => {
     setBrowserSupportsPasskey(browserSupportsWebAuthn());
   }, []);
 
   const passkeyEnabled = status?.passkey?.enabled === true;
+  const githubOAuthEnabled = status?.oauth?.github?.enabled === true;
+
+  useEffect(() => {
+    const state = location.state;
+
+    if (!state || typeof state !== 'object') {
+      return;
+    }
+
+    const record = state as Record<string, unknown>;
+    const twoFAEmail = typeof record.twoFAEmail === 'string' ? record.twoFAEmail : null;
+    const redirectTo = typeof record.redirectTo === 'string' ? record.redirectTo : null;
+
+    if (twoFAEmail) {
+      setChallengeEmail(twoFAEmail);
+      setPostLoginRedirectTo(redirectTo);
+      navigate('/login', { replace: true, state: null });
+    }
+  }, [location.state, navigate]);
+
+  const loginWithGitHub = async () => {
+    setGithubLoading(true);
+    try {
+      const response = await api.getOAuthState({ provider: 'github', redirectTo: '/console' });
+      window.location.assign(response.data.authorizeUrl);
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : 'GitHub 登录失败');
+    } finally {
+      setGithubLoading(false);
+    }
+  };
 
   const loginWithPasskey = async () => {
     setPasskeyLoading(true);
@@ -66,7 +100,7 @@ export default function LoginPage() {
                   await refresh();
                   setChallengeEmail(null);
                   Toast.success('登录成功');
-                  navigate('/console');
+                  navigate(postLoginRedirectTo ?? '/console');
                 } catch (error) {
                   Toast.error(error instanceof Error ? error.message : '登录失败');
                 } finally {
@@ -90,6 +124,7 @@ export default function LoginPage() {
 
                 if ('requiresTwoFA' in response && response.requiresTwoFA) {
                   setChallengeEmail(values.email);
+                  setPostLoginRedirectTo('/console');
                   Toast.info('请输入二次验证码完成登录');
                   return;
                 }
@@ -106,6 +141,20 @@ export default function LoginPage() {
           >
             <Form.Input field="email" label="邮箱" placeholder="test@test.com" rules={[{ required: true }]} />
             <Form.Input field="password" label="密码" mode="password" rules={[{ required: true }]} />
+            {githubOAuthEnabled ? (
+              <div style={{ marginBottom: 12 }}>
+                <Button
+                  theme="light"
+                  type="primary"
+                  htmlType="button"
+                  loading={githubLoading}
+                  onClick={() => void loginWithGitHub()}
+                  block
+                >
+                  使用 GitHub 登录
+                </Button>
+              </div>
+            ) : null}
             <div className="auth-actions">
               <Button htmlType="submit" theme="solid" loading={loading} block>登录</Button>
             </div>

@@ -42,6 +42,7 @@ NodEW-api 使用 Fastify、Prisma、TypeScript、React、Vite 和 Semi UI 构建
 - 渠道管理，支持供应商 metadata、权重、优先级、连通性测试和模型同步。
 - 令牌管理，支持额度、过期时间、模型 allow/block 策略。
 - 账号安全流程，包含邮箱验证、密码重置、2FA、Passkey 和会话管理。
+- GitHub 第三方登录基础闭环，包含回调处理、自动建号以及已登录会话下的绑定模式。
 - 每日签到，支持后台配置随机奖励区间、月历记录和连签统计。
 - 使用日志和面向计费的请求统计。
 - 管理控制台，包含数据看板、渠道、令牌、用户、兑换码、日志、模型、部署、系统设置、钱包和操练场。
@@ -127,6 +128,16 @@ RESEND_API_KEY="re_xxx"
 - 解绑 Passkey
 
 用户可以用 2FA 验证码 / 备用码，或者用 Passkey 完成这次验证。后端也会校验同一段短时验证态，因此绕过前端直接调用这些接口会被拒绝。
+
+GitHub 登录现在也可以通过环境变量开启：
+
+```bash
+APP_BASE_URL="http://127.0.0.1:3000"
+GITHUB_OAUTH_CLIENT_ID="Iv1.xxxxx"
+GITHUB_OAUTH_CLIENT_SECRET="github-oauth-secret"
+```
+
+配置后，登录页会显示 GitHub 登录入口，后端会开放 `/api/oauth/state` 和 `/api/oauth/github` 回调链路。当前回调逻辑也支持已登录 session 下的绑定模式。
 
 准备 Prisma：
 

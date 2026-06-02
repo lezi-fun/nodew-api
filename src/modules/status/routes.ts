@@ -38,6 +38,15 @@ const statusRoutes: FastifyPluginAsync = async (app) => {
       passkey: {
         enabled: passkeySettings.enabled,
       },
+      oauth: {
+        github: {
+          enabled: Boolean(
+            (process.env.GITHUB_OAUTH_CLIENT_ID ?? '').trim()
+            && (process.env.GITHUB_OAUTH_CLIENT_SECRET ?? '').trim()
+            && (process.env.APP_BASE_URL ?? '').trim(),
+          ),
+        },
+      },
     };
   });
 };
