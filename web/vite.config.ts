@@ -5,6 +5,9 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
+  build: {
+    chunkSizeWarningLimit: 1500,
+  },
   resolve: {
     alias: {
       '@douyinfe/semi-ui/dist/css/semi.css': fileURLToPath(
