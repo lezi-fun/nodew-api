@@ -457,6 +457,63 @@ body.sidebar-collapsed .sidebar-status-card > div:last-child {
   gap: 3px;
 }
 
+.oauth-binding-row {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--console-border);
+  background: color-mix(in srgb, var(--console-card) 92%, transparent);
+}
+
+.oauth-binding-main {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+}
+
+.oauth-binding-text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.oauth-binding-text strong {
+  font-size: 15px;
+}
+
+.oauth-binding-text span {
+  color: var(--semi-color-text-2);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.oauth-binding-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.oauth-binding-meta {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.oauth-binding-meta .semi-typography-paragraph {
+  margin: 4px 0 0;
+  word-break: break-word;
+}
+
 .table-note {
   max-width: 760px;
 }

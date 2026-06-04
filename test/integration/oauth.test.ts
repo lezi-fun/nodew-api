@@ -284,4 +284,92 @@ describe('oauth github integration', () => {
       await closeTestApp(app);
     }
   });
+
+  it('lists only the current user oauth bindings', async () => {
+    const user = await createUser();
+    const otherUser = await createUser();
+    const token = await createSessionForUser(user.id);
+    const app = await createTestApp();
+
+    try {
+      await prisma.userOAuthBinding.createMany({
+        data: [
+          {
+            userId: user.id,
+            provider: 'github',
+            providerUserId: 'github-user-1',
+            email: 'github-user-1@test.local',
+            displayName: 'GitHub User One',
+          },
+          {
+            userId: otherUser.id,
+            provider: 'github',
+            providerUserId: 'github-user-2',
+            email: 'github-user-2@test.local',
+            displayName: 'GitHub User Two',
+          },
+        ],
+      });
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/user/oauth/bindings',
+        cookies: {
+          nodew_session: app.signCookie(token),
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json().items).toEqual([
+        expect.objectContaining({
+          provider: 'github',
+          providerName: 'GitHub',
+          providerUserId: 'github-user-1',
+          email: 'github-user-1@test.local',
+          displayName: 'GitHub User One',
+        }),
+      ]);
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
+  it('unbinds the current user oauth binding', async () => {
+    const user = await createUser();
+    const token = await createSessionForUser(user.id);
+    const app = await createTestApp();
+
+    try {
+      const binding = await prisma.userOAuthBinding.create({
+        data: {
+          userId: user.id,
+          provider: 'github',
+          providerUserId: 'github-user-delete',
+          email: 'github-delete@test.local',
+          displayName: 'GitHub Delete',
+        },
+      });
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: '/api/user/oauth/bindings/github',
+        cookies: {
+          nodew_session: app.signCookie(token),
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        success: true,
+      });
+
+      const deletedBinding = await prisma.userOAuthBinding.findUnique({
+        where: { id: binding.id },
+      });
+
+      expect(deletedBinding).toBeNull();
+    } finally {
+      await closeTestApp(app);
+    }
+  });
 });

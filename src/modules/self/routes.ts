@@ -3,6 +3,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 
 import { hashPassword, verifyPassword } from '../../lib/crypto.js';
+import { oauthProviderSchema } from '../../lib/oauth.js';
 import { prisma } from '../../lib/prisma.js';
 import {
   buildOtpAuthUri,
@@ -26,6 +27,10 @@ const changePasswordBodySchema = z.object({
 
 const twoFAEnableBodySchema = z.object({
   code: z.string().trim().min(1).max(32),
+});
+
+const oauthBindingParamsSchema = z.object({
+  provider: oauthProviderSchema,
 });
 
 const selfSelect = {
@@ -73,6 +78,31 @@ const twoFASelect = {
   createdAt: true,
   updatedAt: true,
 } as const;
+
+const oauthBindingSelect = {
+  id: true,
+  provider: true,
+  providerUserId: true,
+  email: true,
+  displayName: true,
+  avatarUrl: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+const serializeOAuthBinding = (binding: {
+  id: string;
+  provider: string;
+  providerUserId: string;
+  email: string | null;
+  displayName: string | null;
+  avatarUrl: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}) => ({
+  ...binding,
+  providerName: binding.provider === 'github' ? 'GitHub' : binding.provider,
+});
 
 const resolveTwoFAIssuer = async () => {
   const option = await prisma.systemOption.findUnique({
@@ -420,6 +450,50 @@ const selfRoutes: FastifyPluginAsync = async (app) => {
 
       throw error;
     }
+  });
+
+  app.get('/user/oauth/bindings', {
+    preHandler: app.requireUser,
+  }, async (request) => {
+    const bindings = await prisma.userOAuthBinding.findMany({
+      where: {
+        userId: request.currentUser!.id,
+      },
+      orderBy: [{ createdAt: 'asc' }],
+      select: oauthBindingSelect,
+    });
+
+    return {
+      items: bindings.map(serializeOAuthBinding),
+    };
+  });
+
+  app.delete('/user/oauth/bindings/:provider', {
+    preHandler: app.requireUser,
+  }, async (request) => {
+    const params = oauthBindingParamsSchema.parse(request.params);
+
+    const binding = await prisma.userOAuthBinding.findFirst({
+      where: {
+        userId: request.currentUser!.id,
+        provider: params.provider,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!binding) {
+      throw app.httpErrors.notFound('OAuth binding not found');
+    }
+
+    await prisma.userOAuthBinding.delete({
+      where: { id: binding.id },
+    });
+
+    return {
+      success: true,
+    };
   });
 };
 

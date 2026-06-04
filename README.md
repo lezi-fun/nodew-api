@@ -43,6 +43,7 @@ Current capabilities include:
 - Token management with quota, expiry, and model allow/block metadata.
 - Account security flows, including email verification, password reset, 2FA, Passkey, and session management.
 - GitHub third-party login with callback handling, automatic account creation, and bind-mode support for authenticated sessions.
+- Personal-page GitHub binding status plus self-service unbind support.
 - Daily check-in with configurable random quota rewards, monthly history, and streak statistics.
 - Usage logs and billing-oriented request accounting.
 - Admin console for dashboard, channels, tokens, users, redemptions, logs, models, deployment, settings, wallet, and playground.

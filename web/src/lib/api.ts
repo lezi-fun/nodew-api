@@ -146,6 +146,18 @@ export type OAuthCallbackResult =
       redirectTo: string | null;
     };
 
+export type OAuthBindingItem = {
+  id: string;
+  provider: string;
+  providerName: string;
+  providerUserId: string;
+  email: string | null;
+  displayName: string | null;
+  avatarUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ChannelItem = {
   id: string;
   name: string;
@@ -655,6 +667,9 @@ export const api = {
     (await client.get<OAuthStateResult>('/api/oauth/state', { params: payload })).data,
   oauthCallback: async (provider: OAuthProvider, params: { code?: string; state?: string; error?: string; error_description?: string }) =>
     (await client.get<OAuthCallbackResult>(`/api/oauth/${provider}`, { params })).data,
+  listOAuthBindings: async () => (await client.get<{ items: OAuthBindingItem[] }>('/api/user/oauth/bindings')).data,
+  deleteOAuthBinding: async (provider: OAuthProvider) =>
+    (await client.delete<{ success: boolean }>(`/api/user/oauth/bindings/${provider}`)).data,
   deletePasskey: async () => (await client.delete<{ success: boolean }>('/api/user/passkey')).data,
   listChannels: async () => (await client.get<ListResponse<ChannelItem>>('/api/channels')).data,
   createChannel: async (payload: ChannelPayload & { apiKey: string }) =>
