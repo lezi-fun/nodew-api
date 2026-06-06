@@ -23,6 +23,7 @@ import {
   validateTotpCode,
 } from '../../lib/totp.js';
 import {
+  buildEmailBindingMessage,
   buildEmailVerificationMessage,
   buildPasswordResetMessage,
   buildRegistrationVerificationMessage,
@@ -50,6 +51,11 @@ import {
 } from '../../lib/passkey.js';
 import { prisma } from '../../lib/prisma.js';
 import { clearSessionCookie, setSessionCookie } from '../../plugins/auth.js';
+import {
+  canUsePendingEmailBinding,
+  clearPendingEmailBinding,
+  createPendingEmailBinding,
+} from './email-binding.js';
 import { canUseEmailVerificationToken, setEmailVerificationToken } from './email-verification.js';
 import {
   canUsePendingRegistration,
@@ -106,6 +112,18 @@ const resetPasswordBodySchema = z.object({
 
 const verifyEmailBodySchema = z.object({
   token: z.string().trim().min(1).max(256),
+});
+
+const requestEmailBindingBodySchema = z.object({
+  email: z.string().email(),
+});
+
+const verifyEmailBindingBodySchema = z.object({
+  email: z.string().email().optional(),
+  token: z.string().trim().min(1).max(256).optional(),
+  code: z.string().trim().min(1).max(32).optional(),
+}).refine((value) => Boolean(value.token || value.code), {
+  message: 'Verification token or code is required',
 });
 
 const verifyRegistrationBodySchema = z.object({
@@ -1071,6 +1089,123 @@ const authRoutes: FastifyPluginAsync = async (app) => {
 
     return {
       success: true,
+    };
+  });
+
+  app.post('/user/email/bind/request', {
+    preHandler: app.requireUser,
+  }, async (request, reply) => {
+    const currentUser = request.currentUser!;
+    const body = requestEmailBindingBodySchema.parse(request.body);
+    const nextEmail = body.email.trim().toLowerCase();
+
+    if (currentUser.status !== 'ACTIVE') {
+      throw app.httpErrors.forbidden('User is disabled');
+    }
+
+    if (nextEmail === currentUser.email) {
+      throw app.httpErrors.badRequest('Email is already bound to the current user');
+    }
+
+    const occupiedUser = await prisma.user.findFirst({
+      where: {
+        id: {
+          not: currentUser.id,
+        },
+        OR: [
+          { email: nextEmail },
+          { pendingEmail: nextEmail },
+        ],
+      },
+      select: { id: true },
+    });
+
+    if (occupiedUser) {
+      throw app.httpErrors.conflict('User already exists');
+    }
+
+    const { token, code } = await createPendingEmailBinding(currentUser.id, nextEmail);
+
+    if (process.env.NODE_ENV === 'test') {
+      reply.header('x-email-binding-token', token);
+      reply.header('x-email-binding-code', code);
+    } else if (await isMailDeliveryEnabled()) {
+      await sendMailMessage(await buildEmailBindingMessage(nextEmail, token, code));
+    } else {
+      request.log.info({
+        userId: currentUser.id,
+        pendingEmail: nextEmail,
+        verificationPath: `/verify-email?flow=bind&token=${token}`,
+        verificationCode: code,
+      }, 'Email binding verification generated');
+    }
+
+    return {
+      success: true,
+    };
+  });
+
+  app.post('/user/email/bind/verify', {
+    preHandler: app.requireUser,
+  }, async (request) => {
+    const currentUser = request.currentUser!;
+    const body = verifyEmailBindingBodySchema.parse(request.body);
+
+    const user = await prisma.user.findUnique({
+      where: { id: currentUser.id },
+      select: {
+        id: true,
+        status: true,
+        pendingEmail: true,
+        pendingEmailVerificationTokenHash: true,
+        pendingEmailVerificationCodeHash: true,
+        pendingEmailVerificationExpiresAt: true,
+      },
+    });
+
+    if (!user || user.status !== 'ACTIVE' || !canUsePendingEmailBinding(user, body)) {
+      throw app.httpErrors.badRequest('Email binding token or code is invalid or expired');
+    }
+
+    if (body.email && body.email.trim().toLowerCase() !== user.pendingEmail) {
+      throw app.httpErrors.badRequest('Email binding does not match the submitted address');
+    }
+
+    const occupiedUser = await prisma.user.findFirst({
+      where: {
+        id: {
+          not: user.id,
+        },
+        email: user.pendingEmail!,
+      },
+      select: { id: true },
+    });
+
+    if (occupiedUser) {
+      await clearPendingEmailBinding(user.id);
+      throw app.httpErrors.conflict('User already exists');
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        email: user.pendingEmail!,
+        emailVerifiedAt: new Date(),
+        emailVerificationTokenHash: null,
+        emailVerificationTokenExpiresAt: null,
+        emailVerificationRequestedAt: null,
+        pendingEmail: null,
+        pendingEmailVerificationTokenHash: null,
+        pendingEmailVerificationCodeHash: null,
+        pendingEmailVerificationExpiresAt: null,
+        pendingEmailVerificationRequestedAt: null,
+      },
+      select: authUserSelect,
+    });
+
+    return {
+      success: true,
+      user: serializeAuthUser(updatedUser),
     };
   });
 

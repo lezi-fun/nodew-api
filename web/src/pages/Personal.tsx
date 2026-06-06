@@ -10,6 +10,7 @@ import { formatDateTime, formatQuota } from '../lib/format';
 import TwoFASettingCard from '../components/security/TwoFASettingCard';
 import PasskeySettingCard from '../components/security/PasskeySettingCard';
 import OAuthBindingCard from '../components/security/OAuthBindingCard';
+import EmailBindingModal from '../components/security/EmailBindingModal';
 
 const weekdayLabels = ['一', '二', '三', '四', '五', '六', '日'];
 
@@ -61,6 +62,11 @@ export default function PersonalPage() {
   const [newPassword, setNewPassword] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
   const [sendingVerification, setSendingVerification] = useState(false);
+  const [emailBindingVisible, setEmailBindingVisible] = useState(false);
+  const [bindingEmail, setBindingEmail] = useState('');
+  const [bindingCode, setBindingCode] = useState('');
+  const [requestingEmailBinding, setRequestingEmailBinding] = useState(false);
+  const [verifyingEmailBinding, setVerifyingEmailBinding] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
   const [checkinStatus, setCheckinStatus] = useState<CheckinStatus | null>(null);
   const [currentMonth, setCurrentMonth] = useState(() => dayjs().format('YYYY-MM'));
@@ -160,6 +166,57 @@ export default function PersonalPage() {
     }
   };
 
+  const requestEmailBinding = async () => {
+    const nextEmail = bindingEmail.trim();
+
+    if (!nextEmail) {
+      Toast.error('请先填写新的邮箱地址');
+      return;
+    }
+
+    setRequestingEmailBinding(true);
+    try {
+      const response = await api.requestEmailBinding({ email: nextEmail });
+      if (response.verificationCode) {
+        setBindingCode(response.verificationCode);
+      }
+      Toast.success('验证邮件已发送');
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : '发送邮箱绑定验证失败');
+    } finally {
+      setRequestingEmailBinding(false);
+    }
+  };
+
+  const verifyEmailBinding = async () => {
+    const nextEmail = bindingEmail.trim();
+    const code = bindingCode.trim();
+
+    if (!nextEmail) {
+      Toast.error('请先填写新的邮箱地址');
+      return;
+    }
+
+    if (!code) {
+      Toast.error('请输入验证码');
+      return;
+    }
+
+    setVerifyingEmailBinding(true);
+    try {
+      await api.verifyEmailBinding({ email: nextEmail, code });
+      await refresh();
+      setEmailBindingVisible(false);
+      setBindingEmail('');
+      setBindingCode('');
+      Toast.success('新邮箱已绑定');
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : '邮箱绑定失败');
+    } finally {
+      setVerifyingEmailBinding(false);
+    }
+  };
+
   const claimCheckin = async () => {
     setCheckingIn(true);
     try {
@@ -222,6 +279,10 @@ export default function PersonalPage() {
         </Card>
         <Card title="邮箱验证" bordered={false} className="dashboard-card">
           <Space vertical align="start">
+            <Typography.Text type="tertiary">当前邮箱</Typography.Text>
+            <Typography.Title heading={4} style={{ margin: 0 }}>
+              {user?.email ?? '-'}
+            </Typography.Title>
             <Typography.Text type="tertiary">验证状态</Typography.Text>
             <Typography.Title heading={4} style={{ margin: 0 }}>
               {emailVerifiedAt ? '已验证' : '未验证'}
@@ -229,15 +290,25 @@ export default function PersonalPage() {
             <Typography.Text type="tertiary">
               {emailVerifiedAt ? `验证时间 ${formatDateTime(emailVerifiedAt)}` : '完成验证后，账号安全状态会更新。'}
             </Typography.Text>
-            <Button
-              theme="solid"
-              type="primary"
-              loading={sendingVerification}
-              disabled={Boolean(emailVerifiedAt)}
-              onClick={() => void requestVerification()}
-            >
-              {emailVerifiedAt ? '邮箱已验证' : '发送验证链接'}
-            </Button>
+            <Space>
+              <Button
+                theme="solid"
+                type="primary"
+                loading={sendingVerification}
+                disabled={Boolean(emailVerifiedAt)}
+                onClick={() => void requestVerification()}
+              >
+                {emailVerifiedAt ? '邮箱已验证' : '发送验证链接'}
+              </Button>
+              <Button onClick={() => {
+                setBindingEmail('');
+                setBindingCode('');
+                setEmailBindingVisible(true);
+              }}
+              >
+                更换邮箱
+              </Button>
+            </Space>
           </Space>
         </Card>
         <OAuthBindingCard />
@@ -372,6 +443,21 @@ export default function PersonalPage() {
           </Space>
         </Card>
       </section>
+      <EmailBindingModal
+        visible={emailBindingVisible}
+        email={bindingEmail}
+        code={bindingCode}
+        loadingRequest={requestingEmailBinding}
+        loadingVerify={verifyingEmailBinding}
+        onCancel={() => {
+          setEmailBindingVisible(false);
+          setBindingCode('');
+        }}
+        onEmailChange={setBindingEmail}
+        onCodeChange={setBindingCode}
+        onRequest={() => void requestEmailBinding()}
+        onVerify={() => void verifyEmailBinding()}
+      />
     </main>
   );
 }

@@ -43,6 +43,7 @@ Current capabilities include:
 - Channel management with provider metadata, weights, priorities, health checks, and model sync.
 - Token management with quota, expiry, and model allow/block metadata.
 - Account security flows, including email verification, password reset, 2FA, Passkey, and session management.
+- Verified email rebinding from the personal page, with both mail-link and verification-code completion paths.
 - GitHub third-party login with callback handling, automatic account creation, and bind-mode support for authenticated sessions.
 - Personal-page GitHub binding status plus self-service unbind support.
 - Admin-side inspection and removal for user GitHub bindings.

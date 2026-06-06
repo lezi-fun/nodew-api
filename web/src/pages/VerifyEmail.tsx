@@ -13,9 +13,10 @@ export default function VerifyEmailPage() {
   const [loading, setLoading] = useState(false);
   const [verified, setVerified] = useState(false);
   const [registrationVerified, setRegistrationVerified] = useState(false);
+  const [bindingVerified, setBindingVerified] = useState(false);
 
   useEffect(() => {
-    if (!token || verified || registrationVerified || loading) {
+    if (!token || verified || registrationVerified || bindingVerified || loading) {
       return;
     }
 
@@ -30,6 +31,14 @@ export default function VerifyEmailPage() {
           if (!cancelled) {
             setRegistrationVerified(true);
             Toast.success('注册邮箱已验证，请返回注册页完成注册');
+          }
+        } else if (flow === 'bind') {
+          await api.verifyEmailBinding({ token });
+          await refresh();
+
+          if (!cancelled) {
+            setBindingVerified(true);
+            Toast.success('新邮箱已绑定');
           }
         } else {
           await api.verifyEmail({ token });
@@ -56,19 +65,27 @@ export default function VerifyEmailPage() {
     return () => {
       cancelled = true;
     };
-  }, [flow, loading, refresh, registrationVerified, token, verified]);
+  }, [bindingVerified, flow, loading, refresh, registrationVerified, token, verified]);
 
   return (
     <main className="auth-page">
       <Card className="auth-card" bordered={false}>
         <Typography.Title heading={3}>验证邮箱</Typography.Title>
         <Typography.Paragraph type="tertiary">
-          {flow === 'registration' ? '打开邮件链接或输入验证码，完成注册前邮箱验证。' : '输入邮件中的 token 完成邮箱验证。'}
+          {flow === 'registration'
+            ? '打开邮件链接或输入验证码，完成注册前邮箱验证。'
+            : flow === 'bind'
+              ? '请在已登录状态下打开邮件链接，或在个人设置里输入验证码完成邮箱绑定。'
+              : '输入邮件中的 token 完成邮箱验证。'}
         </Typography.Paragraph>
-        {verified || registrationVerified ? (
+        {verified || registrationVerified || bindingVerified ? (
           <>
             <Typography.Paragraph>
-              {flow === 'registration' ? '邮箱已验证，可以返回注册页完成注册。' : '邮箱已验证，可以继续登录使用。'}
+              {flow === 'registration'
+                ? '邮箱已验证，可以返回注册页完成注册。'
+                : flow === 'bind'
+                  ? '新邮箱已绑定，可以返回个人设置查看。'
+                  : '邮箱已验证，可以继续登录使用。'}
             </Typography.Paragraph>
             <div className="auth-links">
               <Link to="/login">去登录</Link>
@@ -86,6 +103,11 @@ export default function VerifyEmailPage() {
                   await api.verifyRegistration({ token: values.token });
                   setRegistrationVerified(true);
                   Toast.success('注册邮箱已验证，请返回注册页完成注册');
+                } else if (flow === 'bind') {
+                  await api.verifyEmailBinding({ token: values.token });
+                  await refresh();
+                  setBindingVerified(true);
+                  Toast.success('新邮箱已绑定');
                 } else {
                   await api.verifyEmail({ token: values.token });
                   await refresh();

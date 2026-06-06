@@ -27,6 +27,17 @@ export type EmailVerificationRequestResult = {
   verificationToken?: string;
 };
 
+export type EmailBindingRequestResult = {
+  success: boolean;
+  verificationToken?: string;
+  verificationCode?: string;
+};
+
+export type EmailBindingVerifyResult = {
+  success: boolean;
+  user: CurrentUser;
+};
+
 export type RegistrationVerificationRequestResult = {
   success: boolean;
   verificationToken?: string;
@@ -643,8 +654,21 @@ export const api = {
       verificationToken: typeof verificationToken === 'string' ? verificationToken : undefined,
     };
   },
+  requestEmailBinding: async (payload: { email: string }) => {
+    const response = await client.post<EmailBindingRequestResult>('/api/user/email/bind/request', payload);
+    const verificationToken = response.headers['x-email-binding-token'];
+    const verificationCode = response.headers['x-email-binding-code'];
+
+    return {
+      ...response.data,
+      verificationToken: typeof verificationToken === 'string' ? verificationToken : undefined,
+      verificationCode: typeof verificationCode === 'string' ? verificationCode : undefined,
+    };
+  },
   verifyEmail: async (payload: { token: string }) =>
     (await client.post<{ success: boolean }>('/api/user/email/verify', payload)).data,
+  verifyEmailBinding: async (payload: { email?: string; token?: string; code?: string }) =>
+    (await client.post<EmailBindingVerifyResult>('/api/user/email/bind/verify', payload)).data,
   logout: async () => (await client.post<{ success: boolean }>('/api/user/logout')).data,
   getCurrentUser: async () => (await client.get<{ user: CurrentUser }>('/api/user/self')).data,
   getStatus: async () => (await client.get<AppStatus>('/api/status')).data,

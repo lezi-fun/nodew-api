@@ -68,6 +68,8 @@ The web console uses the backend authentication APIs for login, registration, se
 - `POST /api/user/password/reset`
 - `POST /api/user/email/verification`
 - `POST /api/user/email/verify`
+- `POST /api/user/email/bind/request`
+- `POST /api/user/email/bind/verify`
 - `POST /api/user/passkey/login/begin`
 - `POST /api/user/passkey/login/finish`
 - `GET /api/user/passkey`
@@ -91,6 +93,11 @@ The web console uses the backend authentication APIs for login, registration, se
 - `GET /api/users/:id/oauth/bindings` returns a specific user's bound third-party accounts for admin inspection.
 - `DELETE /api/users/:id/oauth/bindings/github` removes a specific user's GitHub binding from the admin console.
 - The current provider surface is GitHub only; the route shape is already generic for future providers.
+
+### Email binding routes
+
+- `POST /api/user/email/bind/request` sends a verification mail to the new address for the authenticated user and stores a short-lived pending bind record.
+- `POST /api/user/email/bind/verify` completes the authenticated user's email change with either the mail-link token or the verification code.
 
 ### Check-in routes
 

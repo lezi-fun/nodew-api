@@ -43,6 +43,11 @@ model User {
   emailVerificationTokenHash   String?      @unique
   emailVerificationTokenExpiresAt DateTime?
   emailVerificationRequestedAt DateTime?
+  pendingEmail                String?       @unique
+  pendingEmailVerificationTokenHash String? @unique
+  pendingEmailVerificationCodeHash  String?
+  pendingEmailVerificationExpiresAt DateTime?
+  pendingEmailVerificationRequestedAt DateTime?
   passwordResetTokenHash      String?
   passwordResetTokenExpiresAt DateTime?
   passwordResetRequestedAt    DateTime?

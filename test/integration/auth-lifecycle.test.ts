@@ -330,6 +330,126 @@ describe('auth lifecycle integration', () => {
     }
   });
 
+  it('binds a new email address with a verification code for the current user', async () => {
+    const user = await createUser({ email: 'bind-old@test.local', username: 'bind_old_user' });
+    const sessionToken = await createSessionForUser(user.id);
+    const app = await createTestApp();
+
+    try {
+      const requestResponse = await app.inject({
+        method: 'POST',
+        url: '/api/user/email/bind/request',
+        cookies: {
+          nodew_session: app.signCookie(sessionToken),
+        },
+        payload: {
+          email: 'bind-new@test.local',
+        },
+      });
+
+      expect(requestResponse.statusCode).toBe(200);
+      expect(requestResponse.json().success).toBe(true);
+
+      const verificationCode = requestResponse.headers['x-email-binding-code'] as string;
+      expect(verificationCode).toBeTruthy();
+
+      const pendingUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: {
+          pendingEmail: true,
+          pendingEmailVerificationTokenHash: true,
+          pendingEmailVerificationCodeHash: true,
+          pendingEmailVerificationExpiresAt: true,
+          pendingEmailVerificationRequestedAt: true,
+        },
+      });
+
+      expect(pendingUser?.pendingEmail).toBe('bind-new@test.local');
+      expect(pendingUser?.pendingEmailVerificationTokenHash).toBeTruthy();
+      expect(pendingUser?.pendingEmailVerificationCodeHash).toBeTruthy();
+      expect(pendingUser?.pendingEmailVerificationExpiresAt).not.toBeNull();
+      expect(pendingUser?.pendingEmailVerificationRequestedAt).not.toBeNull();
+
+      const verifyResponse = await app.inject({
+        method: 'POST',
+        url: '/api/user/email/bind/verify',
+        cookies: {
+          nodew_session: app.signCookie(sessionToken),
+        },
+        payload: {
+          email: 'bind-new@test.local',
+          code: verificationCode,
+        },
+      });
+
+      expect(verifyResponse.statusCode).toBe(200);
+      expect(verifyResponse.json().success).toBe(true);
+      expect(verifyResponse.json().user.email).toBe('bind-new@test.local');
+
+      const updatedUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: {
+          email: true,
+          emailVerifiedAt: true,
+          pendingEmail: true,
+          pendingEmailVerificationTokenHash: true,
+          pendingEmailVerificationCodeHash: true,
+          pendingEmailVerificationExpiresAt: true,
+          pendingEmailVerificationRequestedAt: true,
+        },
+      });
+
+      expect(updatedUser?.email).toBe('bind-new@test.local');
+      expect(updatedUser?.emailVerifiedAt).not.toBeNull();
+      expect(updatedUser?.pendingEmail).toBeNull();
+      expect(updatedUser?.pendingEmailVerificationTokenHash).toBeNull();
+      expect(updatedUser?.pendingEmailVerificationCodeHash).toBeNull();
+      expect(updatedUser?.pendingEmailVerificationExpiresAt).toBeNull();
+      expect(updatedUser?.pendingEmailVerificationRequestedAt).toBeNull();
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
+  it('binds a new email address with a verification token for the current user', async () => {
+    const user = await createUser({ email: 'token-old@test.local', username: 'token_old_user' });
+    const sessionToken = await createSessionForUser(user.id);
+    const app = await createTestApp();
+
+    try {
+      const requestResponse = await app.inject({
+        method: 'POST',
+        url: '/api/user/email/bind/request',
+        cookies: {
+          nodew_session: app.signCookie(sessionToken),
+        },
+        payload: {
+          email: 'token-new@test.local',
+        },
+      });
+
+      const verificationToken = requestResponse.headers['x-email-binding-token'] as string;
+      expect(verificationToken).toBeTruthy();
+
+      const verifyResponse = await app.inject({
+        method: 'POST',
+        url: '/api/user/email/bind/verify',
+        cookies: {
+          nodew_session: app.signCookie(sessionToken),
+        },
+        payload: {
+          token: verificationToken,
+        },
+      });
+
+      expect(verifyResponse.statusCode).toBe(200);
+      expect(verifyResponse.json().success).toBe(true);
+      expect(verifyResponse.json().user.email).toBe('token-new@test.local');
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
   it('resets password with a valid token and clears reset state', async () => {
     await createUser({ email: 'reset@test.local', username: 'reset_user', password: 'oldpassword' });
     const app = await createTestApp();

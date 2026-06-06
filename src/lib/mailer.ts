@@ -105,6 +105,29 @@ export const buildEmailVerificationMessage = async (email: string, token: string
   } satisfies MailMessage;
 };
 
+export const buildEmailBindingMessage = async (email: string, token: string, code: string) => {
+  const verificationUrl = await buildAppUrl(`/verify-email?flow=bind&token=${encodeURIComponent(token)}`);
+
+  return {
+    to: email,
+    subject: 'Confirm your new email address',
+    text: [
+      'Open the link below while signed in to confirm your new email address:',
+      verificationUrl,
+      '',
+      `Verification code: ${code}`,
+      '',
+      'You can either open the link or enter the verification code in personal settings.',
+    ].join('\n'),
+    html: [
+      '<p>Open the link below while signed in to confirm your new email address:</p>',
+      `<p><a href="${escapeHtml(verificationUrl)}">${escapeHtml(verificationUrl)}</a></p>`,
+      `<p>Verification code: <strong>${escapeHtml(code)}</strong></p>`,
+      '<p>You can either open the link or enter the verification code in personal settings.</p>',
+    ].join(''),
+  } satisfies MailMessage;
+};
+
 export const buildRegistrationVerificationMessage = async (email: string, token: string, code: string) => {
   const verificationUrl = await buildAppUrl(`/verify-email?flow=registration&token=${encodeURIComponent(token)}`);
 
