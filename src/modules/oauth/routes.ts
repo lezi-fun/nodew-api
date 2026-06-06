@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 
+import type { Prisma } from '@prisma/client';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 
@@ -58,6 +59,8 @@ type GitHubEmailResponse = {
   primary: boolean;
   visibility?: string | null;
 };
+
+const toOAuthMetadata = (metadata: Record<string, string | number | boolean | null>): Prisma.InputJsonObject => metadata;
 
 const buildAppBaseUrl = () => (process.env.APP_BASE_URL ?? '').trim();
 
@@ -201,10 +204,10 @@ const fetchGitHubUserInfo = async (accessToken: string) => {
     emailVerified: Array.isArray(emailsJson)
       ? Boolean(emailsJson.find((entry) => entry.email === email)?.verified)
       : false,
-    metadata: {
+    metadata: toOAuthMetadata({
       id: userJson.id,
       login: userJson.login,
-    },
+    }),
   };
 };
 
@@ -360,7 +363,7 @@ const oauthRoutes: FastifyPluginAsync = async (app) => {
               tokenType: token.token_type ?? null,
               scope: token.scope ?? null,
               accessToken: token.access_token ?? null,
-              metadata: oauthUser.metadata as any,
+              metadata: oauthUser.metadata,
               deletedAt: null,
             },
           });
@@ -376,7 +379,7 @@ const oauthRoutes: FastifyPluginAsync = async (app) => {
               tokenType: token.token_type ?? null,
               scope: token.scope ?? null,
               accessToken: token.access_token ?? null,
-              metadata: oauthUser.metadata as any,
+              metadata: oauthUser.metadata,
             },
           });
         }
@@ -466,7 +469,7 @@ const oauthRoutes: FastifyPluginAsync = async (app) => {
               tokenType: token.token_type ?? null,
               scope: token.scope ?? null,
               accessToken: token.access_token ?? null,
-              metadata: oauthUser.metadata as any,
+              metadata: oauthUser.metadata,
             },
           });
 
