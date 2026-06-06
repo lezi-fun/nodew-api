@@ -128,13 +128,20 @@ const OAuthCallbackPage = recoverableLazy('oauth-callback', () => import('./page
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useContext(UserContext);
+  const location = useLocation();
 
   if (loading) {
     return <Loading />;
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ redirectTo: `${location.pathname}${location.search}${location.hash}` }}
+      />
+    );
   }
 
   return <>{children}</>;
@@ -142,13 +149,20 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useContext(UserContext);
+  const location = useLocation();
 
   if (loading) {
     return <Loading />;
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ redirectTo: `${location.pathname}${location.search}${location.hash}` }}
+      />
+    );
   }
 
   if (user.role !== 'ADMIN') {

@@ -25,6 +25,17 @@ export default function LoginPage() {
 
   const passkeyEnabled = status?.passkey?.enabled === true;
   const githubOAuthEnabled = status?.oauth?.github?.enabled === true;
+  const redirectFromRouteState = (() => {
+    const state = location.state;
+
+    if (!state || typeof state !== 'object') {
+      return null;
+    }
+
+    const record = state as Record<string, unknown>;
+    return typeof record.redirectTo === 'string' ? record.redirectTo : null;
+  })();
+  const redirectTo = postLoginRedirectTo ?? redirectFromRouteState ?? '/console';
 
   useEffect(() => {
     const state = location.state;
@@ -47,7 +58,7 @@ export default function LoginPage() {
   const loginWithGitHub = async () => {
     setGithubLoading(true);
     try {
-      const response = await api.getOAuthState({ provider: 'github', redirectTo: '/console' });
+      const response = await api.getOAuthState({ provider: 'github', redirectTo });
       window.location.assign(response.data.authorizeUrl);
     } catch (error) {
       Toast.error(error instanceof Error ? error.message : 'GitHub 登录失败');
@@ -67,7 +78,7 @@ export default function LoginPage() {
       await refresh();
       setChallengeEmail(null);
       Toast.success('Passkey 登录成功');
-      navigate('/console');
+      navigate(redirectTo);
     } catch (error) {
       Toast.error(error instanceof Error ? error.message : 'Passkey 登录失败');
     } finally {
@@ -100,7 +111,7 @@ export default function LoginPage() {
                   await refresh();
                   setChallengeEmail(null);
                   Toast.success('登录成功');
-                  navigate(postLoginRedirectTo ?? '/console');
+                  navigate(redirectTo);
                 } catch (error) {
                   Toast.error(error instanceof Error ? error.message : '登录失败');
                 } finally {
@@ -124,14 +135,14 @@ export default function LoginPage() {
 
                 if ('requiresTwoFA' in response && response.requiresTwoFA) {
                   setChallengeEmail(values.email);
-                  setPostLoginRedirectTo('/console');
+                  setPostLoginRedirectTo(redirectTo);
                   Toast.info('请输入二次验证码完成登录');
                   return;
                 }
 
                 await refresh();
                 Toast.success('登录成功');
-                navigate('/console');
+                navigate(redirectTo);
               } catch (error) {
                 Toast.error(error instanceof Error ? error.message : '登录失败');
               } finally {
