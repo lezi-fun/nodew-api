@@ -514,6 +514,17 @@ body.sidebar-collapsed .sidebar-status-card > div:last-child {
   word-break: break-word;
 }
 
+.oauth-binding-stack {
+  width: 100%;
+  display: grid;
+  gap: 12px;
+}
+
+.oauth-binding-panel {
+  display: grid;
+  gap: 12px;
+}
+
 .table-note {
   max-width: 760px;
 }

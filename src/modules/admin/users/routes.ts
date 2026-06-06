@@ -3,6 +3,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 
 import { generateAccessToken, hashPassword } from '../../../lib/crypto.js';
+import { oauthProviderSchema } from '../../../lib/oauth.js';
 import { prisma } from '../../../lib/prisma.js';
 import { updateUserPassword } from '../../auth/password-reset.js';
 
@@ -44,6 +45,10 @@ const updateUserBodySchema = z.object({
 const resetPasswordBodySchema = z.object({
   password: z.string().min(8).max(128),
   revokeSession: z.boolean().default(true),
+});
+
+const userOAuthBindingParamsSchema = userParamsSchema.extend({
+  provider: oauthProviderSchema,
 });
 
 const groupSelect = {
@@ -109,6 +114,31 @@ const serializeUser = (user: {
   ...user,
   quotaRemaining: user.quotaRemaining.toString(),
   quotaUsed: user.quotaUsed.toString(),
+});
+
+const oauthBindingSelect = {
+  id: true,
+  provider: true,
+  providerUserId: true,
+  email: true,
+  displayName: true,
+  avatarUrl: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+const serializeOAuthBinding = (binding: {
+  id: string;
+  provider: string;
+  providerUserId: string;
+  email: string | null;
+  displayName: string | null;
+  avatarUrl: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}) => ({
+  ...binding,
+  providerName: binding.provider === 'github' ? 'GitHub' : binding.provider,
 });
 
 const ensureGroupExists = async (groupId: string | null | undefined) => {
@@ -180,6 +210,34 @@ const usersRoutes: FastifyPluginAsync = async (app) => {
 
     return {
       user: serializeUser(user),
+    };
+  });
+
+  app.get('/users/:id/oauth/bindings', {
+    preHandler: app.requireAdminUser,
+  }, async (request) => {
+    const params = userParamsSchema.parse(request.params);
+
+    const user = await prisma.user.findUnique({
+      where: { id: params.id },
+      select: { id: true },
+    });
+
+    if (!user) {
+      throw app.httpErrors.notFound('User not found');
+    }
+
+    const bindings = await prisma.userOAuthBinding.findMany({
+      where: {
+        userId: params.id,
+        deletedAt: null,
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      select: oauthBindingSelect,
+    });
+
+    return {
+      items: bindings.map(serializeOAuthBinding),
     };
   });
 
@@ -386,6 +444,42 @@ const usersRoutes: FastifyPluginAsync = async (app) => {
     if (deleted.count === 0) {
       throw app.httpErrors.notFound('Passkey not found');
     }
+
+    return {
+      success: true,
+    };
+  });
+
+  app.delete('/users/:id/oauth/bindings/:provider', {
+    preHandler: app.requireAdminUser,
+  }, async (request) => {
+    const params = userOAuthBindingParamsSchema.parse(request.params);
+
+    const user = await prisma.user.findUnique({
+      where: { id: params.id },
+      select: { id: true },
+    });
+
+    if (!user) {
+      throw app.httpErrors.notFound('User not found');
+    }
+
+    const binding = await prisma.userOAuthBinding.findFirst({
+      where: {
+        userId: params.id,
+        provider: params.provider,
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+
+    if (!binding) {
+      throw app.httpErrors.notFound('OAuth binding not found');
+    }
+
+    await prisma.userOAuthBinding.delete({
+      where: { id: binding.id },
+    });
 
     return {
       success: true,

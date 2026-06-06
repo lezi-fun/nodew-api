@@ -1,3 +1,4 @@
+import { prisma } from '../../src/lib/prisma.js';
 import { closeTestApp, createTestApp } from '../helpers/app.js';
 import { createAdminUser, createGroup, createSessionForUser, createUser } from '../helpers/factories.js';
 
@@ -91,6 +92,94 @@ describe('admin users integration', () => {
       expect(response.statusCode).toBe(200);
       expect(response.json().user.group.name).toBe('paid');
       expect(response.json().user.quotaRemaining).toBe('900');
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
+  it('lets an admin inspect a user oauth bindings', async () => {
+    const admin = await createAdminUser();
+    const token = await createSessionForUser(admin.id);
+    const user = await createUser();
+    const app = await createTestApp();
+
+    try {
+      await prisma.userOAuthBinding.create({
+        data: {
+          userId: user.id,
+          provider: 'github',
+          providerUserId: 'github-admin-view',
+          email: 'bound@test.local',
+          displayName: 'Bound User',
+          metadata: {
+            login: 'bound-user',
+          },
+        },
+      });
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/api/users/${user.id}/oauth/bindings`,
+        cookies: {
+          nodew_session: app.signCookie(token),
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        items: [
+          expect.objectContaining({
+            provider: 'github',
+            providerName: 'GitHub',
+            providerUserId: 'github-admin-view',
+            email: 'bound@test.local',
+            displayName: 'Bound User',
+          }),
+        ],
+      });
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
+  it('lets an admin unbind a user oauth account', async () => {
+    const admin = await createAdminUser();
+    const token = await createSessionForUser(admin.id);
+    const user = await createUser();
+    const app = await createTestApp();
+
+    try {
+      const binding = await prisma.userOAuthBinding.create({
+        data: {
+          userId: user.id,
+          provider: 'github',
+          providerUserId: 'github-admin-delete',
+          email: 'delete@test.local',
+          displayName: 'Delete Target',
+          metadata: {
+            login: 'delete-target',
+          },
+        },
+      });
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/api/users/${user.id}/oauth/bindings/github`,
+        cookies: {
+          nodew_session: app.signCookie(token),
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        success: true,
+      });
+
+      const deletedBinding = await prisma.userOAuthBinding.findUnique({
+        where: { id: binding.id },
+      });
+
+      expect(deletedBinding).toBeNull();
     } finally {
       await closeTestApp(app);
     }

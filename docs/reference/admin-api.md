@@ -88,6 +88,8 @@ The web console uses the backend authentication APIs for login, registration, se
 - `GET /api/oauth/github` consumes the OAuth callback, logs in an existing binding, creates a user when registration is enabled, or binds the GitHub identity when the request already carries an authenticated session.
 - `GET /api/user/oauth/bindings` returns the current user's bound third-party accounts.
 - `DELETE /api/user/oauth/bindings/github` removes the current user's GitHub binding.
+- `GET /api/users/:id/oauth/bindings` returns a specific user's bound third-party accounts for admin inspection.
+- `DELETE /api/users/:id/oauth/bindings/github` removes a specific user's GitHub binding from the admin console.
 - The current provider surface is GitHub only; the route shape is already generic for future providers.
 
 ### Check-in routes

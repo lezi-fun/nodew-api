@@ -670,6 +670,10 @@ export const api = {
   listOAuthBindings: async () => (await client.get<{ items: OAuthBindingItem[] }>('/api/user/oauth/bindings')).data,
   deleteOAuthBinding: async (provider: OAuthProvider) =>
     (await client.delete<{ success: boolean }>(`/api/user/oauth/bindings/${provider}`)).data,
+  listUserOAuthBindings: async (id: string) =>
+    (await client.get<{ items: OAuthBindingItem[] }>(`/api/users/${id}/oauth/bindings`)).data,
+  deleteUserOAuthBinding: async (id: string, provider: OAuthProvider) =>
+    (await client.delete<{ success: boolean }>(`/api/users/${id}/oauth/bindings/${provider}`)).data,
   deletePasskey: async () => (await client.delete<{ success: boolean }>('/api/user/passkey')).data,
   listChannels: async () => (await client.get<ListResponse<ChannelItem>>('/api/channels')).data,
   createChannel: async (payload: ChannelPayload & { apiKey: string }) =>

@@ -1,8 +1,9 @@
 import { Button, Input, Modal, Select, Space, Tag, Toast, Typography } from '@douyinfe/semi-ui';
-import { IconDelete, IconEdit, IconKey, IconLock, IconRefresh, IconUnlock } from '@douyinfe/semi-icons';
+import { IconDelete, IconEdit, IconKey, IconLink, IconLock, IconRefresh, IconUnlock } from '@douyinfe/semi-icons';
 import { useCallback, useContext, useEffect, useState } from 'react';
 
 import ConsoleTablePage from '../components/common/ConsoleTablePage';
+import AdminOAuthBindingModal from '../components/security/AdminOAuthBindingModal';
 import { UserContext } from '../context/User';
 import { api, type GroupItem, type UserItem } from '../lib/api';
 import { formatDateTime, formatQuota } from '../lib/format';
@@ -63,6 +64,7 @@ export default function UserPage() {
   const [editingUser, setEditingUser] = useState<UserItem | null>(null);
   const [draft, setDraft] = useState<UserDraft>(emptyDraft);
   const [passwordUser, setPasswordUser] = useState<UserItem | null>(null);
+  const [bindingUser, setBindingUser] = useState<UserItem | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [accessToken, setAccessToken] = useState<string | null>(null);
 
@@ -318,6 +320,7 @@ export default function UserPage() {
                 <Button size="small" icon={<IconRefresh />} onClick={() => setPasswordUser(record)}>重置密码</Button>
                 <Button size="small" disabled={!record.twoFA?.isEnabled} onClick={() => void resetTwoFA(record)}>禁用 2FA</Button>
                 <Button size="small" onClick={() => void resetPasskey(record)}>重置 Passkey</Button>
+                <Button size="small" icon={<IconLink />} onClick={() => setBindingUser(record)}>第三方绑定</Button>
                 <Button size="small" icon={<IconKey />} onClick={() => void generateAccessToken(record)}>Token</Button>
                 <Button size="small" onClick={() => void revokeSession(record)}>撤销会话</Button>
                 <Button
@@ -443,6 +446,12 @@ export default function UserPage() {
           <Button icon={<IconKey />} onClick={() => accessToken ? void copyText(accessToken, 'Access token 已复制') : undefined}>复制</Button>
         </div>
       </Modal>
+
+      <AdminOAuthBindingModal
+        user={bindingUser}
+        visible={Boolean(bindingUser)}
+        onCancel={() => setBindingUser(null)}
+      />
     </>
   );
 }
