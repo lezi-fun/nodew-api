@@ -2,6 +2,7 @@
 .DS_Store
 .playwright-cli/
 .claude/
+.codegraph/
 .env
 pnpm-lock.yaml
 package-lock.json
