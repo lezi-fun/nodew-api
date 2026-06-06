@@ -285,6 +285,83 @@ describe('oauth github integration', () => {
     }
   });
 
+  it('rejects a bind callback when the initiating session is missing', async () => {
+    const restoreEnv = withGitHubOAuthEnv();
+    const user = await createUser();
+    const token = await createSessionForUser(user.id);
+    const app = await createTestApp();
+
+    try {
+      const stateResponse = await app.inject({
+        method: 'GET',
+        url: '/api/oauth/state?provider=github&mode=bind&redirectTo=/console/personal',
+        cookies: {
+          nodew_session: app.signCookie(token),
+        },
+      });
+      const stateCookie = extractCookieValue(stateResponse, 'nodew_oauth_state');
+      const state = stateResponse.json().data.state as string;
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+        throw new Error('fetch should not be called');
+      });
+
+      const callbackResponse = await app.inject({
+        method: 'GET',
+        url: `/api/oauth/github?code=oauth-bind-code&state=${state}`,
+        cookies: {
+          nodew_oauth_state: stateCookie!,
+        },
+      });
+
+      expect(callbackResponse.statusCode).toBe(403);
+      expect(callbackResponse.json().message).toBe('OAuth binding session is invalid or expired');
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      restoreEnv();
+      await closeTestApp(app);
+    }
+  });
+
+  it('rejects a bind callback when it returns under a different user session', async () => {
+    const restoreEnv = withGitHubOAuthEnv();
+    const user = await createUser();
+    const otherUser = await createUser();
+    const token = await createSessionForUser(user.id);
+    const otherToken = await createSessionForUser(otherUser.id);
+    const app = await createTestApp();
+
+    try {
+      const stateResponse = await app.inject({
+        method: 'GET',
+        url: '/api/oauth/state?provider=github&mode=bind&redirectTo=/console/personal',
+        cookies: {
+          nodew_session: app.signCookie(token),
+        },
+      });
+      const stateCookie = extractCookieValue(stateResponse, 'nodew_oauth_state');
+      const state = stateResponse.json().data.state as string;
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+        throw new Error('fetch should not be called');
+      });
+
+      const callbackResponse = await app.inject({
+        method: 'GET',
+        url: `/api/oauth/github?code=oauth-bind-code&state=${state}`,
+        cookies: {
+          nodew_session: app.signCookie(otherToken),
+          nodew_oauth_state: stateCookie!,
+        },
+      });
+
+      expect(callbackResponse.statusCode).toBe(403);
+      expect(callbackResponse.json().message).toBe('OAuth binding session is invalid or expired');
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      restoreEnv();
+      await closeTestApp(app);
+    }
+  });
+
   it('lists only the current user oauth bindings', async () => {
     const user = await createUser();
     const otherUser = await createUser();

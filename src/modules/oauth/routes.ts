@@ -307,6 +307,13 @@ const oauthRoutes: FastifyPluginAsync = async (app) => {
       throw app.httpErrors.badRequest('OAuth code is required');
     }
 
+    const currentUser = request.currentUser;
+    const action = statePayload.mode;
+
+    if (action === 'bind' && (!currentUser || currentUser.id !== statePayload.userId)) {
+      throw app.httpErrors.forbidden('OAuth binding session is invalid or expired');
+    }
+
     if (params.provider === 'github') {
       let redirectUri: string;
 
@@ -327,10 +334,12 @@ const oauthRoutes: FastifyPluginAsync = async (app) => {
         throw app.httpErrors.badRequest('OAuth account does not provide an email address');
       }
 
-      const action = request.currentUser ? 'bind' : 'login';
-
       if (action === 'bind') {
-        const userId = request.currentUser!.id;
+        if (!currentUser) {
+          throw app.httpErrors.forbidden('OAuth binding session is invalid or expired');
+        }
+
+        const userId = currentUser.id;
 
         const existingByProviderId = await prisma.userOAuthBinding.findFirst({
           where: {
