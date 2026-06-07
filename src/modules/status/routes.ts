@@ -46,6 +46,20 @@ const statusRoutes: FastifyPluginAsync = async (app) => {
             && (process.env.APP_BASE_URL ?? '').trim(),
           ),
         },
+        discord: {
+          enabled: Boolean(
+            (process.env.DISCORD_OAUTH_CLIENT_ID ?? '').trim()
+            && (process.env.DISCORD_OAUTH_CLIENT_SECRET ?? '').trim()
+            && (process.env.APP_BASE_URL ?? '').trim(),
+          ),
+        },
+        linuxdo: {
+          enabled: Boolean(
+            (process.env.LINUXDO_OAUTH_CLIENT_ID ?? '').trim()
+            && (process.env.LINUXDO_OAUTH_CLIENT_SECRET ?? '').trim()
+            && (process.env.APP_BASE_URL ?? '').trim(),
+          ),
+        },
       },
     };
   });
