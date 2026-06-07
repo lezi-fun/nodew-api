@@ -56,6 +56,38 @@ const withGitHubOAuthEnv = () => {
   };
 };
 
+const withLinuxDOOAuthEnv = () => {
+  const previous = {
+    appBaseUrl: process.env.APP_BASE_URL,
+    clientId: process.env.LINUXDO_OAUTH_CLIENT_ID,
+    clientSecret: process.env.LINUXDO_OAUTH_CLIENT_SECRET,
+  };
+
+  process.env.APP_BASE_URL = 'http://127.0.0.1:3000';
+  process.env.LINUXDO_OAUTH_CLIENT_ID = 'linuxdo-client-id';
+  process.env.LINUXDO_OAUTH_CLIENT_SECRET = 'linuxdo-client-secret';
+
+  return () => {
+    if (previous.appBaseUrl === undefined) {
+      delete process.env.APP_BASE_URL;
+    } else {
+      process.env.APP_BASE_URL = previous.appBaseUrl;
+    }
+
+    if (previous.clientId === undefined) {
+      delete process.env.LINUXDO_OAUTH_CLIENT_ID;
+    } else {
+      process.env.LINUXDO_OAUTH_CLIENT_ID = previous.clientId;
+    }
+
+    if (previous.clientSecret === undefined) {
+      delete process.env.LINUXDO_OAUTH_CLIENT_SECRET;
+    } else {
+      process.env.LINUXDO_OAUTH_CLIENT_SECRET = previous.clientSecret;
+    }
+  };
+};
+
 const enableRegistration = async () => {
   await prisma.setupState.create({
     data: {
@@ -446,6 +478,113 @@ describe('oauth github integration', () => {
 
       expect(deletedBinding).toBeNull();
     } finally {
+      await closeTestApp(app);
+    }
+  });
+});
+
+
+describe('oauth linuxdo integration', () => {
+  it('creates an oauth state cookie and authorize url for linuxdo', async () => {
+    const restoreEnv = withLinuxDOOAuthEnv();
+    const app = await createTestApp();
+
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/oauth/state?provider=linuxdo&redirectTo=/console',
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toMatchObject({
+        success: true,
+        data: {
+          state: expect.any(String),
+        },
+      });
+      expect(response.json().data.authorizeUrl).toContain('https://connect.linux.do/oauth2/authorize');
+      expect(response.json().data.authorizeUrl).toContain('client_id=linuxdo-client-id');
+      expect(response.json().data.authorizeUrl).toContain(encodeURIComponent('http://127.0.0.1:3000/oauth/linuxdo'));
+      expect(extractCookieValue(response, 'nodew_oauth_state')).toBeTruthy();
+    } finally {
+      restoreEnv();
+      await closeTestApp(app);
+    }
+  });
+
+  it('creates a user session from the linuxdo callback when registration is enabled', async () => {
+    const restoreEnv = withLinuxDOOAuthEnv();
+    await enableRegistration();
+    const app = await createTestApp();
+
+    try {
+      const stateResponse = await app.inject({
+        method: 'GET',
+        url: '/api/oauth/state?provider=linuxdo&redirectTo=/console',
+      });
+      const stateCookie = extractCookieValue(stateResponse, 'nodew_oauth_state');
+      const state = stateResponse.json().data.state as string;
+
+      mockFetchSequence([
+        {
+          body: {
+            access_token: 'linuxdo-access-token',
+            token_type: 'Bearer',
+            scope: 'read',
+            refresh_token: 'linuxdo-refresh-token',
+            expires_in: 3600,
+          },
+        },
+        {
+          body: {
+            id: 24680,
+            username: 'linuxdo_user',
+            name: 'LinuxDO User',
+            avatar_url: 'https://cdn.example.test/linuxdo-user.png',
+            email: 'linuxdo@test.local',
+            trust_level: 3,
+          },
+        },
+      ]);
+
+      const callbackResponse = await app.inject({
+        method: 'GET',
+        url: `/api/oauth/linuxdo?code=oauth-code&state=${state}`,
+        cookies: {
+          nodew_oauth_state: stateCookie!,
+        },
+      });
+
+      expect(callbackResponse.statusCode).toBe(200);
+      expect(callbackResponse.json()).toMatchObject({
+        success: true,
+        action: 'login',
+        redirectTo: '/console',
+        user: {
+          email: 'linuxdo@test.local',
+          username: 'linuxdo_user',
+        },
+      });
+
+      const binding = await prisma.userOAuthBinding.findFirst({
+        where: {
+          provider: 'linuxdo',
+          providerUserId: '24680',
+        },
+        select: {
+          email: true,
+          displayName: true,
+          refreshToken: true,
+        },
+      });
+
+      expect(binding).toMatchObject({
+        email: 'linuxdo@test.local',
+        displayName: 'LinuxDO User',
+        refreshToken: 'linuxdo-refresh-token',
+      });
+    } finally {
+      restoreEnv();
       await closeTestApp(app);
     }
   });

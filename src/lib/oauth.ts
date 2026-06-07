@@ -15,9 +15,9 @@ const oauthStateSchema = z.object({
   issuedAt: z.number().int().nonnegative(),
 });
 
-export type OAuthProvider = 'github' | 'discord';
+export type OAuthProvider = 'github' | 'discord' | 'linuxdo';
 
-export const oauthProviderSchema = z.enum(['github', 'discord']);
+export const oauthProviderSchema = z.enum(['github', 'discord', 'linuxdo']);
 
 export const oauthCookieOptions = {
   httpOnly: true,
@@ -87,6 +87,15 @@ export const getOAuthProviderConfig = (provider: OAuthProvider) => {
       clientSecret: process.env.DISCORD_OAUTH_CLIENT_SECRET?.trim() || '',
       authorizeUrl: 'https://discord.com/oauth2/authorize',
       scope: 'identify email',
+    };
+  }
+
+  if (provider === 'linuxdo') {
+    return {
+      clientId: process.env.LINUXDO_OAUTH_CLIENT_ID?.trim() || '',
+      clientSecret: process.env.LINUXDO_OAUTH_CLIENT_SECRET?.trim() || '',
+      authorizeUrl: 'https://connect.linux.do/oauth2/authorize',
+      scope: 'read',
     };
   }
 

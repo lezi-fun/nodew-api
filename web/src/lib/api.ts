@@ -78,6 +78,12 @@ export type AppStatus = ServiceStatus & {
     github?: {
       enabled: boolean;
     };
+    discord?: {
+      enabled: boolean;
+    };
+    linuxdo?: {
+      enabled: boolean;
+    };
   };
 };
 
@@ -128,7 +134,7 @@ export type SecureVerificationResult = {
   verifiedUntil: string;
 };
 
-export type OAuthProvider = 'github' | 'discord';
+export type OAuthProvider = 'github' | 'discord' | 'linuxdo';
 
 export type OAuthStateResult = {
   success: true;

@@ -29,6 +29,8 @@ const envSchema = z.object({
   GITHUB_OAUTH_CLIENT_SECRET: z.string().min(1).optional(),
   DISCORD_OAUTH_CLIENT_ID: z.string().min(1).optional(),
   DISCORD_OAUTH_CLIENT_SECRET: z.string().min(1).optional(),
+  LINUXDO_OAUTH_CLIENT_ID: z.string().min(1).optional(),
+  LINUXDO_OAUTH_CLIENT_SECRET: z.string().min(1).optional(),
   MAIL_PROVIDER: z.enum(['disabled', 'smtp', 'resend']).default('disabled'),
   MAIL_FROM: z.string().email().optional(),
   SMTP_HOST: z.string().min(1).optional(),

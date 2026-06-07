@@ -101,7 +101,7 @@ const serializeOAuthBinding = (binding: {
   updatedAt: Date;
 }) => ({
   ...binding,
-  providerName: binding.provider === 'github' ? 'GitHub' : binding.provider,
+  providerName: binding.provider === 'github' ? 'GitHub' : binding.provider === 'discord' ? 'Discord' : binding.provider === 'linuxdo' ? 'LinuxDO' : binding.provider,
 });
 
 const resolveTwoFAIssuer = async () => {
