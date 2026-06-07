@@ -128,7 +128,7 @@ export type SecureVerificationResult = {
   verifiedUntil: string;
 };
 
-export type OAuthProvider = 'github';
+export type OAuthProvider = 'github' | 'discord';
 
 export type OAuthStateResult = {
   success: true;

@@ -60,6 +60,23 @@ type GitHubEmailResponse = {
   visibility?: string | null;
 };
 
+type DiscordTokenResponse = {
+  access_token?: string;
+  token_type?: string;
+  scope?: string;
+  error?: string;
+  error_description?: string;
+};
+
+type DiscordUserResponse = {
+  id: string;
+  username: string;
+  global_name: string | null;
+  avatar: string | null;
+  email: string | null;
+  verified: boolean | null;
+};
+
 const toOAuthMetadata = (metadata: Record<string, string | number | boolean | null>): Prisma.InputJsonObject => metadata;
 
 const buildAppBaseUrl = () => (process.env.APP_BASE_URL ?? '').trim();
@@ -207,6 +224,72 @@ const fetchGitHubUserInfo = async (accessToken: string) => {
     metadata: toOAuthMetadata({
       id: userJson.id,
       login: userJson.login,
+    }),
+  };
+};
+
+const fetchDiscordToken = async (args: {
+  code: string;
+  redirectUri: string;
+}) => {
+  const config = getOAuthProviderConfig('discord');
+
+  if (!config || !config.clientId || !config.clientSecret) {
+    throw new Error('Discord OAuth is not configured');
+  }
+
+  const response = await fetch('https://discord.com/api/oauth2/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      client_id: config.clientId,
+      client_secret: config.clientSecret,
+      code: args.code,
+      grant_type: 'authorization_code',
+      redirect_uri: args.redirectUri,
+    }).toString(),
+  });
+
+  const json = await response.json().catch(() => ({})) as DiscordTokenResponse;
+
+  if (!response.ok || json.error || !json.access_token) {
+    const message = json.error_description || json.error || 'OAuth token exchange failed';
+    throw new Error(message);
+  }
+
+  return json;
+};
+
+const fetchDiscordUserInfo = async (accessToken: string) => {
+  const response = await fetch('https://discord.com/api/users/@me', {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  const userJson = await response.json().catch(() => null) as DiscordUserResponse | null;
+
+  if (!response.ok || !userJson) {
+    throw new Error('Failed to fetch Discord user info');
+  }
+
+  const avatarHash = userJson.avatar;
+  const avatarUrl = avatarHash
+    ? `https://cdn.discordapp.com/avatars/${userJson.id}/${avatarHash}.png`
+    : `https://cdn.discordapp.com/embed/avatars/${BigInt(userJson.id) % 6n}.png`;
+
+  return {
+    providerUserId: userJson.id,
+    username: userJson.username,
+    displayName: userJson.global_name || userJson.username,
+    avatarUrl,
+    email: userJson.email?.trim() || null,
+    emailVerified: userJson.verified ?? false,
+    metadata: toOAuthMetadata({
+      id: userJson.id,
+      username: userJson.username,
     }),
   };
 };
@@ -471,6 +554,214 @@ const oauthRoutes: FastifyPluginAsync = async (app) => {
             data: {
               userId: user.id,
               provider: 'github',
+              providerUserId: oauthUser.providerUserId,
+              email: oauthUser.email,
+              displayName: oauthUser.displayName,
+              avatarUrl: oauthUser.avatarUrl,
+              tokenType: token.token_type ?? null,
+              scope: token.scope ?? null,
+              accessToken: token.access_token ?? null,
+              metadata: oauthUser.metadata,
+            },
+          });
+
+          return user;
+        });
+
+        userId = created.id;
+      }
+
+      const twoFA = await prisma.twoFA.findUnique({
+        where: { userId },
+        select: { isEnabled: true },
+      });
+
+      if (twoFA?.isEnabled) {
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { email: true },
+        });
+
+        setTwoFALoginChallengeCookie(reply, userId);
+
+        return {
+          success: true,
+          requiresTwoFA: true,
+          email: user?.email ?? null,
+          redirectTo: statePayload.redirectTo ?? null,
+        };
+      }
+
+      const session = await createSession(userId);
+
+      setSessionCookie(reply, session.sessionToken);
+      clearSecureVerificationCookie(reply);
+
+      return {
+        success: true,
+        action: 'login',
+        user: session.user,
+        redirectTo: statePayload.redirectTo ?? null,
+      };
+    }
+
+    if (params.provider === 'discord') {
+      let redirectUri: string;
+
+      try {
+        redirectUri = resolveOAuthRedirectUri('discord');
+      } catch (error) {
+        if (error instanceof Error && error.message === 'APP_BASE_URL is required for OAuth') {
+          throw app.httpErrors.badRequest(error.message);
+        }
+
+        throw error;
+      }
+
+      const token = await fetchDiscordToken({ code: query.code, redirectUri });
+      const oauthUser = await fetchDiscordUserInfo(token.access_token!);
+
+      if (!oauthUser.email) {
+        throw app.httpErrors.badRequest('OAuth account does not provide an email address');
+      }
+
+      if (action === 'bind') {
+        if (!currentUser) {
+          throw app.httpErrors.forbidden('OAuth binding session is invalid or expired');
+        }
+
+        const userId = currentUser.id;
+
+        const existingByProviderId = await prisma.userOAuthBinding.findFirst({
+          where: {
+            provider: 'discord',
+            providerUserId: oauthUser.providerUserId,
+          },
+          select: { id: true, userId: true },
+        });
+
+        if (existingByProviderId && existingByProviderId.userId !== userId) {
+          throw app.httpErrors.conflict('This OAuth account is already bound to another user');
+        }
+
+        const existingForUser = await prisma.userOAuthBinding.findFirst({
+          where: {
+            userId,
+            provider: 'discord',
+          },
+          select: { id: true },
+        });
+
+        if (existingForUser) {
+          await prisma.userOAuthBinding.update({
+            where: { id: existingForUser.id },
+            data: {
+              providerUserId: oauthUser.providerUserId,
+              email: oauthUser.email,
+              displayName: oauthUser.displayName,
+              avatarUrl: oauthUser.avatarUrl,
+              tokenType: token.token_type ?? null,
+              scope: token.scope ?? null,
+              accessToken: token.access_token ?? null,
+              metadata: oauthUser.metadata,
+              deletedAt: null,
+            },
+          });
+        } else {
+          await prisma.userOAuthBinding.create({
+            data: {
+              userId,
+              provider: 'discord',
+              providerUserId: oauthUser.providerUserId,
+              email: oauthUser.email,
+              displayName: oauthUser.displayName,
+              avatarUrl: oauthUser.avatarUrl,
+              tokenType: token.token_type ?? null,
+              scope: token.scope ?? null,
+              accessToken: token.access_token ?? null,
+              metadata: oauthUser.metadata,
+            },
+          });
+        }
+
+        return {
+          success: true,
+          action: 'bind',
+          redirectTo: statePayload.redirectTo ?? null,
+        };
+      }
+
+      const existingBinding = await prisma.userOAuthBinding.findFirst({
+        where: {
+          provider: 'discord',
+          providerUserId: oauthUser.providerUserId,
+        },
+        select: {
+          userId: true,
+          user: {
+            select: {
+              id: true,
+              email: true,
+              status: true,
+            },
+          },
+        },
+      });
+
+      let userId: string;
+
+      if (existingBinding) {
+        if (existingBinding.user.status !== 'ACTIVE') {
+          throw app.httpErrors.forbidden('User is disabled');
+        }
+
+        userId = existingBinding.userId;
+      } else {
+        try {
+          await ensureRegistrationAllowed();
+        } catch (error) {
+          if (error instanceof Error && error.message === 'System is not initialized') {
+            throw app.httpErrors.conflict('System is not initialized');
+          }
+
+          if (error instanceof Error && error.message === 'User registration is disabled') {
+            throw app.httpErrors.forbidden('User registration is disabled');
+          }
+
+          throw error;
+        }
+
+        const usernameCandidate = oauthUser.username || `discord_${oauthUser.providerUserId}`;
+        const username = await pickAvailableUsername(usernameCandidate);
+
+        try {
+          await ensureUserIdentityAvailable(oauthUser.email, username);
+        } catch (error) {
+          if (error instanceof Error && error.message === 'User already exists') {
+            throw app.httpErrors.conflict('User already exists');
+          }
+
+          throw error;
+        }
+
+        const created = await prisma.$transaction(async (tx) => {
+          const user = await tx.user.create({
+            data: {
+              email: oauthUser.email!,
+              username,
+              passwordHash: hashPassword(generateAccessToken()),
+              displayName: oauthUser.displayName,
+              emailVerifiedAt: oauthUser.emailVerified ? new Date() : null,
+              role: 'USER',
+              status: 'ACTIVE',
+            },
+            select: { id: true },
+          });
+
+          await tx.userOAuthBinding.create({
+            data: {
+              userId: user.id,
+              provider: 'discord',
               providerUserId: oauthUser.providerUserId,
               email: oauthUser.email,
               displayName: oauthUser.displayName,
