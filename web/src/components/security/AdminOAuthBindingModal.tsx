@@ -1,30 +1,15 @@
-import { IconDelete, IconGithubLogo, IconLink, IconRefresh } from '@douyinfe/semi-icons';
+import { IconDelete, IconRefresh } from '@douyinfe/semi-icons';
 import { Avatar, Button, Modal, Space, Tag, Toast, Typography } from '@douyinfe/semi-ui';
 import { useEffect, useState } from 'react';
 
 import { api, type OAuthBindingItem, type OAuthProvider, type UserItem } from '../../lib/api';
 import { formatDateTime } from '../../lib/format';
+import { getOAuthProviderMeta, isOAuthProvider } from '../../lib/oauth';
 
 type AdminOAuthBindingModalProps = {
   user: UserItem | null;
   visible: boolean;
   onCancel: () => void;
-};
-
-const getProviderColor = (provider: string) => {
-  if (provider === 'github') {
-    return 'blue';
-  }
-
-  return 'grey';
-};
-
-const getProviderIcon = (provider: string) => {
-  if (provider === 'github') {
-    return <IconGithubLogo />;
-  }
-
-  return <IconLink />;
 };
 
 export default function AdminOAuthBindingModal({
@@ -66,15 +51,22 @@ export default function AdminOAuthBindingModal({
       return;
     }
 
+    if (!isOAuthProvider(binding.provider)) {
+      Toast.error('不支持的第三方类型');
+      return;
+    }
+
+    const provider = binding.provider;
+
     Modal.confirm({
       title: '确认解绑',
       content: `确定要解绑 ${user.email} 的 ${binding.providerName} 吗？`,
       okText: '确认',
       cancelText: '取消',
       onOk: async () => {
-        setDeletingProvider(binding.provider as OAuthProvider);
+        setDeletingProvider(provider);
         try {
-          await api.deleteUserOAuthBinding(user.id, binding.provider as OAuthProvider);
+          await api.deleteUserOAuthBinding(user.id, provider);
           setBindings((current) => current.filter((item) => item.id !== binding.id));
           Toast.success('解绑成功');
         } catch (error) {
@@ -97,7 +89,7 @@ export default function AdminOAuthBindingModal({
       <Space vertical align="start" style={{ width: '100%' }}>
         <Space style={{ width: '100%', justifyContent: 'space-between' }}>
           <Typography.Text type="tertiary">
-            当前支持查看和解绑已绑定的 GitHub 账号，后续 provider 可以沿用同一入口扩展。
+            当前支持查看和解绑已绑定的 GitHub、Discord、LinuxDO 账号，后续新增 provider 也可沿用同一入口扩展。
           </Typography.Text>
           <Button icon={<IconRefresh />} loading={loading} onClick={() => void loadBindings()}>
             刷新
@@ -110,51 +102,55 @@ export default function AdminOAuthBindingModal({
           <Typography.Text type="tertiary">当前没有第三方绑定。</Typography.Text>
         ) : (
           <div className="oauth-binding-stack">
-            {bindings.map((binding) => (
-              <div key={binding.id} className="oauth-binding-panel">
-                <div className="oauth-binding-row">
-                  <div className="oauth-binding-main">
-                    <Avatar color="indigo" size="small">
-                      {getProviderIcon(binding.provider)}
-                    </Avatar>
-                    <div className="oauth-binding-text">
-                      <strong>{binding.providerName}</strong>
-                      <span>{binding.displayName || binding.email || binding.providerUserId}</span>
+            {bindings.map((binding) => {
+              const providerMeta = getOAuthProviderMeta(binding.provider);
+
+              return (
+                <div key={binding.id} className="oauth-binding-panel">
+                  <div className="oauth-binding-row">
+                    <div className="oauth-binding-main">
+                      <Avatar color={providerMeta.avatarColor} size="small">
+                        {providerMeta.avatarContent}
+                      </Avatar>
+                      <div className="oauth-binding-text">
+                        <strong>{binding.providerName}</strong>
+                        <span>{binding.displayName || binding.email || binding.providerUserId}</span>
+                      </div>
+                    </div>
+                    <div className="oauth-binding-actions">
+                      <Tag color={providerMeta.tagColor}>已绑定</Tag>
+                      <Button
+                        type="danger"
+                        icon={<IconDelete />}
+                        loading={deletingProvider === binding.provider}
+                        onClick={() => confirmUnbind(binding)}
+                      >
+                        解绑
+                      </Button>
                     </div>
                   </div>
-                  <div className="oauth-binding-actions">
-                    <Tag color={getProviderColor(binding.provider)}>已绑定</Tag>
-                    <Button
-                      type="danger"
-                      icon={<IconDelete />}
-                      loading={deletingProvider === binding.provider}
-                      onClick={() => confirmUnbind(binding)}
-                    >
-                      解绑
-                    </Button>
-                  </div>
-                </div>
 
-                <div className="oauth-binding-meta">
-                  <div>
-                    <Typography.Text type="tertiary">显示名</Typography.Text>
-                    <Typography.Paragraph>{binding.displayName || '-'}</Typography.Paragraph>
-                  </div>
-                  <div>
-                    <Typography.Text type="tertiary">绑定邮箱</Typography.Text>
-                    <Typography.Paragraph>{binding.email || '-'}</Typography.Paragraph>
-                  </div>
-                  <div>
-                    <Typography.Text type="tertiary">Provider ID</Typography.Text>
-                    <Typography.Paragraph>{binding.providerUserId}</Typography.Paragraph>
-                  </div>
-                  <div>
-                    <Typography.Text type="tertiary">绑定时间</Typography.Text>
-                    <Typography.Paragraph>{formatDateTime(binding.createdAt)}</Typography.Paragraph>
+                  <div className="oauth-binding-meta">
+                    <div>
+                      <Typography.Text type="tertiary">显示名</Typography.Text>
+                      <Typography.Paragraph>{binding.displayName || '-'}</Typography.Paragraph>
+                    </div>
+                    <div>
+                      <Typography.Text type="tertiary">绑定邮箱</Typography.Text>
+                      <Typography.Paragraph>{binding.email || '-'}</Typography.Paragraph>
+                    </div>
+                    <div>
+                      <Typography.Text type="tertiary">Provider ID</Typography.Text>
+                      <Typography.Paragraph>{binding.providerUserId}</Typography.Paragraph>
+                    </div>
+                    <div>
+                      <Typography.Text type="tertiary">绑定时间</Typography.Text>
+                      <Typography.Paragraph>{formatDateTime(binding.createdAt)}</Typography.Paragraph>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </Space>

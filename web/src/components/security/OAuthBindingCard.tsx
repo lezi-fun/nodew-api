@@ -1,31 +1,20 @@
-import { IconGithubLogo, IconLink, IconRefresh, IconUser } from '@douyinfe/semi-icons';
+import { IconLink, IconRefresh, IconUser } from '@douyinfe/semi-icons';
 import { Avatar, Button, Card, Modal, Space, Tag, Toast, Typography } from '@douyinfe/semi-ui';
 import { useContext, useEffect, useMemo, useState } from 'react';
 
 import { StatusContext } from '../../context/Status';
 import { UserContext } from '../../context/User';
-import { api, type OAuthBindingItem } from '../../lib/api';
+import { api, type OAuthBindingItem, type OAuthProvider } from '../../lib/api';
 import { formatDateTime } from '../../lib/format';
-
-const githubProviderName = 'GitHub';
-
-const getProviderBadgeColor = (provider: string) => {
-  if (provider === 'github') {
-    return 'blue';
-  }
-
-  return 'grey';
-};
+import { getOAuthProviderMeta, isOAuthProviderEnabled, oauthProviders } from '../../lib/oauth';
 
 export default function OAuthBindingCard() {
   const { user } = useContext(UserContext);
   const { status } = useContext(StatusContext);
   const [bindings, setBindings] = useState<OAuthBindingItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [binding, setBinding] = useState(false);
-  const [unbindingProvider, setUnbindingProvider] = useState<string | null>(null);
-
-  const githubEnabled = status?.oauth?.github?.enabled === true;
+  const [bindingProvider, setBindingProvider] = useState<OAuthProvider | null>(null);
+  const [unbindingProvider, setUnbindingProvider] = useState<OAuthProvider | null>(null);
 
   const loadBindings = async () => {
     if (!user) {
@@ -49,31 +38,35 @@ export default function OAuthBindingCard() {
     void loadBindings();
   }, [user?.id]);
 
-  const githubBinding = useMemo(
-    () => bindings.find((item) => item.provider === 'github') ?? null,
+  const bindingsByProvider = useMemo(
+    () => new Map(bindings.map((item) => [item.provider, item])),
     [bindings],
   );
 
-  const startGitHubBinding = async () => {
-    setBinding(true);
+  const enabledProviders = oauthProviders.filter((provider) => isOAuthProviderEnabled(status, provider));
+
+  const startBinding = async (provider: OAuthProvider) => {
+    const providerName = getOAuthProviderMeta(provider).label;
+    setBindingProvider(provider);
     try {
       const response = await api.getOAuthState({
-        provider: 'github',
+        provider,
         mode: 'bind',
         redirectTo: '/console/personal',
       });
       window.location.assign(response.data.authorizeUrl);
     } catch (error) {
-      Toast.error(error instanceof Error ? error.message : '发起 GitHub 绑定失败');
+      Toast.error(error instanceof Error ? error.message : `发起 ${providerName} 绑定失败`);
     } finally {
-      setBinding(false);
+      setBindingProvider(null);
     }
   };
 
-  const confirmUnbind = (provider: 'github') => {
+  const confirmUnbind = (provider: OAuthProvider) => {
+    const providerName = getOAuthProviderMeta(provider).label;
     Modal.confirm({
       title: '确认解绑',
-      content: `确定要解绑 ${githubProviderName} 吗？`,
+      content: `确定要解绑 ${providerName} 吗？`,
       okText: '确认',
       cancelText: '取消',
       onOk: async () => {
@@ -95,83 +88,102 @@ export default function OAuthBindingCard() {
     <Card title={<span><IconLink /> 第三方账号</span>} bordered={false} className="dashboard-card">
       <Space vertical align="start" style={{ width: '100%' }}>
         <Typography.Text type="tertiary">绑定状态</Typography.Text>
-        <div className="oauth-binding-row">
-          <div className="oauth-binding-main">
-            <Avatar color="indigo" size="small">
-              <IconGithubLogo />
-            </Avatar>
-            <div className="oauth-binding-text">
-              <strong>{githubProviderName}</strong>
-              <span>
-                {loading
-                  ? '加载中'
-                  : githubEnabled
-                    ? githubBinding
-                      ? githubBinding.displayName || githubBinding.email || githubBinding.providerUserId
-                      : '未绑定'
-                    : '未启用'}
-              </span>
-            </div>
-          </div>
-          <div className="oauth-binding-actions">
-            {githubEnabled ? (
-              githubBinding ? (
-                <>
-                  <Tag color={getProviderBadgeColor(githubBinding.provider)}>已绑定</Tag>
-                  <Button
-                    type="danger"
-                    loading={unbindingProvider === 'github'}
-                    onClick={() => confirmUnbind('github')}
-                  >
-                    解绑
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Tag color="grey">未绑定</Tag>
-                  <Button theme="solid" type="primary" loading={binding} onClick={() => void startGitHubBinding()}>
-                    绑定 GitHub
-                  </Button>
-                </>
-              )
-            ) : (
-              <Tag color="grey">系统未启用</Tag>
-            )}
-          </div>
-        </div>
+        <div className="oauth-binding-stack" style={{ width: '100%' }}>
+          {oauthProviders.map((provider) => {
+            const providerMeta = getOAuthProviderMeta(provider);
+            const providerEnabled = isOAuthProviderEnabled(status, provider);
+            const binding = bindingsByProvider.get(provider) ?? null;
 
-        {githubBinding ? (
-          <div className="oauth-binding-meta">
-            <div>
-              <Typography.Text type="tertiary">显示名</Typography.Text>
-              <Typography.Paragraph>{githubBinding.displayName || '-'}</Typography.Paragraph>
-            </div>
-            <div>
-              <Typography.Text type="tertiary">绑定邮箱</Typography.Text>
-              <Typography.Paragraph>{githubBinding.email || '-'}</Typography.Paragraph>
-            </div>
-            <div>
-              <Typography.Text type="tertiary">Provider ID</Typography.Text>
-              <Typography.Paragraph>{githubBinding.providerUserId}</Typography.Paragraph>
-            </div>
-            <div>
-              <Typography.Text type="tertiary">绑定时间</Typography.Text>
-              <Typography.Paragraph>{formatDateTime(githubBinding.createdAt)}</Typography.Paragraph>
-            </div>
-          </div>
-        ) : (
-          <Typography.Text type="tertiary">
-            绑定后可以直接用 GitHub 完成登录，也方便后续补更多第三方登录方式。
-          </Typography.Text>
-        )}
+            return (
+              <div key={provider} className="oauth-binding-panel">
+                <div className="oauth-binding-row">
+                  <div className="oauth-binding-main">
+                    <Avatar color={providerMeta.avatarColor} size="small">
+                      {providerMeta.avatarContent}
+                    </Avatar>
+                    <div className="oauth-binding-text">
+                      <strong>{providerMeta.label}</strong>
+                      <span>
+                        {loading
+                          ? '加载中'
+                          : providerEnabled
+                            ? binding
+                              ? binding.displayName || binding.email || binding.providerUserId
+                              : '未绑定'
+                            : '未启用'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="oauth-binding-actions">
+                    {providerEnabled ? (
+                      binding ? (
+                        <>
+                          <Tag color={providerMeta.tagColor}>已绑定</Tag>
+                          <Button
+                            type="danger"
+                            loading={unbindingProvider === provider}
+                            onClick={() => confirmUnbind(provider)}
+                          >
+                            解绑
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Tag color="grey">未绑定</Tag>
+                          <Button
+                            theme="solid"
+                            type="primary"
+                            loading={bindingProvider === provider}
+                            onClick={() => void startBinding(provider)}
+                          >
+                            绑定 {providerMeta.label}
+                          </Button>
+                        </>
+                      )
+                    ) : (
+                      <Tag color="grey">系统未启用</Tag>
+                    )}
+                  </div>
+                </div>
+
+                {binding ? (
+                  <div className="oauth-binding-meta">
+                    <div>
+                      <Typography.Text type="tertiary">显示名</Typography.Text>
+                      <Typography.Paragraph>{binding.displayName || '-'}</Typography.Paragraph>
+                    </div>
+                    <div>
+                      <Typography.Text type="tertiary">绑定邮箱</Typography.Text>
+                      <Typography.Paragraph>{binding.email || '-'}</Typography.Paragraph>
+                    </div>
+                    <div>
+                      <Typography.Text type="tertiary">Provider ID</Typography.Text>
+                      <Typography.Paragraph>{binding.providerUserId}</Typography.Paragraph>
+                    </div>
+                    <div>
+                      <Typography.Text type="tertiary">绑定时间</Typography.Text>
+                      <Typography.Paragraph>{formatDateTime(binding.createdAt)}</Typography.Paragraph>
+                    </div>
+                  </div>
+                ) : (
+                  <Typography.Text type="tertiary">
+                    {providerEnabled
+                      ? `绑定后可以直接用 ${providerMeta.label} 完成登录。`
+                      : `${providerMeta.label} 尚未在系统中启用。`}
+                  </Typography.Text>
+                )}
+              </div>
+            );
+          })}
+        </div>
 
         <Space>
           <Button icon={<IconRefresh />} loading={loading} onClick={() => void loadBindings()}>
             刷新状态
           </Button>
-          {!githubEnabled ? (
+          {enabledProviders.length === 0 ? (
             <Button icon={<IconUser />} disabled>
-              管理员尚未配置 GitHub 登录
+              管理员尚未配置第三方登录
             </Button>
           ) : null}
         </Space>
@@ -179,4 +191,3 @@ export default function OAuthBindingCard() {
     </Card>
   );
 }
-

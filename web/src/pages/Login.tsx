@@ -5,7 +5,8 @@ import { browserSupportsWebAuthn, startAuthentication } from '@simplewebauthn/br
 
 import { StatusContext } from '../context/Status';
 import { UserContext } from '../context/User';
-import { api } from '../lib/api';
+import { api, type OAuthProvider } from '../lib/api';
+import { getOAuthProviderMeta, isOAuthProviderEnabled, oauthProviders } from '../lib/oauth';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -14,7 +15,7 @@ export default function LoginPage() {
   const { status } = useContext(StatusContext);
   const [loading, setLoading] = useState(false);
   const [passkeyLoading, setPasskeyLoading] = useState(false);
-  const [githubLoading, setGithubLoading] = useState(false);
+  const [oauthLoadingProvider, setOAuthLoadingProvider] = useState<OAuthProvider | null>(null);
   const [browserSupportsPasskey, setBrowserSupportsPasskey] = useState(false);
   const [challengeEmail, setChallengeEmail] = useState<string | null>(null);
   const [postLoginRedirectTo, setPostLoginRedirectTo] = useState<string | null>(null);
@@ -24,7 +25,7 @@ export default function LoginPage() {
   }, []);
 
   const passkeyEnabled = status?.passkey?.enabled === true;
-  const githubOAuthEnabled = status?.oauth?.github?.enabled === true;
+  const enabledOAuthProviders = oauthProviders.filter((provider) => isOAuthProviderEnabled(status, provider));
   const redirectFromRouteState = (() => {
     const state = location.state;
 
@@ -55,15 +56,16 @@ export default function LoginPage() {
     }
   }, [location.state, navigate]);
 
-  const loginWithGitHub = async () => {
-    setGithubLoading(true);
+  const loginWithOAuthProvider = async (provider: OAuthProvider) => {
+    const providerName = getOAuthProviderMeta(provider).label;
+    setOAuthLoadingProvider(provider);
     try {
-      const response = await api.getOAuthState({ provider: 'github', redirectTo });
+      const response = await api.getOAuthState({ provider, redirectTo });
       window.location.assign(response.data.authorizeUrl);
     } catch (error) {
-      Toast.error(error instanceof Error ? error.message : 'GitHub 登录失败');
+      Toast.error(error instanceof Error ? error.message : `${providerName} 登录失败`);
     } finally {
-      setGithubLoading(false);
+      setOAuthLoadingProvider(null);
     }
   };
 
@@ -90,7 +92,11 @@ export default function LoginPage() {
     <main className="auth-page">
       <Card className="auth-card" bordered={false}>
         <Typography.Title heading={3}>登录</Typography.Title>
-        <Typography.Paragraph type="tertiary">使用本地账号进入 NodEW-api 控制台。</Typography.Paragraph>
+        <Typography.Paragraph type="tertiary">
+          {enabledOAuthProviders.length > 0
+            ? '使用本地账号或第三方账号进入 NodEW-api 控制台。'
+            : '使用本地账号进入 NodEW-api 控制台。'}
+        </Typography.Paragraph>
         {!challengeEmail && passkeyEnabled && browserSupportsPasskey ? (
           <div style={{ marginBottom: 16 }}>
             <Button theme="solid" type="primary" loading={passkeyLoading} onClick={() => void loginWithPasskey()} block>
@@ -152,20 +158,24 @@ export default function LoginPage() {
           >
             <Form.Input field="email" label="邮箱" placeholder="test@test.com" rules={[{ required: true }]} />
             <Form.Input field="password" label="密码" mode="password" rules={[{ required: true }]} />
-            {githubOAuthEnabled ? (
-              <div style={{ marginBottom: 12 }}>
-                <Button
-                  theme="light"
-                  type="primary"
-                  htmlType="button"
-                  loading={githubLoading}
-                  onClick={() => void loginWithGitHub()}
-                  block
-                >
-                  使用 GitHub 登录
-                </Button>
-              </div>
-            ) : null}
+            {enabledOAuthProviders.map((provider) => {
+              const providerName = getOAuthProviderMeta(provider).label;
+
+              return (
+                <div key={provider} style={{ marginBottom: 12 }}>
+                  <Button
+                    theme="light"
+                    type="primary"
+                    htmlType="button"
+                    loading={oauthLoadingProvider === provider}
+                    onClick={() => void loginWithOAuthProvider(provider)}
+                    block
+                  >
+                    使用 {providerName} 登录
+                  </Button>
+                </div>
+              );
+            })}
             <div className="auth-actions">
               <Button htmlType="submit" theme="solid" loading={loading} block>登录</Button>
             </div>

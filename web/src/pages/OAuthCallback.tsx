@@ -4,8 +4,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { UserContext } from '../context/User';
 import { api, type OAuthProvider } from '../lib/api';
-
-const isOAuthProvider = (value: string | undefined): value is OAuthProvider => value === 'github' || value === 'discord' || value === 'linuxdo';
+import { isOAuthProvider } from '../lib/oauth';
 
 export default function OAuthCallbackPage() {
   const navigate = useNavigate();
@@ -83,4 +82,3 @@ export default function OAuthCallbackPage() {
     </main>
   );
 }
-
