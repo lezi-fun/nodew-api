@@ -92,6 +92,25 @@ Behavior notes:
 - Paid webhooks credit quota exactly once, even when Stripe retries the same event.
 - Expired or failed Checkout events mark pending orders as no longer payable.
 
+## Creem wallet top-up catalog
+
+Creem wallet top-up uses fixed products created in Creem. The current configuration layer exposes readiness and the safe product catalog to signed-in users; checkout creation and webhook settlement are implemented in later top-up steps.
+
+| Variable | Required | Description |
+| --- | --- | --- |
+| `APP_BASE_URL` | Yes when Creem top-up is enabled | Public console URL used by later checkout redirects. |
+| `CREEM_TOPUP_ENABLED` | No | Enables the wallet Creem readiness state when set to `true`. Defaults to `false`. |
+| `CREEM_API_KEY` | Yes when enabled | Creem API key used by the later checkout creation endpoint. Never returned to clients. |
+| `CREEM_WEBHOOK_SECRET` | Yes for webhook settlement | Creem webhook signing secret. Never returned to clients. |
+| `CREEM_TEST_MODE` | No | Switches later Creem API calls to the test endpoint. Defaults to `false`. |
+| `CREEM_PRODUCTS` | Yes when enabled | JSON array of fixed products, for example `[{"productId":"prod_xxx","name":"100k quota","quotaAmount":100000,"amountCents":1000,"currency":"usd"}]`. |
+
+Behavior notes:
+
+- `GET /api/user/topup/creem/config` returns only non-sensitive configuration status and normalized products.
+- Product entries accept `productId` or `product_id`, `quotaAmount` or `quota`, and either `amountCents`, `priceCents`, or decimal `price`.
+- Invalid product JSON is treated as an empty catalog, so Creem top-up is not reported as configured.
+
 ## Daily check-in
 
 Daily check-in settings are stored in system options rather than environment variables.

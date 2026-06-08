@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
+import { getCreemTopUpConfig } from '../../lib/creem.js';
 import { prisma } from '../../lib/prisma.js';
 import {
   createStripeCheckoutSession,
@@ -130,6 +131,12 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
     preHandler: app.requireUser,
   }, async () => ({
     item: getStripeTopUpConfig(),
+  }));
+
+  app.get('/user/topup/creem/config', {
+    preHandler: app.requireUser,
+  }, async () => ({
+    item: getCreemTopUpConfig(),
   }));
 
   app.post('/user/topup/stripe/checkout', {

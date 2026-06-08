@@ -174,6 +174,17 @@ STRIPE_MIN_UNITS=1
 
 Configure the Stripe webhook endpoint as `https://your-domain.example/api/user/topup/stripe/webhook`. The backend handles `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.expired`, and `checkout.session.async_payment_failed`, and webhook delivery is idempotent for paid orders.
 
+Creem wallet top-up product configuration can also be prepared with environment variables. This currently exposes the configured product catalog and readiness status to the wallet page; the payment-session endpoint and webhook settlement are tracked as the next implementation steps.
+
+```bash
+APP_BASE_URL="https://your-domain.example"
+CREEM_TOPUP_ENABLED=true
+CREEM_API_KEY="creem_xxx"
+CREEM_WEBHOOK_SECRET="creem_whsec_xxx"
+CREEM_TEST_MODE=false
+CREEM_PRODUCTS='[{"productId":"prod_xxx","name":"100k quota","quotaAmount":100000,"amountCents":1000,"currency":"usd"}]'
+```
+
 Prepare Prisma:
 
 ```bash

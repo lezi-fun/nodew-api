@@ -4,7 +4,7 @@ import { useCallback, useContext, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { UserContext } from '../context/User';
-import { api, type PricingInfo, type StripeTopUpConfig } from '../lib/api';
+import { api, type CreemTopUpConfig, type PricingInfo, type StripeTopUpConfig } from '../lib/api';
 import { formatDateTime, formatQuota } from '../lib/format';
 
 const fallbackPricing: PricingInfo = {
@@ -45,6 +45,14 @@ const fallbackStripeConfig: StripeTopUpConfig = {
   minUnits: 1,
 };
 
+const fallbackCreemConfig: CreemTopUpConfig = {
+  enabled: false,
+  configured: false,
+  webhookConfigured: false,
+  testMode: false,
+  products: [],
+};
+
 export default function TopUpPage() {
   const { user, refresh } = useContext(UserContext);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -55,17 +63,20 @@ export default function TopUpPage() {
   const [stripeConfig, setStripeConfig] = useState<StripeTopUpConfig>(fallbackStripeConfig);
   const [stripeUnits, setStripeUnits] = useState('1');
   const [stripeLoading, setStripeLoading] = useState(false);
+  const [creemConfig, setCreemConfig] = useState<CreemTopUpConfig>(fallbackCreemConfig);
 
   const loadPricing = useCallback(async () => {
     setPricingLoading(true);
     try {
-      const [pricingResponse, stripeResponse] = await Promise.all([
+      const [pricingResponse, stripeResponse, creemResponse] = await Promise.all([
         api.getPricing(),
         api.getStripeTopUpConfig(),
+        api.getCreemTopUpConfig(),
       ]);
       const minUnits = Math.max(1, stripeResponse.item.minUnits);
       setPricing(pricingResponse.data);
       setStripeConfig(stripeResponse.item);
+      setCreemConfig(creemResponse.item);
       setStripeUnits((current) => {
         const parsed = Number(current);
         return Number.isInteger(parsed) && parsed >= minUnits ? current : String(minUnits);
@@ -237,8 +248,14 @@ export default function TopUpPage() {
                 <div key={method.key} className="wallet-payment-card">
                   <div>
                     <strong>{method.name}</strong>
-                    <Tag color={method.key === 'stripe' && stripeConfig.enabled ? 'green' : 'grey'}>
-                      {method.key === 'stripe' && stripeConfig.enabled ? '已启用' : '待接入'}
+                    <Tag color={(
+                      (method.key === 'stripe' && stripeConfig.enabled) ||
+                      (method.key === 'creem' && creemConfig.enabled)
+                    ) ? 'green' : 'grey'}>
+                      {(
+                        (method.key === 'stripe' && stripeConfig.enabled) ||
+                        (method.key === 'creem' && creemConfig.enabled)
+                      ) ? '已配置' : '待接入'}
                     </Tag>
                   </div>
                   <Typography.Text type="tertiary">{method.description}</Typography.Text>
@@ -265,7 +282,14 @@ export default function TopUpPage() {
                       </Button>
                     </div>
                   ) : (
-                    <Button theme="light" onClick={() => showPaymentPending(method.name)}>查看状态</Button>
+                    <>
+                      {method.key === 'creem' && creemConfig.configured && (
+                        <Typography.Text type="tertiary">
+                          已配置 {creemConfig.products.length} 个固定金额产品，支付会话下一步接入
+                        </Typography.Text>
+                      )}
+                      <Button theme="light" onClick={() => showPaymentPending(method.name)}>查看状态</Button>
+                    </>
                   )}
                 </div>
               ))}

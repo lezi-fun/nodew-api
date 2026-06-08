@@ -55,6 +55,11 @@ const envSchema = z.object({
   STRIPE_QUOTA_PER_UNIT: z.coerce.number().int().positive().default(100000),
   STRIPE_UNIT_AMOUNT_CENTS: z.coerce.number().int().positive().default(100),
   STRIPE_MIN_UNITS: z.coerce.number().int().positive().default(1),
+  CREEM_TOPUP_ENABLED: booleanStringSchema.default(false),
+  CREEM_API_KEY: z.string().min(1).optional(),
+  CREEM_WEBHOOK_SECRET: z.string().min(1).optional(),
+  CREEM_TEST_MODE: booleanStringSchema.default(false),
+  CREEM_PRODUCTS: z.string().default('[]'),
 });
 
 export const parseEnv = (input: NodeJS.ProcessEnv = process.env) => {

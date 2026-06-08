@@ -347,6 +347,22 @@ export type StripeTopUpConfig = {
   minUnits: number;
 };
 
+export type CreemTopUpProduct = {
+  productId: string;
+  name: string;
+  quotaAmount: number;
+  amountCents: number;
+  currency: string;
+};
+
+export type CreemTopUpConfig = {
+  enabled: boolean;
+  configured: boolean;
+  webhookConfigured: boolean;
+  testMode: boolean;
+  products: CreemTopUpProduct[];
+};
+
 export type TopUpOrder = {
   id: string;
   status: 'PENDING' | 'PAID' | 'CANCELED' | 'EXPIRED' | 'FAILED';
@@ -849,6 +865,8 @@ export const api = {
     (await client.post<{ user: CurrentUser }>('/api/user/redemption/redeem', payload)).data,
   getStripeTopUpConfig: async () =>
     (await client.get<{ item: StripeTopUpConfig }>('/api/user/topup/stripe/config')).data,
+  getCreemTopUpConfig: async () =>
+    (await client.get<{ item: CreemTopUpConfig }>('/api/user/topup/creem/config')).data,
   createStripeCheckout: async (payload: { units: number }) =>
     (await client.post<{ success: boolean; checkoutUrl: string; order: TopUpOrder }>('/api/user/topup/stripe/checkout', payload)).data,
   updateRedemption: async (id: string, payload: RedemptionUpdatePayload) =>
