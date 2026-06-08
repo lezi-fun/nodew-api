@@ -86,13 +86,13 @@ The web console uses the backend authentication APIs for login, registration, se
 
 ### Third-party login routes
 
-- `GET /api/oauth/state?provider=github|discord|linuxdo|oidc` creates a signed OAuth state cookie and returns the provider authorize URL.
+- `GET /api/oauth/state?provider=github|discord|linuxdo|oidc|{custom-slug}` creates a signed OAuth state cookie and returns the provider authorize URL.
 - `GET /api/oauth/:provider` consumes the OAuth callback, logs in an existing binding, creates a user when registration is enabled, or binds the identity when the request already carries an authenticated session.
 - `GET /api/user/oauth/bindings` returns the current user's bound third-party accounts.
 - `DELETE /api/user/oauth/bindings/:provider` removes the current user's provider binding.
 - `GET /api/users/:id/oauth/bindings` returns a specific user's bound third-party accounts for admin inspection.
 - `DELETE /api/users/:id/oauth/bindings/:provider` removes a specific user's provider binding from the admin console.
-- Supported providers are `github`, `discord`, `linuxdo`, and `oidc`.
+- Supported providers are `github`, `discord`, `linuxdo`, `oidc`, and enabled custom provider slugs.
 - `GET /api/options/oauth/status` returns admin-only OAuth configuration status.
 - `GET /api/options/oauth/config` returns the editable OIDC OAuth configuration.
 - `PUT /api/options/oauth/config` saves the editable OIDC OAuth configuration.
@@ -102,6 +102,7 @@ The web console uses the backend authentication APIs for login, registration, se
 - `PUT /api/options/oauth/custom-providers/:id` updates a custom OAuth provider configuration.
 - `DELETE /api/options/oauth/custom-providers/:id` deletes a custom OAuth provider configuration.
 - `POST /api/options/oauth/custom-providers/discover` fetches endpoints for a custom OAuth provider from a Well-Known discovery URL.
+- Custom provider configuration fields are used by the runtime callback flow: field mappings extract user info, `authStyle` controls token credential delivery, and `accessPolicy` can reject accounts before login or binding.
 
 ### Email binding routes
 

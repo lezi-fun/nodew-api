@@ -43,8 +43,8 @@ NodEW-api 使用 Fastify、Prisma、TypeScript、React、Vite 和 Semi UI 构建
 - 令牌管理，支持额度、过期时间、模型 allow/block 策略。
 - 账号安全流程，包含邮箱验证、密码重置、2FA、Passkey 和会话管理。
 - 个人页支持已登录状态下的邮箱换绑，既可以点邮件链接，也可以输入验证码完成。
-- GitHub、Discord、LinuxDO、OIDC 第三方登录闭环，包含回调处理、自动建号以及已登录会话下的绑定模式。
-- 管理后台可维护自定义 OAuth provider 配置列表，为后续通用登录流接入做准备。
+- GitHub、Discord、LinuxDO、OIDC 和后台自定义 OAuth provider 第三方登录闭环，包含回调处理、自动建号以及已登录会话下的绑定模式。
+- 管理后台可维护自定义 OAuth provider 配置，并在运行时执行字段映射、token 鉴权方式和访问策略校验。
 - 个人页第三方账号绑定状态展示，以及用户自助解绑能力。
 - 管理员侧查看和解绑用户第三方账号绑定。
 - 每日签到，支持后台配置随机奖励区间、月历记录和连签统计。
@@ -154,6 +154,8 @@ OIDC_OAUTH_SCOPE="openid profile email"
 ```
 
 某个 provider 配置完整后，登录页会显示对应入口，后端会开放 `/api/oauth/state` 和 `/api/oauth/:provider` 回调链路。当前回调逻辑也支持已登录 session 下的绑定模式。OIDC userinfo 必须返回 `sub` 和 `email`；如果提供了 `preferred_username`、`name`、`picture`、`email_verified`，系统会一并使用。后台设置页可以保存 OIDC client 凭据和端点，也可以通过 Well-Known discovery 文档自动获取端点。
+
+自定义 OAuth provider 在后台设置页配置，回调地址为 `/oauth/{slug}`。字段映射支持 `data.user.id` 这类点路径，也支持 `groups[0]` 这类数组索引。访问策略既可以写成单条件，例如 `{"field":"groups","operator":"contains","value":"staff"}`，也可以写成包含 `logic`、`conditions`、`groups` 的组合策略。支持的操作符包括 `eq`、`ne`、`gt`、`gte`、`lt`、`lte`、`in`、`not_in`、`contains`、`not_contains`、`exists`、`not_exists`。
 
 准备 Prisma：
 

@@ -6,7 +6,7 @@ import { browserSupportsWebAuthn, startAuthentication } from '@simplewebauthn/br
 import { StatusContext } from '../context/Status';
 import { UserContext } from '../context/User';
 import { api, type OAuthProvider } from '../lib/api';
-import { getOAuthProviderMeta, isOAuthProviderEnabled, oauthProviders } from '../lib/oauth';
+import { getEnabledOAuthProviders, getOAuthProviderMeta } from '../lib/oauth';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -25,7 +25,7 @@ export default function LoginPage() {
   }, []);
 
   const passkeyEnabled = status?.passkey?.enabled === true;
-  const enabledOAuthProviders = oauthProviders.filter((provider) => isOAuthProviderEnabled(status, provider));
+  const enabledOAuthProviders = getEnabledOAuthProviders(status);
   const redirectFromRouteState = (() => {
     const state = location.state;
 
@@ -57,7 +57,7 @@ export default function LoginPage() {
   }, [location.state, navigate]);
 
   const loginWithOAuthProvider = async (provider: OAuthProvider) => {
-    const providerName = getOAuthProviderMeta(provider).label;
+    const providerName = getOAuthProviderMeta(provider, status).label;
     setOAuthLoadingProvider(provider);
     try {
       const response = await api.getOAuthState({ provider, redirectTo });
@@ -159,7 +159,7 @@ export default function LoginPage() {
             <Form.Input field="email" label="邮箱" placeholder="test@test.com" rules={[{ required: true }]} />
             <Form.Input field="password" label="密码" mode="password" rules={[{ required: true }]} />
             {enabledOAuthProviders.map((provider) => {
-              const providerName = getOAuthProviderMeta(provider).label;
+              const providerName = getOAuthProviderMeta(provider, status).label;
 
               return (
                 <div key={provider} style={{ marginBottom: 12 }}>

@@ -56,12 +56,14 @@ NodEW-api 通过环境变量读取运行配置。
 
 行为说明：
 
-- 回调地址固定为 `APP_BASE_URL` 下的 `/oauth/github`、`/oauth/discord`、`/oauth/linuxdo`、`/oauth/oidc`。
+- 回调地址固定为 `APP_BASE_URL` 下的 `/oauth/github`、`/oauth/discord`、`/oauth/linuxdo`、`/oauth/oidc`，自定义 provider 使用 `/oauth/{slug}`。
 - `GET /api/oauth/state` 会创建签名 state cookie，并返回跳转用的授权地址。
 - `GET /api/oauth/:provider` 会消费回调结果；当注册开启时可自动创建账号；如果请求本身已经带有登录态，则会进入绑定模式。
 - OIDC userinfo 必须返回 `sub` 和 `email`；如果提供了 `preferred_username`、`name`、`picture`、`email_verified`，系统会一并使用。
 - 管理员可以在设置页保存 OIDC 凭据和端点。保存后的配置会覆盖环境变量默认值，并即时生效。
-- 设置页也会保存自定义 OAuth provider 配置列表，包含 provider 元信息、端点、字段映射和访问策略占位；通用登录流会在后续步骤接入。
+- 设置页也会保存自定义 OAuth provider 配置。自定义 provider 会按配置的 token 鉴权方式换取 token，在运行时映射 userinfo 字段，并在登录或绑定成功前执行访问策略。
+- 自定义 provider 字段映射支持 `data.user.id` 这类点路径，也支持 `groups[0]` 这类数组索引。
+- 访问策略既可以写成单条件，例如 `{"field":"groups","operator":"contains","value":"staff"}`，也可以写成包含 `logic`、`conditions`、`groups` 的组合策略。支持的操作符包括 `eq`、`ne`、`gt`、`gte`、`lt`、`lte`、`in`、`not_in`、`contains`、`not_contains`、`exists`、`not_exists`。
 
 ## 对象存储
 

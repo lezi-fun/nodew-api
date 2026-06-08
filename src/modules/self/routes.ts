@@ -3,6 +3,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 
 import { hashPassword, verifyPassword } from '../../lib/crypto.js';
+import { listCustomOAuthProviderSummaries } from '../../lib/oauth-config.js';
 import { oauthProviderSchema } from '../../lib/oauth.js';
 import { getOAuthProviderDisplayName } from '../../lib/oauth.js';
 import { prisma } from '../../lib/prisma.js';
@@ -100,9 +101,9 @@ const serializeOAuthBinding = (binding: {
   avatarUrl: string | null;
   createdAt: Date;
   updatedAt: Date;
-}) => ({
+}, providerDisplayNames = new Map<string, string>()) => ({
   ...binding,
-  providerName: getOAuthProviderDisplayName(binding.provider),
+  providerName: providerDisplayNames.get(binding.provider) ?? getOAuthProviderDisplayName(binding.provider),
 });
 
 const resolveTwoFAIssuer = async () => {
@@ -463,9 +464,12 @@ const selfRoutes: FastifyPluginAsync = async (app) => {
       orderBy: [{ createdAt: 'asc' }],
       select: oauthBindingSelect,
     });
+    const providerDisplayNames = new Map(
+      (await listCustomOAuthProviderSummaries()).map((provider) => [provider.slug, provider.name]),
+    );
 
     return {
-      items: bindings.map(serializeOAuthBinding),
+      items: bindings.map((binding) => serializeOAuthBinding(binding, providerDisplayNames)),
     };
   });
 

@@ -3,6 +3,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 
 import { generateAccessToken, hashPassword } from '../../../lib/crypto.js';
+import { listCustomOAuthProviderSummaries } from '../../../lib/oauth-config.js';
 import { getOAuthProviderDisplayName, oauthProviderSchema } from '../../../lib/oauth.js';
 import { prisma } from '../../../lib/prisma.js';
 import { updateUserPassword } from '../../auth/password-reset.js';
@@ -136,9 +137,9 @@ const serializeOAuthBinding = (binding: {
   avatarUrl: string | null;
   createdAt: Date;
   updatedAt: Date;
-}) => ({
+}, providerDisplayNames = new Map<string, string>()) => ({
   ...binding,
-  providerName: getOAuthProviderDisplayName(binding.provider),
+  providerName: providerDisplayNames.get(binding.provider) ?? getOAuthProviderDisplayName(binding.provider),
 });
 
 const ensureGroupExists = async (groupId: string | null | undefined) => {
@@ -235,9 +236,12 @@ const usersRoutes: FastifyPluginAsync = async (app) => {
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       select: oauthBindingSelect,
     });
+    const providerDisplayNames = new Map(
+      (await listCustomOAuthProviderSummaries()).map((provider) => [provider.slug, provider.name]),
+    );
 
     return {
-      items: bindings.map(serializeOAuthBinding),
+      items: bindings.map((binding) => serializeOAuthBinding(binding, providerDisplayNames)),
     };
   });
 

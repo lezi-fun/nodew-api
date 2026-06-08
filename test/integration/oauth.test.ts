@@ -152,6 +152,54 @@ const withOIDCOAuthEnv = () => {
   };
 };
 
+const withCustomOAuthBaseEnv = () => {
+  const previous = {
+    appBaseUrl: process.env.APP_BASE_URL,
+  };
+
+  process.env.APP_BASE_URL = 'http://127.0.0.1:3000';
+
+  return () => {
+    if (previous.appBaseUrl === undefined) {
+      delete process.env.APP_BASE_URL;
+    } else {
+      process.env.APP_BASE_URL = previous.appBaseUrl;
+    }
+  };
+};
+
+const seedCustomOAuthProvider = async (overrides: Partial<Record<string, unknown>> = {}) => {
+  await prisma.systemOption.create({
+    data: {
+      key: 'oauth_custom_providers',
+      value: JSON.stringify([
+        {
+          id: 'custom_test_idp',
+          name: 'Example IdP',
+          slug: 'example-idp',
+          icon: 'E',
+          enabled: true,
+          clientId: 'example-client-id',
+          clientSecret: 'example-client-secret',
+          authorizationUrl: 'https://id.example.test/oauth2/authorize',
+          tokenUrl: 'https://id.example.test/oauth2/token',
+          userInfoUrl: 'https://id.example.test/oauth2/userinfo',
+          scopes: 'openid profile email',
+          userIdField: 'data.user.id',
+          usernameField: 'data.user.login',
+          displayNameField: 'data.user.name',
+          emailField: 'data.user.email',
+          wellKnownUrl: '',
+          authStyle: 0,
+          accessPolicy: '',
+          accessDeniedMessage: '',
+          ...overrides,
+        },
+      ]),
+    },
+  });
+};
+
 const enableRegistration = async () => {
   await prisma.setupState.create({
     data: {
@@ -647,6 +695,193 @@ describe('oauth linuxdo integration', () => {
         displayName: 'LinuxDO User',
         refreshToken: 'linuxdo-refresh-token',
       });
+    } finally {
+      restoreEnv();
+      await closeTestApp(app);
+    }
+  });
+});
+
+describe('custom oauth provider integration', () => {
+  it('publishes enabled custom providers and creates an authorize url', async () => {
+    const restoreEnv = withCustomOAuthBaseEnv();
+    await seedCustomOAuthProvider();
+    const app = await createTestApp();
+
+    try {
+      const statusResponse = await app.inject({
+        method: 'GET',
+        url: '/api/status',
+      });
+
+      expect(statusResponse.statusCode).toBe(200);
+      expect(statusResponse.json().oauth.customProviders).toEqual([
+        {
+          id: 'custom_test_idp',
+          name: 'Example IdP',
+          slug: 'example-idp',
+          icon: 'E',
+          enabled: true,
+        },
+      ]);
+
+      const stateResponse = await app.inject({
+        method: 'GET',
+        url: '/api/oauth/state?provider=example-idp&redirectTo=/console',
+      });
+
+      expect(stateResponse.statusCode).toBe(200);
+      expect(stateResponse.json()).toMatchObject({
+        success: true,
+        data: {
+          state: expect.any(String),
+        },
+      });
+      expect(stateResponse.json().data.authorizeUrl).toContain('https://id.example.test/oauth2/authorize');
+      expect(stateResponse.json().data.authorizeUrl).toContain('client_id=example-client-id');
+      expect(stateResponse.json().data.authorizeUrl).toContain('response_type=code');
+      expect(stateResponse.json().data.authorizeUrl).toContain(encodeURIComponent('http://127.0.0.1:3000/oauth/example-idp'));
+      expect(extractCookieValue(stateResponse, 'nodew_oauth_state')).toBeTruthy();
+    } finally {
+      restoreEnv();
+      await closeTestApp(app);
+    }
+  });
+
+  it('maps custom provider user info fields and creates a user session', async () => {
+    const restoreEnv = withCustomOAuthBaseEnv();
+    await enableRegistration();
+    await seedCustomOAuthProvider({
+      accessPolicy: '{"field":"data.user.groups","operator":"contains","value":"staff"}',
+    });
+    const app = await createTestApp();
+
+    try {
+      const stateResponse = await app.inject({
+        method: 'GET',
+        url: '/api/oauth/state?provider=example-idp&redirectTo=/console',
+      });
+      const stateCookie = extractCookieValue(stateResponse, 'nodew_oauth_state');
+      const state = stateResponse.json().data.state as string;
+
+      mockFetchSequence([
+        {
+          body: {
+            access_token: 'custom-access-token',
+            token_type: 'Bearer',
+            scope: 'openid profile email',
+            refresh_token: 'custom-refresh-token',
+            expires_in: 3600,
+          },
+        },
+        {
+          body: {
+            data: {
+              user: {
+                id: 42,
+                login: 'custom_user',
+                name: 'Custom User',
+                email: 'custom-user@test.local',
+                groups: ['staff', 'users'],
+              },
+            },
+            email_verified: true,
+          },
+        },
+      ]);
+
+      const callbackResponse = await app.inject({
+        method: 'GET',
+        url: `/api/oauth/example-idp?code=oauth-code&state=${state}`,
+        cookies: {
+          nodew_oauth_state: stateCookie!,
+        },
+      });
+
+      expect(callbackResponse.statusCode).toBe(200);
+      expect(callbackResponse.json()).toMatchObject({
+        success: true,
+        action: 'login',
+        redirectTo: '/console',
+        user: {
+          email: 'custom-user@test.local',
+          username: 'custom_user',
+        },
+      });
+      expect(extractCookieValue(callbackResponse, 'nodew_session')).toBeTruthy();
+
+      const binding = await prisma.userOAuthBinding.findFirst({
+        where: {
+          provider: 'example-idp',
+          providerUserId: '42',
+        },
+      });
+
+      expect(binding).toMatchObject({
+        email: 'custom-user@test.local',
+        displayName: 'Custom User',
+        refreshToken: 'custom-refresh-token',
+      });
+    } finally {
+      restoreEnv();
+      await closeTestApp(app);
+    }
+  });
+
+  it('rejects custom provider callbacks when the access policy does not match', async () => {
+    const restoreEnv = withCustomOAuthBaseEnv();
+    await enableRegistration();
+    await seedCustomOAuthProvider({
+      accessPolicy: '{"field":"data.user.groups","operator":"contains","value":"staff"}',
+      accessDeniedMessage: '{{provider}} rejected {{current}}',
+    });
+    const app = await createTestApp();
+
+    try {
+      const stateResponse = await app.inject({
+        method: 'GET',
+        url: '/api/oauth/state?provider=example-idp&redirectTo=/console',
+      });
+      const stateCookie = extractCookieValue(stateResponse, 'nodew_oauth_state');
+      const state = stateResponse.json().data.state as string;
+
+      mockFetchSequence([
+        {
+          body: {
+            access_token: 'custom-access-token',
+            token_type: 'Bearer',
+          },
+        },
+        {
+          body: {
+            data: {
+              user: {
+                id: 'denied-user',
+                login: 'denied_user',
+                name: 'Denied User',
+                email: 'denied-user@test.local',
+                groups: ['guest'],
+              },
+            },
+          },
+        },
+      ]);
+
+      const callbackResponse = await app.inject({
+        method: 'GET',
+        url: `/api/oauth/example-idp?code=oauth-code&state=${state}`,
+        cookies: {
+          nodew_oauth_state: stateCookie!,
+        },
+      });
+
+      expect(callbackResponse.statusCode).toBe(403);
+      expect(callbackResponse.json().message).toBe('Example IdP rejected guest');
+      await expect(prisma.user.findUnique({
+        where: {
+          email: 'denied-user@test.local',
+        },
+      })).resolves.toBeNull();
     } finally {
       restoreEnv();
       await closeTestApp(app);

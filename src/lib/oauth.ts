@@ -15,19 +15,24 @@ const oauthStateSchema = z.object({
   issuedAt: z.number().int().nonnegative(),
 });
 
-export type OAuthProvider = 'github' | 'discord' | 'linuxdo' | 'oidc';
+export type BuiltinOAuthProvider = 'github' | 'discord' | 'linuxdo' | 'oidc';
+export type OAuthProvider = BuiltinOAuthProvider | (string & {});
 
-export const oauthProviderSchema = z.enum(['github', 'discord', 'linuxdo', 'oidc']);
+export const builtinOAuthProviderSchema = z.enum(['github', 'discord', 'linuxdo', 'oidc']);
+export const oauthProviderSchema = z.string().trim().min(1).max(64).regex(/^[a-z0-9-]+$/);
 
-const oauthProviderDisplayNames: Record<OAuthProvider, string> = {
+const oauthProviderDisplayNames: Record<BuiltinOAuthProvider, string> = {
   github: 'GitHub',
   discord: 'Discord',
   linuxdo: 'LinuxDO',
   oidc: 'OIDC',
 };
 
+export const isBuiltinOAuthProvider = (provider: string): provider is BuiltinOAuthProvider =>
+  builtinOAuthProviderSchema.safeParse(provider).success;
+
 export const getOAuthProviderDisplayName = (provider: string) =>
-  oauthProviderSchema.safeParse(provider).success ? oauthProviderDisplayNames[provider as OAuthProvider] : provider;
+  isBuiltinOAuthProvider(provider) ? oauthProviderDisplayNames[provider] : provider;
 
 export type OAuthProviderConfig = {
   clientId: string;
@@ -90,7 +95,7 @@ export const readOAuthStateCookie = (request: FastifyRequest) => {
   }
 };
 
-export const getOAuthProviderConfig = (provider: OAuthProvider): OAuthProviderConfig | null => {
+export const getOAuthProviderConfig = (provider: BuiltinOAuthProvider): OAuthProviderConfig | null => {
   if (provider === 'github') {
     return {
       clientId: process.env.GITHUB_OAUTH_CLIENT_ID?.trim() || '',

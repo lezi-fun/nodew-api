@@ -4,7 +4,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { UserContext } from '../context/User';
 import { api, type OAuthProvider } from '../lib/api';
-import { isOAuthProvider } from '../lib/oauth';
+import { isOAuthProviderSlug } from '../lib/oauth';
 
 export default function OAuthCallbackPage() {
   const navigate = useNavigate();
@@ -17,7 +17,7 @@ export default function OAuthCallbackPage() {
 
   useEffect(() => {
     const run = async () => {
-      if (!isOAuthProvider(provider)) {
+      if (!isOAuthProviderSlug(provider)) {
         Toast.error('不支持的第三方登录类型');
         navigate('/login', { replace: true });
         return;
@@ -30,7 +30,7 @@ export default function OAuthCallbackPage() {
         const error = searchParams.get('error') ?? undefined;
         const errorDescription = searchParams.get('error_description') ?? undefined;
 
-        const result = await api.oauthCallback(provider, {
+        const result = await api.oauthCallback(provider as OAuthProvider, {
           code,
           state,
           error,

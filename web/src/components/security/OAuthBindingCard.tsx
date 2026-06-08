@@ -6,7 +6,7 @@ import { StatusContext } from '../../context/Status';
 import { UserContext } from '../../context/User';
 import { api, type OAuthBindingItem, type OAuthProvider } from '../../lib/api';
 import { formatDateTime } from '../../lib/format';
-import { getOAuthProviderMeta, isOAuthProviderEnabled, oauthProviders } from '../../lib/oauth';
+import { getEnabledOAuthProviders, getOAuthProviderMeta, isOAuthProviderEnabled, oauthProviders } from '../../lib/oauth';
 
 export default function OAuthBindingCard() {
   const { user } = useContext(UserContext);
@@ -43,10 +43,23 @@ export default function OAuthBindingCard() {
     [bindings],
   );
 
-  const enabledProviders = oauthProviders.filter((provider) => isOAuthProviderEnabled(status, provider));
+  const enabledProviders = getEnabledOAuthProviders(status);
+  const visibleProviders = useMemo(() => {
+    const providers = new Set<OAuthProvider>(oauthProviders);
+
+    for (const provider of enabledProviders) {
+      providers.add(provider);
+    }
+
+    for (const binding of bindings) {
+      providers.add(binding.provider);
+    }
+
+    return Array.from(providers);
+  }, [bindings, enabledProviders]);
 
   const startBinding = async (provider: OAuthProvider) => {
-    const providerName = getOAuthProviderMeta(provider).label;
+    const providerName = getOAuthProviderMeta(provider, status).label;
     setBindingProvider(provider);
     try {
       const response = await api.getOAuthState({
@@ -63,7 +76,7 @@ export default function OAuthBindingCard() {
   };
 
   const confirmUnbind = (provider: OAuthProvider) => {
-    const providerName = getOAuthProviderMeta(provider).label;
+    const providerName = getOAuthProviderMeta(provider, status).label;
     Modal.confirm({
       title: '确认解绑',
       content: `确定要解绑 ${providerName} 吗？`,
@@ -89,8 +102,8 @@ export default function OAuthBindingCard() {
       <Space vertical align="start" style={{ width: '100%' }}>
         <Typography.Text type="tertiary">绑定状态</Typography.Text>
         <div className="oauth-binding-stack" style={{ width: '100%' }}>
-          {oauthProviders.map((provider) => {
-            const providerMeta = getOAuthProviderMeta(provider);
+          {visibleProviders.map((provider) => {
+            const providerMeta = getOAuthProviderMeta(provider, status);
             const providerEnabled = isOAuthProviderEnabled(status, provider);
             const binding = bindingsByProvider.get(provider) ?? null;
 

@@ -87,6 +87,13 @@ export type AppStatus = ServiceStatus & {
     oidc?: {
       enabled: boolean;
     };
+    customProviders?: Array<{
+      id: string;
+      name: string;
+      slug: string;
+      icon: string;
+      enabled: boolean;
+    }>;
   };
 };
 
@@ -137,7 +144,8 @@ export type SecureVerificationResult = {
   verifiedUntil: string;
 };
 
-export type OAuthProvider = 'github' | 'discord' | 'linuxdo' | 'oidc';
+export type BuiltinOAuthProvider = 'github' | 'discord' | 'linuxdo' | 'oidc';
+export type OAuthProvider = BuiltinOAuthProvider | (string & {});
 
 export type OAuthStateResult = {
   success: true;

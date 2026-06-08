@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import { randomBytes } from 'node:crypto';
 
 import type { Prisma } from '@prisma/client';
@@ -5,10 +6,22 @@ import type { FastifyInstance, FastifyPluginAsync, FastifyReply } from 'fastify'
 import { z } from 'zod';
 
 import { generateAccessToken, hashPassword } from '../../lib/crypto.js';
-import { getEffectiveOAuthProviderConfig } from '../../lib/oauth-config.js';
+import {
+  getEffectiveOAuthProviderConfig,
+  getEnabledCustomOAuthProviderBySlug,
+  type CustomOAuthProviderConfig,
+} from '../../lib/oauth-config.js';
+import {
+  evaluateOAuthAccessPolicy,
+  formatOAuthAccessDeniedMessage,
+  parseOAuthAccessPolicy,
+  readJsonPath,
+  readJsonPathString,
+} from '../../lib/oauth-access-policy.js';
 import {
   clearOAuthStateCookie,
   generateOAuthState,
+  isBuiltinOAuthProvider,
   oauthProviderSchema,
   readOAuthStateCookie,
   setOAuthStateCookie,
@@ -107,6 +120,11 @@ type OIDCTokenResponse = {
   error_description?: string;
 };
 
+type CustomOAuthTokenResponse = OAuthTokenResult & {
+  error?: string;
+  error_description?: string;
+};
+
 type OIDCUserResponse = {
   sub?: string;
   preferred_username?: string | null;
@@ -135,6 +153,8 @@ type OAuthUserProfile = {
 };
 
 const toOAuthMetadata = (metadata: Record<string, string | number | boolean | null>): Prisma.InputJsonObject => metadata;
+
+class OAuthAccessDeniedError extends Error {}
 
 const buildAppBaseUrl = () => (process.env.APP_BASE_URL ?? '').trim();
 
@@ -181,7 +201,7 @@ const buildAuthorizeUrl = async (provider: OAuthProvider, state: string) => {
   url.searchParams.set('redirect_uri', redirectUri);
   url.searchParams.set('scope', config.scope);
   url.searchParams.set('state', state);
-  if (provider === 'oidc') {
+  if (provider === 'oidc' || !isBuiltinOAuthProvider(provider)) {
     url.searchParams.set('response_type', 'code');
   }
   return url.toString();
@@ -497,6 +517,161 @@ const fetchOIDCUserInfo = async (accessToken: string) => {
   };
 };
 
+const parseCustomOAuthTokenResponse = (body: string): CustomOAuthTokenResponse => {
+  const parseString = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
+  const parseNumber = (value: unknown) => {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+
+    if (typeof value === 'string' && value.trim()) {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : undefined;
+    }
+
+    return undefined;
+  };
+  let parsed: Record<string, unknown> | null = null;
+
+  try {
+    const json = JSON.parse(body) as unknown;
+    if (json && typeof json === 'object' && !Array.isArray(json)) {
+      parsed = json as Record<string, unknown>;
+    }
+  } catch {
+    parsed = null;
+  }
+
+  if (!parsed) {
+    const params = new URLSearchParams(body);
+    parsed = Object.fromEntries(params.entries());
+  }
+
+  return {
+    access_token: parseString(parsed.access_token) || undefined,
+    token_type: parseString(parsed.token_type) || undefined,
+    scope: parseString(parsed.scope) || undefined,
+    refresh_token: parseString(parsed.refresh_token) || undefined,
+    expires_in: parseNumber(parsed.expires_in),
+    error: parseString(parsed.error) || undefined,
+    error_description: parseString(parsed.error_description) || undefined,
+  };
+};
+
+const fetchCustomOAuthToken = async (
+  provider: CustomOAuthProviderConfig,
+  args: {
+    code: string;
+    redirectUri: string;
+  },
+) => {
+  const body = new URLSearchParams({
+    grant_type: 'authorization_code',
+    code: args.code,
+    redirect_uri: args.redirectUri,
+  });
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    'Content-Type': 'application/x-www-form-urlencoded',
+  };
+  const authStyle = provider.authStyle === 2 ? 2 : 1;
+
+  if (authStyle === 2) {
+    const credentials = Buffer.from(`${provider.clientId}:${provider.clientSecret}`).toString('base64');
+    headers.Authorization = `Basic ${credentials}`;
+    body.set('client_id', provider.clientId);
+  } else {
+    body.set('client_id', provider.clientId);
+    body.set('client_secret', provider.clientSecret);
+  }
+
+  const response = await fetch(provider.tokenUrl, {
+    method: 'POST',
+    headers,
+    body: body.toString(),
+  });
+  const responseBody = await response.text();
+  const token = parseCustomOAuthTokenResponse(responseBody);
+
+  if (!response.ok || token.error || !token.access_token) {
+    const message = token.error_description || token.error || 'OAuth token exchange failed';
+    throw new Error(message);
+  }
+
+  return token;
+};
+
+const normalizeAuthorizationTokenType = (tokenType: string | undefined) => {
+  const normalized = tokenType?.trim();
+
+  if (!normalized || normalized.toLowerCase() === 'bearer') {
+    return 'Bearer';
+  }
+
+  return normalized;
+};
+
+const fetchCustomOAuthUserInfo = async (
+  provider: CustomOAuthProviderConfig,
+  token: OAuthTokenResult,
+): Promise<OAuthUserProfile> => {
+  if (!token.access_token) {
+    throw new Error('OAuth token exchange failed');
+  }
+
+  const response = await fetch(provider.userInfoUrl, {
+    headers: {
+      Accept: 'application/json',
+      Authorization: `${normalizeAuthorizationTokenType(token.token_type)} ${token.access_token}`,
+    },
+  });
+  const userJson = await response.json().catch(() => null) as unknown;
+
+  if (!response.ok || !userJson || typeof userJson !== 'object') {
+    throw new Error('Failed to fetch custom OAuth user info');
+  }
+
+  const providerUserId = readJsonPathString(userJson, provider.userIdField);
+
+  if (!providerUserId) {
+    throw new Error('Custom OAuth account does not provide required user info');
+  }
+
+  const policy = parseOAuthAccessPolicy(provider.accessPolicy);
+  const policyResult = evaluateOAuthAccessPolicy(userJson, policy);
+
+  if (!policyResult.allowed) {
+    throw new OAuthAccessDeniedError(formatOAuthAccessDeniedMessage(
+      provider.accessDeniedMessage,
+      provider.name,
+      userJson,
+      policyResult.failure,
+    ));
+  }
+
+  const username = readJsonPathString(userJson, provider.usernameField) || null;
+  const email = readJsonPathString(userJson, provider.emailField) || null;
+  const displayName = readJsonPathString(userJson, provider.displayNameField) || username || email;
+  const emailVerifiedResult = readJsonPath(userJson, 'email_verified');
+
+  return {
+    providerUserId,
+    username,
+    displayName,
+    avatarUrl: readJsonPathString(userJson, 'picture') || readJsonPathString(userJson, 'avatar_url') || null,
+    email,
+    emailVerified: emailVerifiedResult.value === true,
+    metadata: {
+      provider: provider.slug,
+      providerName: provider.name,
+      userIdField: provider.userIdField,
+      usernameField: provider.usernameField,
+      displayNameField: provider.displayNameField,
+      emailField: provider.emailField,
+    },
+  };
+};
+
 const fetchOAuthToken = async (provider: OAuthProvider, args: {
   code: string;
   state: string;
@@ -518,10 +693,22 @@ const fetchOAuthToken = async (provider: OAuthProvider, args: {
     return fetchOIDCToken(args);
   }
 
+  const customProvider = await getEnabledCustomOAuthProviderBySlug(provider);
+
+  if (customProvider) {
+    return fetchCustomOAuthToken(customProvider, args);
+  }
+
   throw new Error('OAuth provider is not supported');
 };
 
-const fetchOAuthUserInfo = async (provider: OAuthProvider, accessToken: string): Promise<OAuthUserProfile> => {
+const fetchOAuthUserInfo = async (provider: OAuthProvider, token: OAuthTokenResult): Promise<OAuthUserProfile> => {
+  const accessToken = token.access_token;
+
+  if (!accessToken) {
+    throw new Error('OAuth token exchange failed');
+  }
+
   if (provider === 'github') {
     return fetchGitHubUserInfo(accessToken);
   }
@@ -536,6 +723,12 @@ const fetchOAuthUserInfo = async (provider: OAuthProvider, accessToken: string):
 
   if (provider === 'oidc') {
     return fetchOIDCUserInfo(accessToken);
+  }
+
+  const customProvider = await getEnabledCustomOAuthProviderBySlug(provider);
+
+  if (customProvider) {
+    return fetchCustomOAuthUserInfo(customProvider, token);
   }
 
   throw new Error('OAuth provider is not supported');
@@ -775,11 +968,21 @@ const handleOAuthCallback = async (app: FastifyInstance, args: {
   currentUserId?: string;
 }) => {
   const redirectUri = resolveOAuthRedirectUriOrHttpError(app, args.provider);
-  const token = await fetchOAuthToken(args.provider, {
-    code: args.code,
-    state: args.state,
-    redirectUri,
-  });
+  let token: OAuthTokenResult;
+
+  try {
+    token = await fetchOAuthToken(args.provider, {
+      code: args.code,
+      state: args.state,
+      redirectUri,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === 'OAuth provider is not supported') {
+      throw app.httpErrors.badRequest(error.message);
+    }
+
+    throw error;
+  }
   const accessToken = token.access_token;
 
   if (!accessToken) {
@@ -789,9 +992,17 @@ const handleOAuthCallback = async (app: FastifyInstance, args: {
   let oauthUser: OAuthUserProfile;
 
   try {
-    oauthUser = await fetchOAuthUserInfo(args.provider, accessToken);
+    oauthUser = await fetchOAuthUserInfo(args.provider, token);
   } catch (error) {
-    if (error instanceof Error && error.message === 'OIDC account does not provide required user info') {
+    if (error instanceof OAuthAccessDeniedError) {
+      throw app.httpErrors.forbidden(error.message);
+    }
+
+    if (error instanceof Error && [
+      'OIDC account does not provide required user info',
+      'Custom OAuth account does not provide required user info',
+      'OAuth provider is not supported',
+    ].includes(error.message)) {
       throw app.httpErrors.badRequest(error.message);
     }
 
@@ -1549,10 +1760,10 @@ const oauthRoutes: FastifyPluginAsync = async (app) => {
       };
     }
 
-    if (params.provider === 'oidc') {
+    if (params.provider === 'oidc' || !isBuiltinOAuthProvider(params.provider)) {
       return handleOAuthCallback(app, {
         reply,
-        provider: 'oidc',
+        provider: params.provider,
         code: query.code,
         state: statePayload.state,
         action,

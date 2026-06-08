@@ -1,12 +1,22 @@
 import type { FastifyPluginAsync } from 'fastify';
 
-import { getOAuthConfiguration } from '../../lib/oauth-config.js';
+import { getOAuthConfiguration, listEnabledCustomOAuthProviders } from '../../lib/oauth-config.js';
 import { getPasskeySettings } from '../../lib/passkey.js';
 import { prisma } from '../../lib/prisma.js';
 
 const statusRoutes: FastifyPluginAsync = async (app) => {
   app.get('/status', async () => {
-    const [setupState, userCount, adminCount, apiKeyCount, activeApiKeyCount, channelCount, passkeySettings, oauthConfiguration] = await Promise.all([
+    const [
+      setupState,
+      userCount,
+      adminCount,
+      apiKeyCount,
+      activeApiKeyCount,
+      channelCount,
+      passkeySettings,
+      oauthConfiguration,
+      customOAuthProviders,
+    ] = await Promise.all([
       prisma.setupState.findFirst({
         select: {
           isInitialized: true,
@@ -20,6 +30,7 @@ const statusRoutes: FastifyPluginAsync = async (app) => {
       prisma.channel.count(),
       getPasskeySettings(),
       getOAuthConfiguration(),
+      listEnabledCustomOAuthProviders(),
     ]);
 
     return {
@@ -65,6 +76,15 @@ const statusRoutes: FastifyPluginAsync = async (app) => {
         oidc: {
           enabled: oauthConfiguration.status.oidc.enabled && Boolean((process.env.APP_BASE_URL ?? '').trim()),
         },
+        customProviders: customOAuthProviders
+          .filter((provider) => Boolean((process.env.APP_BASE_URL ?? '').trim()))
+          .map(({ id, name, slug, icon, enabled }) => ({
+            id,
+            name,
+            slug,
+            icon,
+            enabled,
+          })),
       },
     };
   });

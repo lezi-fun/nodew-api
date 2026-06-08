@@ -2,8 +2,11 @@ import { randomBytes } from 'node:crypto';
 
 import { z } from 'zod';
 
+import { validateOAuthAccessPolicy } from './oauth-access-policy.js';
 import {
   getOAuthProviderConfig as getEnvironmentOAuthProviderConfig,
+  isBuiltinOAuthProvider,
+  type BuiltinOAuthProvider,
   type OAuthProvider,
   type OAuthProviderConfig,
 } from './oauth.js';
@@ -75,6 +78,8 @@ export type CustomOAuthProviderConfig = {
 export type CustomOAuthProviderPublic = Omit<CustomOAuthProviderConfig, 'clientSecret'> & {
   hasClientSecret: boolean;
 };
+
+export type CustomOAuthProviderSummary = Pick<CustomOAuthProviderConfig, 'id' | 'name' | 'slug' | 'icon' | 'enabled'>;
 
 type StoredOIDCDraft = {
   draft: OIDCOAuthConfigDraft;
@@ -326,6 +331,12 @@ const validateCustomOAuthProviders = (providers: CustomOAuthProviderConfig[]) =>
     }
 
     slugs.add(provider.slug);
+
+    try {
+      validateOAuthAccessPolicy(provider.accessPolicy);
+    } catch (error) {
+      throw new Error(error instanceof Error ? `Custom OAuth access policy is invalid: ${error.message}` : 'Custom OAuth access policy is invalid');
+    }
   }
 };
 
@@ -368,6 +379,28 @@ const generateCustomOAuthProviderId = () => `custom_${randomBytes(8).toString('h
 export const listCustomOAuthProviders = async () => {
   const providers = await readStoredCustomOAuthProviders();
   return providers.map(serializeCustomOAuthProvider);
+};
+
+export const listEnabledCustomOAuthProviders = async () => {
+  const providers = await readStoredCustomOAuthProviders();
+  return providers.filter((provider) => provider.enabled).map(serializeCustomOAuthProvider);
+};
+
+export const listCustomOAuthProviderSummaries = async (): Promise<CustomOAuthProviderSummary[]> => {
+  const providers = await readStoredCustomOAuthProviders();
+  return providers.map(({ id, name, slug, icon, enabled }) => ({
+    id,
+    name,
+    slug,
+    icon,
+    enabled,
+  }));
+};
+
+export const getEnabledCustomOAuthProviderBySlug = async (slug: string) => {
+  const normalizedSlug = slug.trim().toLowerCase();
+  const providers = await readStoredCustomOAuthProviders();
+  return providers.find((provider) => provider.enabled && provider.slug === normalizedSlug) ?? null;
 };
 
 export const createCustomOAuthProvider = async (input: z.infer<typeof customOAuthProviderCreateSchema>) => {
@@ -483,31 +516,48 @@ export const evaluateOAuthConfigInput = (input: OAuthConfigDraft) => {
 };
 
 export const getEffectiveOAuthProviderConfig = async (provider: OAuthProvider): Promise<OAuthProviderConfig | null> => {
-  if (provider !== 'oidc') {
+  if (isBuiltinOAuthProvider(provider) && provider !== 'oidc') {
     return getEnvironmentOAuthProviderConfig(provider);
   }
 
-  const configuration = await getOAuthConfiguration();
-  const oidc = configuration.status.oidc;
+  if (provider === 'oidc') {
+    const configuration = await getOAuthConfiguration();
+    const oidc = configuration.status.oidc;
 
-  if (!configuration.status.valid || !oidc.enabled) {
+    if (!configuration.status.valid || !oidc.enabled) {
+      return {
+        clientId: '',
+        clientSecret: '',
+        authorizeUrl: '',
+        tokenUrl: '',
+        userInfoUrl: '',
+        scope: oidc.scope || defaultOIDCScope,
+      };
+    }
+
     return {
-      clientId: '',
-      clientSecret: '',
-      authorizeUrl: '',
-      tokenUrl: '',
-      userInfoUrl: '',
+      clientId: oidc.clientId,
+      clientSecret: oidc.clientSecret,
+      authorizeUrl: oidc.authorizationUrl,
+      tokenUrl: oidc.tokenUrl,
+      userInfoUrl: oidc.userInfoUrl,
       scope: oidc.scope || defaultOIDCScope,
     };
   }
 
+  const customProvider = await getEnabledCustomOAuthProviderBySlug(provider);
+
+  if (!customProvider) {
+    return null;
+  }
+
   return {
-    clientId: oidc.clientId,
-    clientSecret: oidc.clientSecret,
-    authorizeUrl: oidc.authorizationUrl,
-    tokenUrl: oidc.tokenUrl,
-    userInfoUrl: oidc.userInfoUrl,
-    scope: oidc.scope || defaultOIDCScope,
+    clientId: customProvider.clientId,
+    clientSecret: customProvider.clientSecret,
+    authorizeUrl: customProvider.authorizationUrl,
+    tokenUrl: customProvider.tokenUrl,
+    userInfoUrl: customProvider.userInfoUrl,
+    scope: customProvider.scopes || defaultOIDCScope,
   };
 };
 

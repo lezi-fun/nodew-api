@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 
 import { api, type OAuthBindingItem, type OAuthProvider, type UserItem } from '../../lib/api';
 import { formatDateTime } from '../../lib/format';
-import { getOAuthProviderMeta, isOAuthProvider } from '../../lib/oauth';
+import { getOAuthProviderMeta } from '../../lib/oauth';
 
 type AdminOAuthBindingModalProps = {
   user: UserItem | null;
@@ -51,11 +51,6 @@ export default function AdminOAuthBindingModal({
       return;
     }
 
-    if (!isOAuthProvider(binding.provider)) {
-      Toast.error('不支持的第三方类型');
-      return;
-    }
-
     const provider = binding.provider;
 
     Modal.confirm({
@@ -89,7 +84,7 @@ export default function AdminOAuthBindingModal({
       <Space vertical align="start" style={{ width: '100%' }}>
         <Space style={{ width: '100%', justifyContent: 'space-between' }}>
           <Typography.Text type="tertiary">
-            当前支持查看和解绑已绑定的 GitHub、Discord、LinuxDO、OIDC 账号，后续新增 provider 也可沿用同一入口扩展。
+            当前支持查看和解绑已绑定的第三方账号。
           </Typography.Text>
           <Button icon={<IconRefresh />} loading={loading} onClick={() => void loadBindings()}>
             刷新

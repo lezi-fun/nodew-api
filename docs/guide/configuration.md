@@ -60,12 +60,14 @@ Third-party login supports GitHub, Discord, LinuxDO, and OIDC. Built-in provider
 
 Behavior notes:
 
-- The callback paths are `/oauth/github`, `/oauth/discord`, `/oauth/linuxdo`, and `/oauth/oidc` under `APP_BASE_URL`.
+- The callback paths are `/oauth/github`, `/oauth/discord`, `/oauth/linuxdo`, `/oauth/oidc`, and `/oauth/{slug}` for custom providers under `APP_BASE_URL`.
 - `GET /api/oauth/state` creates the signed state cookie and returns the provider authorize URL.
 - `GET /api/oauth/:provider` consumes the callback, creates an account when registration is enabled, or binds the identity to the current authenticated session.
 - OIDC userinfo must return `sub` and `email`. `preferred_username`, `name`, `picture`, and `email_verified` are used when present.
 - Admins can save OIDC credentials and endpoints from the settings page. Saved values override environment defaults and apply without a restart.
-- The settings page also stores a custom OAuth provider configuration list. This list captures provider metadata, endpoints, field mappings, and access-policy placeholders; the generic login flow is implemented in a follow-up step.
+- The settings page also stores custom OAuth provider configurations. Custom providers use the configured token auth style, map userinfo fields at runtime, and enforce access policies before login or binding succeeds.
+- Custom provider field mappings support dot paths such as `data.user.id` and array indexes such as `groups[0]`.
+- Access policies accept either a single condition like `{"field":"groups","operator":"contains","value":"staff"}` or grouped policies with `logic`, `conditions`, and `groups`. Supported operators are `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `not_in`, `contains`, `not_contains`, `exists`, and `not_exists`.
 
 ## Daily check-in
 

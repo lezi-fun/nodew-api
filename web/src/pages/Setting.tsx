@@ -701,7 +701,7 @@ export default function SettingPage() {
           <div>
             <Typography.Title heading={5} style={{ marginBottom: 4 }}>自定义 OAuth Provider</Typography.Title>
             <Typography.Paragraph type="tertiary">
-              先管理自定义 provider 配置列表。登录接入和字段映射策略会在下一步继续补齐。
+              管理自定义 provider 配置。启用后会出现在登录页和个人页绑定入口，并按字段映射与访问策略执行回调。
             </Typography.Paragraph>
           </div>
 
@@ -709,7 +709,7 @@ export default function SettingPage() {
             <label className="setting-field">
               <span>
                 <strong>启用</strong>
-                <em>开启后 provider 会进入后续登录接入候选列表。</em>
+                <em>开启后 provider 会进入登录与绑定入口。</em>
               </span>
               <Switch
                 checked={customOAuthProviderForm.enabled}
@@ -888,7 +888,7 @@ export default function SettingPage() {
             <label className="setting-field">
               <span>
                 <strong>访问策略</strong>
-                <em>预留给下一步策略校验。</em>
+                <em>登录或绑定前会按该策略校验 userinfo。</em>
               </span>
               <TextArea
                 rows={4}
