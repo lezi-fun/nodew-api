@@ -174,7 +174,7 @@ STRIPE_MIN_UNITS=1
 
 Configure the Stripe webhook endpoint as `https://your-domain.example/api/user/topup/stripe/webhook`. The backend handles `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.expired`, and `checkout.session.async_payment_failed`, and webhook delivery is idempotent for paid orders.
 
-Creem wallet top-up product configuration can also be prepared with environment variables. This currently exposes the configured product catalog and readiness status to the wallet page; the payment-session endpoint and webhook settlement are tracked as the next implementation steps.
+Creem wallet top-up product configuration can also be prepared with environment variables. The backend now exposes the configured product catalog, creates Checkout Sessions for configured products, and keeps webhook settlement as the next implementation step.
 
 ```bash
 APP_BASE_URL="https://your-domain.example"

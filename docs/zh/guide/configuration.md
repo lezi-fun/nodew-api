@@ -90,20 +90,21 @@ Stripe 钱包充值通过环境变量配置，使用 Stripe 托管的 Checkout S
 
 ## Creem 钱包充值产品目录
 
-Creem 钱包充值使用在 Creem 侧创建好的固定金额产品。当前配置层会把可用状态和安全的产品目录返回给已登录用户；支付会话创建和 webhook 入账会在后续充值步骤实现。
+Creem 钱包充值使用在 Creem 侧创建好的固定金额产品。当前已支持向已登录用户返回安全的产品目录，并为已配置产品创建 Checkout Session；webhook 入账仍放在后续步骤。
 
 | 变量 | 必填 | 说明 |
 | --- | --- | --- |
-| `APP_BASE_URL` | 开启 Creem 充值时必填 | 后续 Checkout 跳转会使用的公开控制台地址。 |
+| `APP_BASE_URL` | 开启 Creem 充值时必填 | Creem Checkout 成功跳转使用的公开控制台地址。 |
 | `CREEM_TOPUP_ENABLED` | 否 | 设为 `true` 后在钱包页展示 Creem 配置可用状态，默认 `false`。 |
-| `CREEM_API_KEY` | 开启时必填 | 后续创建 Creem Checkout 使用的 API Key，不会返回给客户端。 |
+| `CREEM_API_KEY` | 开启时必填 | 创建 Creem Checkout 使用的 API Key，不会返回给客户端。 |
 | `CREEM_WEBHOOK_SECRET` | 入账必填 | Creem webhook 签名密钥，不会返回给客户端。 |
-| `CREEM_TEST_MODE` | 否 | 后续 Creem API 调用使用测试 endpoint，默认 `false`。 |
+| `CREEM_TEST_MODE` | 否 | Creem API 调用使用测试 endpoint，默认 `false`。 |
 | `CREEM_PRODUCTS` | 开启时必填 | 固定产品 JSON 数组，例如 `[{"productId":"prod_xxx","name":"100k quota","quotaAmount":100000,"amountCents":1000,"currency":"usd"}]`。 |
 
 行为说明：
 
 - `GET /api/user/topup/creem/config` 只返回非敏感配置状态和规范化后的产品列表。
+- `POST /api/user/topup/creem/checkout` 接收 `{ "productId": string }`，为已配置产品创建待支付充值订单，并返回 Creem Checkout URL。
 - 产品字段兼容 `productId` 或 `product_id`、`quotaAmount` 或 `quota`，金额字段兼容 `amountCents`、`priceCents` 或小数 `price`。
 - 产品 JSON 无效时会被当作空目录处理，因此 Creem 充值不会显示为已配置。
 

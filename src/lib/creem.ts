@@ -16,6 +16,18 @@ export type CreemTopUpConfig = {
   products: CreemTopUpProduct[];
 };
 
+const creemCheckoutResponseSchema = z.object({
+  id: z.string().trim().min(1),
+  checkout_url: z.string().trim().url(),
+  request_id: z.string().trim().min(1).optional(),
+  order: z.union([
+    z.string().trim().min(1),
+    z.object({
+      id: z.string().trim().min(1).optional(),
+    }),
+  ]).optional(),
+});
+
 const readBooleanEnv = (value: string | undefined) =>
   ['true', '1', 'yes', 'on'].includes(value?.trim().toLowerCase() ?? '');
 
@@ -87,5 +99,91 @@ export const getCreemTopUpConfig = (): CreemTopUpConfig => {
     webhookConfigured: Boolean(process.env.CREEM_WEBHOOK_SECRET?.trim()),
     testMode: readBooleanEnv(process.env.CREEM_TEST_MODE),
     products,
+  };
+};
+
+const readCreemErrorMessage = (payload: unknown) => {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+
+  const message = (payload as { message?: unknown }).message;
+
+  if (typeof message === 'string' && message.trim()) {
+    return message.trim();
+  }
+
+  const error = (payload as { error?: unknown }).error;
+
+  if (typeof error === 'string' && error.trim()) {
+    return error.trim();
+  }
+
+  if (!error || typeof error !== 'object') {
+    return null;
+  }
+
+  const nestedMessage = (error as { message?: unknown }).message;
+  return typeof nestedMessage === 'string' && nestedMessage.trim() ? nestedMessage.trim() : null;
+};
+
+const getCreemApiBaseUrl = (testMode: boolean) =>
+  testMode ? 'https://test-api.creem.io' : 'https://api.creem.io';
+
+export const createCreemCheckoutSession = async (input: {
+  apiKey: string;
+  product: CreemTopUpProduct;
+  requestId: string;
+  userId: string;
+  userEmail: string;
+  successUrl: string;
+  testMode: boolean;
+}) => {
+  const response = await fetch(`${getCreemApiBaseUrl(input.testMode)}/v1/checkouts`, {
+    method: 'POST',
+    headers: {
+      'x-api-key': input.apiKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      product_id: input.product.productId,
+      request_id: input.requestId,
+      success_url: input.successUrl,
+      quantity: 1,
+      customer: {
+        id: input.userId,
+        email: input.userEmail,
+      },
+      metadata: {
+        provider: 'creem',
+        productId: input.product.productId,
+        quotaAmount: String(input.product.quotaAmount),
+        amountCents: String(input.product.amountCents),
+      },
+    }),
+  });
+  const json = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(readCreemErrorMessage(json) ?? 'Failed to create Creem checkout session');
+  }
+
+  const parsed = creemCheckoutResponseSchema.safeParse(json);
+
+  if (!parsed.success) {
+    throw new Error('Failed to create Creem checkout session');
+  }
+
+  const orderValue = parsed.data.order;
+  const orderId =
+    typeof orderValue === 'string'
+      ? orderValue
+      : orderValue?.id?.trim() || null;
+
+  return {
+    id: parsed.data.id,
+    url: parsed.data.checkout_url,
+    requestId: parsed.data.request_id?.trim() || input.requestId,
+    orderId,
   };
 };

@@ -124,6 +124,7 @@ The web console uses the backend authentication APIs for login, registration, se
 - `GET /api/user/topup/stripe/config`
 - `GET /api/user/topup/creem/config`
 - `POST /api/user/topup/stripe/checkout`
+- `POST /api/user/topup/creem/checkout`
 - `POST /api/user/topup/stripe/webhook`
 
 `GET /api/user/topup/stripe/config` returns the current Stripe wallet top-up status for signed-in users. It includes whether the feature is enabled, the currency, the quota credited per unit, the price per unit, and the minimum unit count.
@@ -131,6 +132,8 @@ The web console uses the backend authentication APIs for login, registration, se
 `GET /api/user/topup/creem/config` returns the current Creem wallet top-up readiness and normalized fixed-product catalog for signed-in users. It never returns the Creem API key or webhook secret.
 
 `POST /api/user/topup/stripe/checkout` accepts `{ "units": number }`, creates a pending top-up order, creates a Stripe Checkout Session, stores the Stripe session ID, and returns the Checkout URL.
+
+`POST /api/user/topup/creem/checkout` accepts `{ "productId": string }`, validates the product against the normalized Creem catalog, creates a pending top-up order, creates a Creem Checkout Session, stores the Creem checkout/request/order identifiers, and returns the Checkout URL.
 
 `POST /api/user/topup/stripe/webhook` is called by Stripe. It verifies the `Stripe-Signature` header against the raw request body before processing events. Paid Checkout events credit quota exactly once; expired or failed events update the pending order status without crediting quota.
 

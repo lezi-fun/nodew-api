@@ -173,7 +173,7 @@ STRIPE_MIN_UNITS=1
 
 Stripe webhook 地址配置为 `https://your-domain.example/api/user/topup/stripe/webhook`。后端会处理 `checkout.session.completed`、`checkout.session.async_payment_succeeded`、`checkout.session.expired` 和 `checkout.session.async_payment_failed`，已支付订单重复投递不会重复入账。
 
-Creem 钱包充值产品目录也可以先通过环境变量准备好。当前会把已配置的产品目录和可用状态展示到钱包页；支付会话创建接口和 webhook 入账放在下一步继续实现。
+Creem 钱包充值产品目录也可以先通过环境变量准备好。后端现在会把已配置的产品目录和可用状态展示到钱包页，并为已配置产品创建 Checkout Session；webhook 入账放在下一步继续实现。
 
 ```bash
 APP_BASE_URL="https://your-domain.example"

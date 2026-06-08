@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
-import { getCreemTopUpConfig } from '../../lib/creem.js';
+import { createCreemCheckoutSession, getCreemTopUpConfig } from '../../lib/creem.js';
 import { prisma } from '../../lib/prisma.js';
 import {
   createStripeCheckoutSession,
@@ -36,6 +36,10 @@ const stripeCheckoutBodySchema = z.object({
   units: z.coerce.number().int().positive().max(100000),
 });
 
+const creemCheckoutBodySchema = z.object({
+  productId: z.string().trim().min(1).max(255),
+});
+
 const buildAppUrl = (path: string) => {
   const appBaseUrl = process.env.APP_BASE_URL?.trim();
 
@@ -46,6 +50,17 @@ const buildAppUrl = (path: string) => {
   const url = new URL(path, appBaseUrl);
   return url.toString();
 };
+
+const topUpOrderSelect = {
+  id: true,
+  status: true,
+  quotaAmount: true,
+  amountCents: true,
+  currency: true,
+  stripeSessionId: true,
+  paidAt: true,
+  createdAt: true,
+} as const;
 
 const serializeOrder = (order: {
   id: string;
@@ -139,6 +154,68 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
     item: getCreemTopUpConfig(),
   }));
 
+  app.post('/user/topup/creem/checkout', {
+    preHandler: app.requireUser,
+  }, async (request) => {
+    const body = creemCheckoutBodySchema.parse(request.body);
+    const config = getCreemTopUpConfig();
+    const apiKey = process.env.CREEM_API_KEY?.trim();
+
+    if (!config.enabled || !apiKey) {
+      throw app.httpErrors.badRequest('Creem top-up is not configured');
+    }
+
+    const product = config.products.find((item) => item.productId === body.productId);
+
+    if (!product) {
+      throw app.httpErrors.badRequest('Creem product is not configured');
+    }
+
+    const quotaAmount = BigInt(product.quotaAmount);
+    const order = await prisma.topUpOrder.create({
+      data: {
+        userId: request.currentUser!.id,
+        provider: 'CREEM',
+        status: 'PENDING',
+        quotaAmount,
+        amountCents: product.amountCents,
+        currency: product.currency,
+        creemProductId: product.productId,
+        metadata: {
+          productId: product.productId,
+          productName: product.name,
+          quantity: 1,
+        },
+      },
+      select: topUpOrderSelect,
+    });
+    const successUrl = buildAppUrl(`/console/topup?creem=success&order=${order.id}`);
+    const session = await createCreemCheckoutSession({
+      apiKey,
+      product,
+      requestId: order.id,
+      userId: request.currentUser!.id,
+      userEmail: request.currentUser!.email,
+      successUrl,
+      testMode: config.testMode,
+    });
+    const updatedOrder = await prisma.topUpOrder.update({
+      where: { id: order.id },
+      data: {
+        creemCheckoutId: session.id,
+        creemRequestId: session.requestId,
+        creemOrderId: session.orderId ?? undefined,
+      },
+      select: topUpOrderSelect,
+    });
+
+    return {
+      success: true,
+      checkoutUrl: session.url,
+      order: serializeOrder(updatedOrder),
+    };
+  });
+
   app.post('/user/topup/stripe/checkout', {
     preHandler: app.requireUser,
   }, async (request) => {
@@ -170,16 +247,7 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
           unitAmountCents: config.unitAmountCents,
         },
       },
-      select: {
-        id: true,
-        status: true,
-        quotaAmount: true,
-        amountCents: true,
-        currency: true,
-        stripeSessionId: true,
-        paidAt: true,
-        createdAt: true,
-      },
+      select: topUpOrderSelect,
     });
     const successUrl = buildAppUrl(`/console/topup?stripe=success&order=${order.id}`);
     const cancelUrl = buildAppUrl(`/console/topup?stripe=cancel&order=${order.id}`);
@@ -201,16 +269,7 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
         stripeSessionId: session.id,
         stripePaymentIntentId: session.paymentIntentId,
       },
-      select: {
-        id: true,
-        status: true,
-        quotaAmount: true,
-        amountCents: true,
-        currency: true,
-        stripeSessionId: true,
-        paidAt: true,
-        createdAt: true,
-      },
+      select: topUpOrderSelect,
     });
 
     return {

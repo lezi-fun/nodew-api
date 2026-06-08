@@ -94,20 +94,21 @@ Behavior notes:
 
 ## Creem wallet top-up catalog
 
-Creem wallet top-up uses fixed products created in Creem. The current configuration layer exposes readiness and the safe product catalog to signed-in users; checkout creation and webhook settlement are implemented in later top-up steps.
+Creem wallet top-up uses fixed products created in Creem. Signed-in users can read the safe product catalog and create a Checkout Session for a configured product; webhook settlement remains a later step.
 
 | Variable | Required | Description |
 | --- | --- | --- |
-| `APP_BASE_URL` | Yes when Creem top-up is enabled | Public console URL used by later checkout redirects. |
+| `APP_BASE_URL` | Yes when Creem top-up is enabled | Public console URL used by Creem checkout success redirects. |
 | `CREEM_TOPUP_ENABLED` | No | Enables the wallet Creem readiness state when set to `true`. Defaults to `false`. |
-| `CREEM_API_KEY` | Yes when enabled | Creem API key used by the later checkout creation endpoint. Never returned to clients. |
+| `CREEM_API_KEY` | Yes when enabled | Creem API key used by the checkout creation endpoint. Never returned to clients. |
 | `CREEM_WEBHOOK_SECRET` | Yes for webhook settlement | Creem webhook signing secret. Never returned to clients. |
-| `CREEM_TEST_MODE` | No | Switches later Creem API calls to the test endpoint. Defaults to `false`. |
+| `CREEM_TEST_MODE` | No | Switches Creem API calls to the test endpoint. Defaults to `false`. |
 | `CREEM_PRODUCTS` | Yes when enabled | JSON array of fixed products, for example `[{"productId":"prod_xxx","name":"100k quota","quotaAmount":100000,"amountCents":1000,"currency":"usd"}]`. |
 
 Behavior notes:
 
 - `GET /api/user/topup/creem/config` returns only non-sensitive configuration status and normalized products.
+- `POST /api/user/topup/creem/checkout` accepts `{ "productId": string }`, creates a pending top-up order for the configured product, and returns the Creem Checkout URL.
 - Product entries accept `productId` or `product_id`, `quotaAmount` or `quota`, and either `amountCents`, `priceCents`, or decimal `price`.
 - Invalid product JSON is treated as an empty catalog, so Creem top-up is not reported as configured.
 
