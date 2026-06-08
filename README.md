@@ -49,6 +49,7 @@ Current capabilities include:
 - Personal-page third-party account binding status plus self-service unbind support.
 - Admin-side inspection and removal for user third-party account bindings.
 - Daily check-in with configurable random quota rewards, monthly history, and streak statistics.
+- Wallet page with balance metrics, recharge plan overview, payment-method status, and redemption-code top-up.
 - Usage logs and billing-oriented request accounting.
 - Admin console for dashboard, channels, tokens, users, redemptions, logs, models, deployment, settings, wallet, and playground.
 - PostgreSQL by default, with a dedicated MySQL Prisma schema for MySQL deployments.

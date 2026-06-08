@@ -26,7 +26,7 @@ features:
   - title: Channel routing
     details: Routes requests through database-backed channels with weights, priorities, retries, and health-oriented metadata.
   - title: Admin console
-    details: Includes a web console for channels, tokens, users, logs, models, redemptions, settings, and playground workflows.
+    details: Includes a web console for channels, tokens, users, logs, models, redemptions, wallet top-up, settings, and playground workflows.
   - title: Account security
     details: Supports email verification, password reset, and session management token flows.
 ---

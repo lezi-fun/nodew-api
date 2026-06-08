@@ -1013,6 +1013,80 @@ body[theme-mode='dark'] .dashboard-timeline-item {
   gap: 12px;
 }
 
+.wallet-card-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wallet-page-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(320px, 0.9fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.wallet-main-column,
+.wallet-side-column {
+  display: grid;
+  gap: 20px;
+}
+
+.wallet-plan-grid,
+.wallet-payment-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.wallet-plan-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.wallet-payment-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.wallet-plan-card,
+.wallet-payment-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--console-border);
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(15, 23, 42, 0.02));
+}
+
+.wallet-plan-heading,
+.wallet-payment-card > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.wallet-plan-quota {
+  margin: 0;
+  font-weight: 700;
+}
+
+.wallet-feature-list,
+.wallet-help-list {
+  display: grid;
+  gap: 8px;
+}
+
+.wallet-feature-list span,
+.wallet-help-list span {
+  color: var(--semi-color-text-2);
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.wallet-plan-empty {
+  grid-column: 1 / -1;
+}
+
 .wallet-redeem-row {
   width: 100%;
 }
@@ -1285,6 +1359,9 @@ body[theme-mode='dark'] .dashboard-timeline-item {
   .dashboard-bottom-grid,
   .settings-grid,
   .plan-grid,
+  .wallet-page-grid,
+  .wallet-plan-grid,
+  .wallet-payment-grid,
   .playground-grid,
   .chat-shell,
   .checkin-summary-grid,
