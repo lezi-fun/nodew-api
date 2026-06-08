@@ -48,6 +48,13 @@ const envSchema = z.object({
   STORAGE_PUBLIC_BASE_URL: z.string().url().optional(),
   STORAGE_FORCE_PATH_STYLE: booleanStringSchema.default(false),
   STORAGE_PREFIX: z.string().default('nodew'),
+  STRIPE_TOPUP_ENABLED: booleanStringSchema.default(false),
+  STRIPE_SECRET_KEY: z.string().min(1).optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
+  STRIPE_CURRENCY: z.string().trim().min(3).max(16).default('usd'),
+  STRIPE_QUOTA_PER_UNIT: z.coerce.number().int().positive().default(100000),
+  STRIPE_UNIT_AMOUNT_CENTS: z.coerce.number().int().positive().default(100),
+  STRIPE_MIN_UNITS: z.coerce.number().int().positive().default(1),
 });
 
 export const parseEnv = (input: NodeJS.ProcessEnv = process.env) => {

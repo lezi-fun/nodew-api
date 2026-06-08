@@ -49,7 +49,7 @@ Current capabilities include:
 - Personal-page third-party account binding status plus self-service unbind support.
 - Admin-side inspection and removal for user third-party account bindings.
 - Daily check-in with configurable random quota rewards, monthly history, and streak statistics.
-- Wallet page with balance metrics, recharge plan overview, payment-method status, and redemption-code top-up.
+- Wallet page with balance metrics, recharge plan overview, Stripe Checkout top-up, payment-method status, and redemption-code top-up.
 - Usage logs and billing-oriented request accounting.
 - Admin console for dashboard, channels, tokens, users, redemptions, logs, models, deployment, settings, wallet, and playground.
 - PostgreSQL by default, with a dedicated MySQL Prisma schema for MySQL deployments.
@@ -158,6 +158,21 @@ OIDC_OAUTH_SCOPE="openid profile email"
 When a provider is configured, the login page shows its entry button and the backend enables `/api/oauth/state` plus `/api/oauth/:provider`. The callback route also supports bind-mode when the request already has an authenticated session. OIDC userinfo must return `sub` and `email`; `preferred_username`, `name`, `picture`, and `email_verified` are used when present. The admin settings page can save OIDC client credentials and endpoints, and can fetch endpoints from a Well-Known discovery document.
 
 Custom OAuth providers are configured from the admin settings page. Their callback path is `/oauth/{slug}`. Field mappings support dot paths such as `data.user.id` and array indexes such as `groups[0]`. Access policies accept either a single condition like `{"field":"groups","operator":"contains","value":"staff"}` or grouped policies with `logic`, `conditions`, and `groups`. Supported operators are `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `not_in`, `contains`, `not_contains`, `exists`, and `not_exists`.
+
+Stripe wallet top-up can be enabled with environment variables. The wallet page creates a Stripe-hosted Checkout Session, and the webhook credits quota only after Stripe confirms payment.
+
+```bash
+APP_BASE_URL="https://your-domain.example"
+STRIPE_TOPUP_ENABLED=true
+STRIPE_SECRET_KEY="sk_live_xxx"
+STRIPE_WEBHOOK_SECRET="whsec_xxx"
+STRIPE_CURRENCY="usd"
+STRIPE_QUOTA_PER_UNIT=100000
+STRIPE_UNIT_AMOUNT_CENTS=100
+STRIPE_MIN_UNITS=1
+```
+
+Configure the Stripe webhook endpoint as `https://your-domain.example/api/user/topup/stripe/webhook`. The backend handles `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.expired`, and `checkout.session.async_payment_failed`, and webhook delivery is idempotent for paid orders.
 
 Prepare Prisma:
 

@@ -48,7 +48,7 @@ NodEW-api 使用 Fastify、Prisma、TypeScript、React、Vite 和 Semi UI 构建
 - 个人页第三方账号绑定状态展示，以及用户自助解绑能力。
 - 管理员侧查看和解绑用户第三方账号绑定。
 - 每日签到，支持后台配置随机奖励区间、月历记录和连签统计。
-- 钱包页支持余额指标、充值套餐概览、支付方式状态和兑换码充值。
+- 钱包页支持余额指标、充值套餐概览、Stripe Checkout 充值、支付方式状态和兑换码充值。
 - 使用日志和面向计费的请求统计。
 - 管理控制台，包含数据看板、渠道、令牌、用户、兑换码、日志、模型、部署、系统设置、钱包和操练场。
 - 默认支持 PostgreSQL，并提供独立的 MySQL Prisma schema。
@@ -157,6 +157,21 @@ OIDC_OAUTH_SCOPE="openid profile email"
 某个 provider 配置完整后，登录页会显示对应入口，后端会开放 `/api/oauth/state` 和 `/api/oauth/:provider` 回调链路。当前回调逻辑也支持已登录 session 下的绑定模式。OIDC userinfo 必须返回 `sub` 和 `email`；如果提供了 `preferred_username`、`name`、`picture`、`email_verified`，系统会一并使用。后台设置页可以保存 OIDC client 凭据和端点，也可以通过 Well-Known discovery 文档自动获取端点。
 
 自定义 OAuth provider 在后台设置页配置，回调地址为 `/oauth/{slug}`。字段映射支持 `data.user.id` 这类点路径，也支持 `groups[0]` 这类数组索引。访问策略既可以写成单条件，例如 `{"field":"groups","operator":"contains","value":"staff"}`，也可以写成包含 `logic`、`conditions`、`groups` 的组合策略。支持的操作符包括 `eq`、`ne`、`gt`、`gte`、`lt`、`lte`、`in`、`not_in`、`contains`、`not_contains`、`exists`、`not_exists`。
+
+钱包充值可以通过环境变量开启 Stripe。钱包页会创建 Stripe 托管的 Checkout Session，后端只会在 Stripe webhook 确认付款后增加用户额度。
+
+```bash
+APP_BASE_URL="https://your-domain.example"
+STRIPE_TOPUP_ENABLED=true
+STRIPE_SECRET_KEY="sk_live_xxx"
+STRIPE_WEBHOOK_SECRET="whsec_xxx"
+STRIPE_CURRENCY="usd"
+STRIPE_QUOTA_PER_UNIT=100000
+STRIPE_UNIT_AMOUNT_CENTS=100
+STRIPE_MIN_UNITS=1
+```
+
+Stripe webhook 地址配置为 `https://your-domain.example/api/user/topup/stripe/webhook`。后端会处理 `checkout.session.completed`、`checkout.session.async_payment_succeeded`、`checkout.session.expired` 和 `checkout.session.async_payment_failed`，已支付订单重复投递不会重复入账。
 
 准备 Prisma：
 

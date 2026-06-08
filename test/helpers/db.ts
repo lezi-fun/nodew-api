@@ -5,6 +5,7 @@ export const resetDatabase = async () => {
   await prisma.relaySelectionState.deleteMany();
   await prisma.aPIKey.deleteMany();
   await prisma.redemption.deleteMany();
+  await prisma.topUpOrder.deleteMany();
   await prisma.channel.deleteMany();
   await prisma.systemOption.deleteMany();
   await prisma.setupState.deleteMany();

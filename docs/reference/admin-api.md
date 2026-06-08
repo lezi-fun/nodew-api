@@ -13,6 +13,7 @@ Console and administration routes are exposed under `/api`.
 | Models | Inspect model availability inferred from active channels. |
 | Settings | Configure runtime and console-facing behavior. |
 | Check-in | Read personal check-in status and issue daily quota rewards. |
+| Top-up | Create wallet top-up sessions and settle paid orders. |
 
 ## Public site content
 
@@ -117,6 +118,18 @@ The web console uses the backend authentication APIs for login, registration, se
 `GET /api/checkin/status` returns whether check-in is enabled, whether the current user already checked in today, the configured min/max quota range, monthly records, cumulative totals, and streak data.
 
 `POST /api/checkin` creates the current day's record and increments the user's remaining quota by a random value inside the configured range.
+
+### Wallet top-up routes
+
+- `GET /api/user/topup/stripe/config`
+- `POST /api/user/topup/stripe/checkout`
+- `POST /api/user/topup/stripe/webhook`
+
+`GET /api/user/topup/stripe/config` returns the current Stripe wallet top-up status for signed-in users. It includes whether the feature is enabled, the currency, the quota credited per unit, the price per unit, and the minimum unit count.
+
+`POST /api/user/topup/stripe/checkout` accepts `{ "units": number }`, creates a pending top-up order, creates a Stripe Checkout Session, stores the Stripe session ID, and returns the Checkout URL.
+
+`POST /api/user/topup/stripe/webhook` is called by Stripe. It verifies the `Stripe-Signature` header against the raw request body before processing events. Paid Checkout events credit quota exactly once; expired or failed events update the pending order status without crediting quota.
 
 ## User security admin operations
 

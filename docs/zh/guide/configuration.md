@@ -65,6 +65,29 @@ NodEW-api 通过环境变量读取运行配置。
 - 自定义 provider 字段映射支持 `data.user.id` 这类点路径，也支持 `groups[0]` 这类数组索引。
 - 访问策略既可以写成单条件，例如 `{"field":"groups","operator":"contains","value":"staff"}`，也可以写成包含 `logic`、`conditions`、`groups` 的组合策略。支持的操作符包括 `eq`、`ne`、`gt`、`gte`、`lt`、`lte`、`in`、`not_in`、`contains`、`not_contains`、`exists`、`not_exists`。
 
+## Stripe 钱包充值
+
+Stripe 钱包充值通过环境变量配置，使用 Stripe 托管的 Checkout Session 完成一次性额度购买。
+
+| 变量 | 必填 | 说明 |
+| --- | --- | --- |
+| `APP_BASE_URL` | 开启 Stripe 充值时必填 | 用于拼接 Checkout 成功和取消跳转地址的公开控制台地址。 |
+| `STRIPE_TOPUP_ENABLED` | 否 | 设为 `true` 后在钱包页开启 Stripe 充值入口，默认 `false`。 |
+| `STRIPE_SECRET_KEY` | 开启时必填 | 创建 Checkout Session 使用的 Stripe Secret Key。 |
+| `STRIPE_WEBHOOK_SECRET` | 入账必填 | Stripe webhook 签名密钥，用于校验回调后入账。 |
+| `STRIPE_CURRENCY` | 否 | Checkout 货币，默认 `usd`。 |
+| `STRIPE_QUOTA_PER_UNIT` | 否 | 每份充值入账的额度，默认 `100000`。 |
+| `STRIPE_UNIT_AMOUNT_CENTS` | 否 | 每份价格，单位为对应货币的最小单位，默认 `100`。 |
+| `STRIPE_MIN_UNITS` | 否 | 单次充值最小份数，默认 `1`。 |
+
+行为说明：
+
+- 用户接口 `POST /api/user/topup/stripe/checkout` 会创建待支付充值订单，并返回 Checkout URL。
+- Stripe webhook endpoint 配置为 `/api/user/topup/stripe/webhook`。
+- 后端会先校验 webhook 签名，再解析事件正文。
+- 已支付 webhook 只会入账一次，即使 Stripe 重试投递也不会重复加额度。
+- 过期或失败的 Checkout 事件会把待支付订单标记为不可继续支付。
+
 ## 对象存储
 
 对象存储是可选能力，默认关闭。当生成图片、视频、任务文件或后续上传资产需要跨 Serverless 函数重启持久化时再启用。

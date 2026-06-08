@@ -1070,7 +1070,8 @@ body[theme-mode='dark'] .dashboard-timeline-item {
 }
 
 .wallet-feature-list,
-.wallet-help-list {
+.wallet-help-list,
+.wallet-stripe-form {
   display: grid;
   gap: 8px;
 }

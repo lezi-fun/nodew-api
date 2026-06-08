@@ -69,6 +69,29 @@ Behavior notes:
 - Custom provider field mappings support dot paths such as `data.user.id` and array indexes such as `groups[0]`.
 - Access policies accept either a single condition like `{"field":"groups","operator":"contains","value":"staff"}` or grouped policies with `logic`, `conditions`, and `groups`. Supported operators are `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `not_in`, `contains`, `not_contains`, `exists`, and `not_exists`.
 
+## Stripe wallet top-up
+
+Stripe wallet top-up is configured through environment variables. It uses Stripe-hosted Checkout Sessions for one-time quota purchases.
+
+| Variable | Required | Description |
+| --- | --- | --- |
+| `APP_BASE_URL` | Yes when Stripe top-up is enabled | Public console URL used to build Checkout success and cancel URLs. |
+| `STRIPE_TOPUP_ENABLED` | No | Enables the wallet Stripe entry when set to `true`. Defaults to `false`. |
+| `STRIPE_SECRET_KEY` | Yes when enabled | Stripe secret key used to create Checkout Sessions. |
+| `STRIPE_WEBHOOK_SECRET` | Yes for webhook settlement | Stripe webhook signing secret for quota settlement. |
+| `STRIPE_CURRENCY` | No | Checkout currency. Defaults to `usd`. |
+| `STRIPE_QUOTA_PER_UNIT` | No | Quota credited for each purchased unit. Defaults to `100000`. |
+| `STRIPE_UNIT_AMOUNT_CENTS` | No | Price per unit in the smallest currency unit. Defaults to `100`. |
+| `STRIPE_MIN_UNITS` | No | Minimum units allowed per top-up. Defaults to `1`. |
+
+Behavior notes:
+
+- The user route `POST /api/user/topup/stripe/checkout` creates a pending top-up order and returns the Checkout URL.
+- Configure the Stripe webhook endpoint as `/api/user/topup/stripe/webhook`.
+- The backend verifies the webhook signature before parsing the event body.
+- Paid webhooks credit quota exactly once, even when Stripe retries the same event.
+- Expired or failed Checkout events mark pending orders as no longer payable.
+
 ## Daily check-in
 
 Daily check-in settings are stored in system options rather than environment variables.

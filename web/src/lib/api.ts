@@ -338,6 +338,26 @@ export type PricingInfo = {
   note: string;
 };
 
+export type StripeTopUpConfig = {
+  enabled: boolean;
+  configured: boolean;
+  currency: string;
+  quotaPerUnit: number;
+  unitAmountCents: number;
+  minUnits: number;
+};
+
+export type TopUpOrder = {
+  id: string;
+  status: 'PENDING' | 'PAID' | 'CANCELED' | 'EXPIRED' | 'FAILED';
+  quotaAmount: string;
+  amountCents: number;
+  currency: string;
+  stripeSessionId: string | null;
+  paidAt: string | null;
+  createdAt: string;
+};
+
 export type SiteInfo = {
   siteName: string;
   siteDescription: string;
@@ -827,6 +847,10 @@ export const api = {
     (await client.post<{ item: CreatedRedemptionItem }>('/api/redemptions', payload)).data,
   redeemCode: async (payload: { code: string }) =>
     (await client.post<{ user: CurrentUser }>('/api/user/redemption/redeem', payload)).data,
+  getStripeTopUpConfig: async () =>
+    (await client.get<{ item: StripeTopUpConfig }>('/api/user/topup/stripe/config')).data,
+  createStripeCheckout: async (payload: { units: number }) =>
+    (await client.post<{ success: boolean; checkoutUrl: string; order: TopUpOrder }>('/api/user/topup/stripe/checkout', payload)).data,
   updateRedemption: async (id: string, payload: RedemptionUpdatePayload) =>
     (await client.patch<{ item: RedemptionItem }>(`/api/redemptions/${id}`, payload)).data,
   deleteRedemption: async (id: string) => (await client.delete<{ success: boolean }>(`/api/redemptions/${id}`)).data,

@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 
 import cors from '@fastify/cors';
@@ -12,6 +13,7 @@ import { type env as envShape, parseEnv } from './config/env.js';
 import { prisma } from './lib/prisma.js';
 import apiKeyRoutes from './modules/api-keys/routes.js';
 import authRoutes from './modules/auth/routes.js';
+import billingRoutes from './modules/billing/routes.js';
 import groupsRoutes from './modules/admin/groups/routes.js';
 import optionsRoutes from './modules/admin/options/routes.js';
 import redemptionsRoutes from './modules/admin/redemptions/routes.js';
@@ -74,6 +76,22 @@ export const createApp = async (appEnv: AppEnv = parseEnv()) => {
     return payload.replace(/:\s*(-?\d+)n(?=\s*[,}])/g, ':$1');
   });
 
+  app.addHook('preParsing', async (request, _reply, payload) => {
+    if (request.method !== 'POST' || request.url.split('?')[0] !== '/api/user/topup/stripe/webhook') {
+      return payload;
+    }
+
+    const chunks: Buffer[] = [];
+
+    for await (const chunk of payload) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+
+    const rawBody = Buffer.concat(chunks);
+    (request as typeof request & { rawBody?: string }).rawBody = rawBody.toString('utf8');
+    return Readable.from(rawBody);
+  });
+
   app.get('/health', async () => ({
     status: 'ok',
     service: 'NodEW-api',
@@ -92,6 +110,7 @@ export const createApp = async (appEnv: AppEnv = parseEnv()) => {
     await api.register(setupRoutes);
     await api.register(statusRoutes);
     await api.register(authRoutes);
+    await api.register(billingRoutes);
     await api.register(oauthRoutes);
     await api.register(selfRoutes);
     await api.register(dashboardRoutes);

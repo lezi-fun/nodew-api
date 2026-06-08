@@ -33,6 +33,18 @@ enum RedemptionStatus {
   REVOKED
 }
 
+enum TopUpOrderProvider {
+  STRIPE
+}
+
+enum TopUpOrderStatus {
+  PENDING
+  PAID
+  CANCELED
+  EXPIRED
+  FAILED
+}
+
 model User {
   id                          String       @id @default(cuid())
   email                       String       @unique
@@ -72,6 +84,7 @@ model User {
   createdRedemptions          Redemption[] @relation("RedemptionCreator")
   redeemedRedemptions         Redemption[] @relation("RedeemedByUser")
   checkinRecords              UserCheckinRecord[]
+  topUpOrders                 TopUpOrder[]
 
   @@index([role])
   @@index([status])
@@ -218,6 +231,28 @@ model Redemption {
   @@index([status])
   @@index([createdById])
   @@index([redeemedByUserId])
+}
+
+model TopUpOrder {
+  id                    String             @id @default(cuid())
+  userId                String
+  provider              TopUpOrderProvider @default(STRIPE)
+  status                TopUpOrderStatus   @default(PENDING)
+  quotaAmount           BigInt
+  amountCents           Int
+  currency              String             @db.VarChar(16)
+  stripeSessionId       String?            @unique @db.VarChar(255)
+  stripePaymentIntentId String?            @unique @db.VarChar(255)
+  metadata              Json?
+  paidAt                DateTime?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  user                  User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([provider])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model APIKey {

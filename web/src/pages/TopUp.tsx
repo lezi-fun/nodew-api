@@ -1,9 +1,10 @@
 import { Button, Card, Input, Space, Tag, Toast, Typography } from '@douyinfe/semi-ui';
 import { IconCreditCard, IconGift, IconRefresh, IconTickCircle } from '@douyinfe/semi-icons';
 import { useCallback, useContext, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import { UserContext } from '../context/User';
-import { api, type PricingInfo } from '../lib/api';
+import { api, type PricingInfo, type StripeTopUpConfig } from '../lib/api';
 import { formatDateTime, formatQuota } from '../lib/format';
 
 const fallbackPricing: PricingInfo = {
@@ -35,18 +36,40 @@ const paymentMethods = [
   },
 ];
 
+const fallbackStripeConfig: StripeTopUpConfig = {
+  enabled: false,
+  configured: false,
+  currency: 'usd',
+  quotaPerUnit: 100000,
+  unitAmountCents: 100,
+  minUnits: 1,
+};
+
 export default function TopUpPage() {
   const { user, refresh } = useContext(UserContext);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [code, setCode] = useState('');
   const [redeeming, setRedeeming] = useState(false);
   const [pricing, setPricing] = useState<PricingInfo>(fallbackPricing);
   const [pricingLoading, setPricingLoading] = useState(true);
+  const [stripeConfig, setStripeConfig] = useState<StripeTopUpConfig>(fallbackStripeConfig);
+  const [stripeUnits, setStripeUnits] = useState('1');
+  const [stripeLoading, setStripeLoading] = useState(false);
 
   const loadPricing = useCallback(async () => {
     setPricingLoading(true);
     try {
-      const response = await api.getPricing();
-      setPricing(response.data);
+      const [pricingResponse, stripeResponse] = await Promise.all([
+        api.getPricing(),
+        api.getStripeTopUpConfig(),
+      ]);
+      const minUnits = Math.max(1, stripeResponse.item.minUnits);
+      setPricing(pricingResponse.data);
+      setStripeConfig(stripeResponse.item);
+      setStripeUnits((current) => {
+        const parsed = Number(current);
+        return Number.isInteger(parsed) && parsed >= minUnits ? current : String(minUnits);
+      });
     } catch (error) {
       Toast.error(error instanceof Error ? error.message : '加载充值信息失败');
     } finally {
@@ -57,6 +80,28 @@ export default function TopUpPage() {
   useEffect(() => {
     void loadPricing();
   }, [loadPricing]);
+
+  useEffect(() => {
+    const result = searchParams.get('stripe');
+
+    if (result === 'success') {
+      Toast.info('Stripe 支付完成后会通过 webhook 入账，请稍后刷新余额');
+      setSearchParams((current) => {
+        current.delete('stripe');
+        current.delete('order');
+        return current;
+      }, { replace: true });
+    }
+
+    if (result === 'cancel') {
+      Toast.warning('Stripe 支付已取消');
+      setSearchParams((current) => {
+        current.delete('stripe');
+        current.delete('order');
+        return current;
+      }, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const redeem = async () => {
     if (!code.trim()) {
@@ -87,6 +132,30 @@ export default function TopUpPage() {
   const showPaymentPending = (method: string) => {
     Toast.info(`${method} 支付会在下一步接入`);
   };
+
+  const createStripeCheckout = async () => {
+    const units = Number(stripeUnits);
+
+    if (!Number.isInteger(units) || units < stripeConfig.minUnits) {
+      Toast.error(`Stripe 充值至少需要 ${stripeConfig.minUnits} 份`);
+      return;
+    }
+
+    setStripeLoading(true);
+    try {
+      const response = await api.createStripeCheckout({ units });
+      window.location.assign(response.checkoutUrl);
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : '创建 Stripe 支付失败');
+    } finally {
+      setStripeLoading(false);
+    }
+  };
+
+  const stripeUnitsNumber = Number(stripeUnits);
+  const stripePreviewUnits = Number.isFinite(stripeUnitsNumber) ? Math.max(stripeConfig.minUnits, stripeUnitsNumber) : stripeConfig.minUnits;
+  const stripePreviewQuota = BigInt(Math.trunc(stripePreviewUnits)) * BigInt(stripeConfig.quotaPerUnit);
+  const stripePreviewAmount = (Math.trunc(stripePreviewUnits) * stripeConfig.unitAmountCents / 100).toFixed(2);
 
   return (
     <main className="console-page topup-page">
@@ -168,10 +237,36 @@ export default function TopUpPage() {
                 <div key={method.key} className="wallet-payment-card">
                   <div>
                     <strong>{method.name}</strong>
-                    <Tag color="grey">待接入</Tag>
+                    <Tag color={method.key === 'stripe' && stripeConfig.enabled ? 'green' : 'grey'}>
+                      {method.key === 'stripe' && stripeConfig.enabled ? '已启用' : '待接入'}
+                    </Tag>
                   </div>
                   <Typography.Text type="tertiary">{method.description}</Typography.Text>
-                  <Button theme="light" onClick={() => showPaymentPending(method.name)}>查看状态</Button>
+                  {method.key === 'stripe' ? (
+                    <div className="wallet-stripe-form">
+                      <Input
+                        value={stripeUnits}
+                        placeholder={String(stripeConfig.minUnits)}
+                        disabled={!stripeConfig.enabled}
+                        onChange={setStripeUnits}
+                        suffix="份"
+                      />
+                      <Typography.Text type="tertiary">
+                        预计获得 {formatQuota(stripePreviewQuota)} quota，支付 {stripePreviewAmount} {stripeConfig.currency.toUpperCase()}
+                      </Typography.Text>
+                      <Button
+                        theme="solid"
+                        type="primary"
+                        loading={stripeLoading}
+                        disabled={!stripeConfig.enabled}
+                        onClick={() => void createStripeCheckout()}
+                      >
+                        前往 Stripe Checkout
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button theme="light" onClick={() => showPaymentPending(method.name)}>查看状态</Button>
+                  )}
                 </div>
               ))}
             </div>
