@@ -84,6 +84,9 @@ export type AppStatus = ServiceStatus & {
     linuxdo?: {
       enabled: boolean;
     };
+    oidc?: {
+      enabled: boolean;
+    };
   };
 };
 
@@ -134,7 +137,7 @@ export type SecureVerificationResult = {
   verifiedUntil: string;
 };
 
-export type OAuthProvider = 'github' | 'discord' | 'linuxdo';
+export type OAuthProvider = 'github' | 'discord' | 'linuxdo' | 'oidc';
 
 export type OAuthStateResult = {
   success: true;

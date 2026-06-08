@@ -61,7 +61,7 @@ The web console uses the backend authentication APIs for login, registration, se
 ### Authentication routes
 
 - `GET /api/oauth/state`
-- `GET /api/oauth/github`
+- `GET /api/oauth/:provider`
 - `POST /api/user/register`
 - `POST /api/user/login`
 - `POST /api/user/password/forgot`
@@ -86,13 +86,13 @@ The web console uses the backend authentication APIs for login, registration, se
 
 ### Third-party login routes
 
-- `GET /api/oauth/state?provider=github` creates a signed OAuth state cookie and returns the GitHub authorize URL.
-- `GET /api/oauth/github` consumes the OAuth callback, logs in an existing binding, creates a user when registration is enabled, or binds the GitHub identity when the request already carries an authenticated session.
+- `GET /api/oauth/state?provider=github|discord|linuxdo|oidc` creates a signed OAuth state cookie and returns the provider authorize URL.
+- `GET /api/oauth/:provider` consumes the OAuth callback, logs in an existing binding, creates a user when registration is enabled, or binds the identity when the request already carries an authenticated session.
 - `GET /api/user/oauth/bindings` returns the current user's bound third-party accounts.
-- `DELETE /api/user/oauth/bindings/github` removes the current user's GitHub binding.
+- `DELETE /api/user/oauth/bindings/:provider` removes the current user's provider binding.
 - `GET /api/users/:id/oauth/bindings` returns a specific user's bound third-party accounts for admin inspection.
-- `DELETE /api/users/:id/oauth/bindings/github` removes a specific user's GitHub binding from the admin console.
-- The current provider surface is GitHub only; the route shape is already generic for future providers.
+- `DELETE /api/users/:id/oauth/bindings/:provider` removes a specific user's provider binding from the admin console.
+- Supported providers are `github`, `discord`, `linuxdo`, and `oidc`.
 
 ### Email binding routes
 

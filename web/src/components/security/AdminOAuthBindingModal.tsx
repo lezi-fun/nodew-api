@@ -89,7 +89,7 @@ export default function AdminOAuthBindingModal({
       <Space vertical align="start" style={{ width: '100%' }}>
         <Space style={{ width: '100%', justifyContent: 'space-between' }}>
           <Typography.Text type="tertiary">
-            当前支持查看和解绑已绑定的 GitHub、Discord、LinuxDO 账号，后续新增 provider 也可沿用同一入口扩展。
+            当前支持查看和解绑已绑定的 GitHub、Discord、LinuxDO、OIDC 账号，后续新增 provider 也可沿用同一入口扩展。
           </Typography.Text>
           <Button icon={<IconRefresh />} loading={loading} onClick={() => void loadBindings()}>
             刷新

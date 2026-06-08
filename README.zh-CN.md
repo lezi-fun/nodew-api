@@ -43,9 +43,9 @@ NodEW-api 使用 Fastify、Prisma、TypeScript、React、Vite 和 Semi UI 构建
 - 令牌管理，支持额度、过期时间、模型 allow/block 策略。
 - 账号安全流程，包含邮箱验证、密码重置、2FA、Passkey 和会话管理。
 - 个人页支持已登录状态下的邮箱换绑，既可以点邮件链接，也可以输入验证码完成。
-- GitHub 第三方登录基础闭环，包含回调处理、自动建号以及已登录会话下的绑定模式。
-- 个人页 GitHub 绑定状态展示，以及用户自助解绑能力。
-- 管理员侧查看和解绑用户 GitHub 绑定。
+- GitHub、Discord、LinuxDO、OIDC 第三方登录闭环，包含回调处理、自动建号以及已登录会话下的绑定模式。
+- 个人页第三方账号绑定状态展示，以及用户自助解绑能力。
+- 管理员侧查看和解绑用户第三方账号绑定。
 - 每日签到，支持后台配置随机奖励区间、月历记录和连签统计。
 - 使用日志和面向计费的请求统计。
 - 管理控制台，包含数据看板、渠道、令牌、用户、兑换码、日志、模型、部署、系统设置、钱包和操练场。
@@ -132,15 +132,25 @@ RESEND_API_KEY="re_xxx"
 
 用户可以用 2FA 验证码 / 备用码，或者用 Passkey 完成这次验证。后端也会校验同一段短时验证态，因此绕过前端直接调用这些接口会被拒绝。
 
-GitHub 登录现在也可以通过环境变量开启：
+第三方登录可以通过环境变量开启。配置 `APP_BASE_URL` 后，再按需填写要启用的 provider 凭据：
 
 ```bash
 APP_BASE_URL="http://127.0.0.1:3000"
 GITHUB_OAUTH_CLIENT_ID="Iv1.xxxxx"
 GITHUB_OAUTH_CLIENT_SECRET="github-oauth-secret"
+DISCORD_OAUTH_CLIENT_ID="discord-client-id"
+DISCORD_OAUTH_CLIENT_SECRET="discord-client-secret"
+LINUXDO_OAUTH_CLIENT_ID="linuxdo-client-id"
+LINUXDO_OAUTH_CLIENT_SECRET="linuxdo-client-secret"
+OIDC_OAUTH_CLIENT_ID="oidc-client-id"
+OIDC_OAUTH_CLIENT_SECRET="oidc-client-secret"
+OIDC_OAUTH_AUTHORIZATION_URL="https://id.example.com/oauth2/authorize"
+OIDC_OAUTH_TOKEN_URL="https://id.example.com/oauth2/token"
+OIDC_OAUTH_USERINFO_URL="https://id.example.com/oauth2/userinfo"
+OIDC_OAUTH_SCOPE="openid profile email"
 ```
 
-配置后，登录页会显示 GitHub 登录入口，后端会开放 `/api/oauth/state` 和 `/api/oauth/github` 回调链路。当前回调逻辑也支持已登录 session 下的绑定模式。
+某个 provider 配置完整后，登录页会显示对应入口，后端会开放 `/api/oauth/state` 和 `/api/oauth/:provider` 回调链路。当前回调逻辑也支持已登录 session 下的绑定模式。OIDC userinfo 必须返回 `sub` 和 `email`；如果提供了 `preferred_username`、`name`、`picture`、`email_verified`，系统会一并使用。
 
 准备 Prisma：
 

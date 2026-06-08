@@ -65,15 +65,20 @@ The same settings page includes a Passkey section. You can enable Passkey login 
 
 After users enable 2FA or Passkey, the personal page also protects sensitive security actions with one shared verification flow. Disabling 2FA, regenerating backup codes, and deleting Passkey all require a fresh verification step before the request is accepted.
 
-Optional GitHub login:
+Optional third-party login:
 
 ```bash
 APP_BASE_URL="http://127.0.0.1:3000"
 GITHUB_OAUTH_CLIENT_ID="Iv1.xxxxx"
 GITHUB_OAUTH_CLIENT_SECRET="github-oauth-secret"
+OIDC_OAUTH_CLIENT_ID="oidc-client-id"
+OIDC_OAUTH_CLIENT_SECRET="oidc-client-secret"
+OIDC_OAUTH_AUTHORIZATION_URL="https://id.example.com/oauth2/authorize"
+OIDC_OAUTH_TOKEN_URL="https://id.example.com/oauth2/token"
+OIDC_OAUTH_USERINFO_URL="https://id.example.com/oauth2/userinfo"
 ```
 
-After these values are set, the login page shows a GitHub button and the backend enables the `/api/oauth/state` plus `/api/oauth/github` callback flow. The callback path is the frontend route `/oauth/github` under the same `APP_BASE_URL`.
+After a provider is configured, the login page shows its button and the backend enables `/api/oauth/state` plus `/api/oauth/:provider`. Callback paths are frontend routes under the same `APP_BASE_URL`, such as `/oauth/github` and `/oauth/oidc`.
 
 ## Database
 

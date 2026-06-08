@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 
 import type { Prisma } from '@prisma/client';
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyInstance, FastifyPluginAsync, FastifyReply } from 'fastify';
 import { z } from 'zod';
 
 import { generateAccessToken, hashPassword } from '../../lib/crypto.js';
@@ -96,6 +96,44 @@ type LinuxDOUserResponse = {
   trust_level?: number | null;
 };
 
+type OIDCTokenResponse = {
+  access_token?: string;
+  id_token?: string;
+  token_type?: string;
+  scope?: string;
+  refresh_token?: string;
+  expires_in?: number;
+  error?: string;
+  error_description?: string;
+};
+
+type OIDCUserResponse = {
+  sub?: string;
+  preferred_username?: string | null;
+  name?: string | null;
+  email?: string | null;
+  picture?: string | null;
+  email_verified?: boolean | null;
+};
+
+type OAuthTokenResult = {
+  access_token?: string;
+  token_type?: string;
+  scope?: string;
+  refresh_token?: string;
+  expires_in?: number;
+};
+
+type OAuthUserProfile = {
+  providerUserId: string;
+  username: string | null;
+  displayName: string | null;
+  avatarUrl: string | null;
+  email: string | null;
+  emailVerified: boolean;
+  metadata: Prisma.InputJsonObject;
+};
+
 const toOAuthMetadata = (metadata: Record<string, string | number | boolean | null>): Prisma.InputJsonObject => metadata;
 
 const buildAppBaseUrl = () => (process.env.APP_BASE_URL ?? '').trim();
@@ -133,7 +171,7 @@ const resolveOAuthRedirectUri = (provider: OAuthProvider) => {
 const buildAuthorizeUrl = (provider: OAuthProvider, state: string) => {
   const config = getOAuthProviderConfig(provider);
 
-  if (!config || !config.clientId || !config.clientSecret) {
+  if (!config || !config.clientId || !config.clientSecret || !config.authorizeUrl) {
     return null;
   }
 
@@ -143,6 +181,9 @@ const buildAuthorizeUrl = (provider: OAuthProvider, state: string) => {
   url.searchParams.set('redirect_uri', redirectUri);
   url.searchParams.set('scope', config.scope);
   url.searchParams.set('state', state);
+  if (provider === 'oidc') {
+    url.searchParams.set('response_type', 'code');
+  }
   return url.toString();
 };
 
@@ -376,6 +417,130 @@ const fetchLinuxDOUserInfo = async (accessToken: string) => {
   };
 };
 
+const fetchOIDCToken = async (args: {
+  code: string;
+  redirectUri: string;
+}) => {
+  const config = getOAuthProviderConfig('oidc');
+
+  if (!config || !config.clientId || !config.clientSecret || !config.tokenUrl) {
+    throw new Error('OIDC OAuth is not configured');
+  }
+
+  const response = await fetch(config.tokenUrl, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      client_id: config.clientId,
+      client_secret: config.clientSecret,
+      code: args.code,
+      grant_type: 'authorization_code',
+      redirect_uri: args.redirectUri,
+    }).toString(),
+  });
+
+  const json = await response.json().catch(() => ({})) as OIDCTokenResponse;
+
+  if (!response.ok || json.error || !json.access_token) {
+    const message = json.error_description || json.error || 'OAuth token exchange failed';
+    throw new Error(message);
+  }
+
+  return json;
+};
+
+const fetchOIDCUserInfo = async (accessToken: string) => {
+  const config = getOAuthProviderConfig('oidc');
+
+  if (!config?.userInfoUrl) {
+    throw new Error('OIDC OAuth is not configured');
+  }
+
+  const response = await fetch(config.userInfoUrl, {
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  const userJson = await response.json().catch(() => null) as OIDCUserResponse | null;
+
+  if (!response.ok || !userJson) {
+    throw new Error('Failed to fetch OIDC user info');
+  }
+
+  const providerUserId = userJson.sub?.trim();
+  const email = userJson.email?.trim() || null;
+
+  if (!providerUserId || !email) {
+    throw new Error('OIDC account does not provide required user info');
+  }
+
+  const preferredUsername = userJson.preferred_username?.trim() || null;
+  const displayName = userJson.name?.trim() || preferredUsername || email;
+
+  return {
+    providerUserId,
+    username: preferredUsername || email.split('@')[0] || null,
+    displayName,
+    avatarUrl: userJson.picture?.trim() || null,
+    email,
+    emailVerified: userJson.email_verified === true,
+    metadata: toOAuthMetadata({
+      sub: providerUserId,
+      preferredUsername,
+      emailVerified: userJson.email_verified ?? null,
+    }),
+  };
+};
+
+const fetchOAuthToken = async (provider: OAuthProvider, args: {
+  code: string;
+  state: string;
+  redirectUri: string;
+}): Promise<OAuthTokenResult> => {
+  if (provider === 'github') {
+    return fetchGitHubToken(args);
+  }
+
+  if (provider === 'discord') {
+    return fetchDiscordToken(args);
+  }
+
+  if (provider === 'linuxdo') {
+    return fetchLinuxDOToken(args);
+  }
+
+  if (provider === 'oidc') {
+    return fetchOIDCToken(args);
+  }
+
+  throw new Error('OAuth provider is not supported');
+};
+
+const fetchOAuthUserInfo = async (provider: OAuthProvider, accessToken: string): Promise<OAuthUserProfile> => {
+  if (provider === 'github') {
+    return fetchGitHubUserInfo(accessToken);
+  }
+
+  if (provider === 'discord') {
+    return fetchDiscordUserInfo(accessToken);
+  }
+
+  if (provider === 'linuxdo') {
+    return fetchLinuxDOUserInfo(accessToken);
+  }
+
+  if (provider === 'oidc') {
+    return fetchOIDCUserInfo(accessToken);
+  }
+
+  throw new Error('OAuth provider is not supported');
+};
+
 const createSession = async (userId: string) => {
   const sessionToken = generateAccessToken();
 
@@ -401,6 +566,280 @@ const createSession = async (userId: string) => {
     sessionToken,
     user,
   };
+};
+
+const resolveOAuthRedirectUriOrHttpError = (app: FastifyInstance, provider: OAuthProvider) => {
+  try {
+    return resolveOAuthRedirectUri(provider);
+  } catch (error) {
+    if (error instanceof Error && error.message === 'APP_BASE_URL is required for OAuth') {
+      throw app.httpErrors.badRequest(error.message);
+    }
+
+    throw error;
+  }
+};
+
+const buildOAuthBindingData = (oauthUser: OAuthUserProfile, token: OAuthTokenResult) => ({
+  providerUserId: oauthUser.providerUserId,
+  email: oauthUser.email,
+  displayName: oauthUser.displayName,
+  avatarUrl: oauthUser.avatarUrl,
+  tokenType: token.token_type ?? null,
+  scope: token.scope ?? null,
+  accessToken: token.access_token ?? null,
+  refreshToken: token.refresh_token ?? null,
+  expiresAt: typeof token.expires_in === 'number' ? new Date(Date.now() + token.expires_in * 1000) : null,
+  metadata: oauthUser.metadata,
+});
+
+const bindOAuthAccount = async (args: {
+  provider: OAuthProvider;
+  userId: string;
+  oauthUser: OAuthUserProfile;
+  token: OAuthTokenResult;
+}) => {
+  const existingByProviderId = await prisma.userOAuthBinding.findFirst({
+    where: {
+      provider: args.provider,
+      providerUserId: args.oauthUser.providerUserId,
+    },
+    select: { id: true, userId: true },
+  });
+
+  if (existingByProviderId && existingByProviderId.userId !== args.userId) {
+    throw new Error('This OAuth account is already bound to another user');
+  }
+
+  const existingForUser = await prisma.userOAuthBinding.findFirst({
+    where: {
+      userId: args.userId,
+      provider: args.provider,
+    },
+    select: { id: true },
+  });
+
+  const bindingData = buildOAuthBindingData(args.oauthUser, args.token);
+
+  if (existingForUser) {
+    await prisma.userOAuthBinding.update({
+      where: { id: existingForUser.id },
+      data: {
+        ...bindingData,
+        deletedAt: null,
+      },
+    });
+    return;
+  }
+
+  await prisma.userOAuthBinding.create({
+    data: {
+      userId: args.userId,
+      provider: args.provider,
+      ...bindingData,
+    },
+  });
+};
+
+const findOrCreateOAuthLoginUser = async (app: FastifyInstance, args: {
+  provider: OAuthProvider;
+  oauthUser: OAuthUserProfile;
+  token: OAuthTokenResult;
+}) => {
+  const existingBinding = await prisma.userOAuthBinding.findFirst({
+    where: {
+      provider: args.provider,
+      providerUserId: args.oauthUser.providerUserId,
+    },
+    select: {
+      userId: true,
+      user: {
+        select: {
+          id: true,
+          email: true,
+          status: true,
+        },
+      },
+    },
+  });
+
+  if (existingBinding) {
+    if (existingBinding.user.status !== 'ACTIVE') {
+      throw app.httpErrors.forbidden('User is disabled');
+    }
+
+    return existingBinding.userId;
+  }
+
+  try {
+    await ensureRegistrationAllowed();
+  } catch (error) {
+    if (error instanceof Error && error.message === 'System is not initialized') {
+      throw app.httpErrors.conflict('System is not initialized');
+    }
+
+    if (error instanceof Error && error.message === 'User registration is disabled') {
+      throw app.httpErrors.forbidden('User registration is disabled');
+    }
+
+    throw error;
+  }
+
+  const usernameCandidate = args.oauthUser.username || `${args.provider}_${args.oauthUser.providerUserId}`;
+  const username = await pickAvailableUsername(usernameCandidate);
+
+  try {
+    await ensureUserIdentityAvailable(args.oauthUser.email!, username);
+  } catch (error) {
+    if (error instanceof Error && error.message === 'User already exists') {
+      throw app.httpErrors.conflict('User already exists');
+    }
+
+    throw error;
+  }
+
+  const created = await prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: {
+        email: args.oauthUser.email!,
+        username,
+        passwordHash: hashPassword(generateAccessToken()),
+        displayName: args.oauthUser.displayName,
+        emailVerifiedAt: args.oauthUser.emailVerified ? new Date() : null,
+        role: 'USER',
+        status: 'ACTIVE',
+      },
+      select: { id: true },
+    });
+
+    await tx.userOAuthBinding.create({
+      data: {
+        userId: user.id,
+        provider: args.provider,
+        ...buildOAuthBindingData(args.oauthUser, args.token),
+      },
+    });
+
+    return user;
+  });
+
+  return created.id;
+};
+
+const completeOAuthLogin = async (args: {
+  reply: FastifyReply;
+  userId: string;
+  redirectTo?: string;
+}) => {
+  const twoFA = await prisma.twoFA.findUnique({
+    where: { userId: args.userId },
+    select: { isEnabled: true },
+  });
+
+  if (twoFA?.isEnabled) {
+    const user = await prisma.user.findUnique({
+      where: { id: args.userId },
+      select: { email: true },
+    });
+
+    setTwoFALoginChallengeCookie(args.reply, args.userId);
+
+    return {
+      success: true,
+      requiresTwoFA: true,
+      email: user?.email ?? null,
+      redirectTo: args.redirectTo ?? null,
+    };
+  }
+
+  const session = await createSession(args.userId);
+
+  setSessionCookie(args.reply, session.sessionToken);
+  clearSecureVerificationCookie(args.reply);
+
+  return {
+    success: true,
+    action: 'login',
+    user: session.user,
+    redirectTo: args.redirectTo ?? null,
+  };
+};
+
+const handleOAuthCallback = async (app: FastifyInstance, args: {
+  reply: FastifyReply;
+  provider: OAuthProvider;
+  code: string;
+  state: string;
+  action: 'login' | 'bind';
+  redirectTo?: string;
+  currentUserId?: string;
+}) => {
+  const redirectUri = resolveOAuthRedirectUriOrHttpError(app, args.provider);
+  const token = await fetchOAuthToken(args.provider, {
+    code: args.code,
+    state: args.state,
+    redirectUri,
+  });
+  const accessToken = token.access_token;
+
+  if (!accessToken) {
+    throw app.httpErrors.badRequest('OAuth token exchange failed');
+  }
+
+  let oauthUser: OAuthUserProfile;
+
+  try {
+    oauthUser = await fetchOAuthUserInfo(args.provider, accessToken);
+  } catch (error) {
+    if (error instanceof Error && error.message === 'OIDC account does not provide required user info') {
+      throw app.httpErrors.badRequest(error.message);
+    }
+
+    throw error;
+  }
+
+  if (!oauthUser.email) {
+    throw app.httpErrors.badRequest('OAuth account does not provide an email address');
+  }
+
+  if (args.action === 'bind') {
+    if (!args.currentUserId) {
+      throw app.httpErrors.forbidden('OAuth binding session is invalid or expired');
+    }
+
+    try {
+      await bindOAuthAccount({
+        provider: args.provider,
+        userId: args.currentUserId,
+        oauthUser,
+        token,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'This OAuth account is already bound to another user') {
+        throw app.httpErrors.conflict(error.message);
+      }
+
+      throw error;
+    }
+
+    return {
+      success: true,
+      action: 'bind',
+      redirectTo: args.redirectTo ?? null,
+    };
+  }
+
+  const userId = await findOrCreateOAuthLoginUser(app, {
+    provider: args.provider,
+    oauthUser,
+    token,
+  });
+
+  return completeOAuthLogin({
+    reply: args.reply,
+    userId,
+    redirectTo: args.redirectTo,
+  });
 };
 
 const oauthRoutes: FastifyPluginAsync = async (app) => {
@@ -1108,6 +1547,18 @@ const oauthRoutes: FastifyPluginAsync = async (app) => {
         user: session.user,
         redirectTo: statePayload.redirectTo ?? null,
       };
+    }
+
+    if (params.provider === 'oidc') {
+      return handleOAuthCallback(app, {
+        reply,
+        provider: 'oidc',
+        code: query.code,
+        state: statePayload.state,
+        action,
+        redirectTo: statePayload.redirectTo,
+        currentUserId: currentUser?.id,
+      });
     }
 
     throw app.httpErrors.badRequest('OAuth provider is not supported');

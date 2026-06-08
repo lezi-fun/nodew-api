@@ -34,19 +34,30 @@ NodEW-api 通过环境变量读取运行配置。
 
 ## 第三方登录
 
-当前第三方登录已支持 GitHub，配置仍然通过环境变量完成。
+当前第三方登录支持 GitHub、Discord、LinuxDO、OIDC，配置仍然通过环境变量完成。
 
 | 变量 | 必填 | 说明 |
 | --- | --- | --- |
-| `APP_BASE_URL` | 启用 GitHub 登录时必填 | 用于拼接 OAuth 回调地址。 |
+| `APP_BASE_URL` | 启用任一第三方登录时必填 | 用于拼接 OAuth 回调地址。 |
 | `GITHUB_OAUTH_CLIENT_ID` | GitHub 登录必填 | GitHub OAuth 应用的 Client ID。 |
 | `GITHUB_OAUTH_CLIENT_SECRET` | GitHub 登录必填 | GitHub OAuth 应用的 Client Secret。 |
+| `DISCORD_OAUTH_CLIENT_ID` | Discord 登录必填 | Discord OAuth 应用的 Client ID。 |
+| `DISCORD_OAUTH_CLIENT_SECRET` | Discord 登录必填 | Discord OAuth 应用的 Client Secret。 |
+| `LINUXDO_OAUTH_CLIENT_ID` | LinuxDO 登录必填 | LinuxDO OAuth 应用的 Client ID。 |
+| `LINUXDO_OAUTH_CLIENT_SECRET` | LinuxDO 登录必填 | LinuxDO OAuth 应用的 Client Secret。 |
+| `OIDC_OAUTH_CLIENT_ID` | OIDC 登录必填 | OIDC Client ID。 |
+| `OIDC_OAUTH_CLIENT_SECRET` | OIDC 登录必填 | OIDC Client Secret。 |
+| `OIDC_OAUTH_AUTHORIZATION_URL` | OIDC 登录必填 | OIDC 授权端点。 |
+| `OIDC_OAUTH_TOKEN_URL` | OIDC 登录必填 | OIDC token 端点。 |
+| `OIDC_OAUTH_USERINFO_URL` | OIDC 登录必填 | OIDC userinfo 端点。 |
+| `OIDC_OAUTH_SCOPE` | OIDC 登录可选 | 发起授权时使用的 scope，默认 `openid profile email`。 |
 
 行为说明：
 
-- 回调地址固定为 `APP_BASE_URL` 下的 `/oauth/github`。
+- 回调地址固定为 `APP_BASE_URL` 下的 `/oauth/github`、`/oauth/discord`、`/oauth/linuxdo`、`/oauth/oidc`。
 - `GET /api/oauth/state` 会创建签名 state cookie，并返回跳转用的授权地址。
-- `GET /api/oauth/github` 会消费回调结果；当注册开启时可自动创建账号；如果请求本身已经带有登录态，则会进入绑定模式。
+- `GET /api/oauth/:provider` 会消费回调结果；当注册开启时可自动创建账号；如果请求本身已经带有登录态，则会进入绑定模式。
+- OIDC userinfo 必须返回 `sub` 和 `email`；如果提供了 `preferred_username`、`name`、`picture`、`email_verified`，系统会一并使用。
 
 ## 对象存储
 

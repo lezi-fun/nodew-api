@@ -29,6 +29,12 @@ const oauthProviderMeta: Record<OAuthProvider, OAuthProviderMeta> = {
     avatarColor: 'green',
     avatarContent: 'L',
   },
+  oidc: {
+    label: 'OIDC',
+    tagColor: 'grey',
+    avatarColor: 'grey',
+    avatarContent: 'O',
+  },
 };
 
 const fallbackOAuthProviderMeta: OAuthProviderMeta = {
@@ -38,10 +44,10 @@ const fallbackOAuthProviderMeta: OAuthProviderMeta = {
   avatarContent: '?',
 };
 
-export const oauthProviders: OAuthProvider[] = ['github', 'discord', 'linuxdo'];
+export const oauthProviders: OAuthProvider[] = ['github', 'discord', 'linuxdo', 'oidc'];
 
 export const isOAuthProvider = (value: string | undefined): value is OAuthProvider =>
-  value === 'github' || value === 'discord' || value === 'linuxdo';
+  value === 'github' || value === 'discord' || value === 'linuxdo' || value === 'oidc';
 
 export const getOAuthProviderMeta = (provider: string) =>
   isOAuthProvider(provider) ? oauthProviderMeta[provider] : fallbackOAuthProviderMeta;

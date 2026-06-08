@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { hashPassword, verifyPassword } from '../../lib/crypto.js';
 import { oauthProviderSchema } from '../../lib/oauth.js';
+import { getOAuthProviderDisplayName } from '../../lib/oauth.js';
 import { prisma } from '../../lib/prisma.js';
 import {
   buildOtpAuthUri,
@@ -101,7 +102,7 @@ const serializeOAuthBinding = (binding: {
   updatedAt: Date;
 }) => ({
   ...binding,
-  providerName: binding.provider === 'github' ? 'GitHub' : binding.provider === 'discord' ? 'Discord' : binding.provider === 'linuxdo' ? 'LinuxDO' : binding.provider,
+  providerName: getOAuthProviderDisplayName(binding.provider),
 });
 
 const resolveTwoFAIssuer = async () => {

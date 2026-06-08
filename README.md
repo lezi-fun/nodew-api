@@ -44,9 +44,9 @@ Current capabilities include:
 - Token management with quota, expiry, and model allow/block metadata.
 - Account security flows, including email verification, password reset, 2FA, Passkey, and session management.
 - Verified email rebinding from the personal page, with both mail-link and verification-code completion paths.
-- GitHub third-party login with callback handling, automatic account creation, and bind-mode support for authenticated sessions.
-- Personal-page GitHub binding status plus self-service unbind support.
-- Admin-side inspection and removal for user GitHub bindings.
+- Third-party login for GitHub, Discord, LinuxDO, and OIDC with callback handling, automatic account creation, and bind-mode support for authenticated sessions.
+- Personal-page third-party account binding status plus self-service unbind support.
+- Admin-side inspection and removal for user third-party account bindings.
 - Daily check-in with configurable random quota rewards, monthly history, and streak statistics.
 - Usage logs and billing-oriented request accounting.
 - Admin console for dashboard, channels, tokens, users, redemptions, logs, models, deployment, settings, wallet, and playground.
@@ -133,15 +133,25 @@ Sensitive security actions on the personal page now use a shared verification di
 
 Users can complete this verification with either a 2FA code / backup code or a Passkey. The backend also enforces the same verification window, so calling these endpoints directly without a fresh verification state is rejected.
 
-GitHub login is now available through environment-based configuration:
+Third-party login is available through environment-based configuration. Set `APP_BASE_URL` plus the credentials for each provider you want to enable:
 
 ```bash
 APP_BASE_URL="http://127.0.0.1:3000"
 GITHUB_OAUTH_CLIENT_ID="Iv1.xxxxx"
 GITHUB_OAUTH_CLIENT_SECRET="github-oauth-secret"
+DISCORD_OAUTH_CLIENT_ID="discord-client-id"
+DISCORD_OAUTH_CLIENT_SECRET="discord-client-secret"
+LINUXDO_OAUTH_CLIENT_ID="linuxdo-client-id"
+LINUXDO_OAUTH_CLIENT_SECRET="linuxdo-client-secret"
+OIDC_OAUTH_CLIENT_ID="oidc-client-id"
+OIDC_OAUTH_CLIENT_SECRET="oidc-client-secret"
+OIDC_OAUTH_AUTHORIZATION_URL="https://id.example.com/oauth2/authorize"
+OIDC_OAUTH_TOKEN_URL="https://id.example.com/oauth2/token"
+OIDC_OAUTH_USERINFO_URL="https://id.example.com/oauth2/userinfo"
+OIDC_OAUTH_SCOPE="openid profile email"
 ```
 
-When these values are present, the login page shows a GitHub entry button and the backend enables the `/api/oauth/state` plus `/api/oauth/github` callback flow. The callback route also supports bind-mode when the request already has an authenticated session.
+When a provider is configured, the login page shows its entry button and the backend enables `/api/oauth/state` plus `/api/oauth/:provider`. The callback route also supports bind-mode when the request already has an authenticated session. OIDC userinfo must return `sub` and `email`; `preferred_username`, `name`, `picture`, and `email_verified` are used when present.
 
 Prepare Prisma:
 

@@ -38,20 +38,30 @@ When the admin setting for registration email verification is enabled, mail deli
 
 ## Third-party login
 
-Third-party login currently supports GitHub through environment-based configuration.
+Third-party login supports GitHub, Discord, LinuxDO, and OIDC through environment-based configuration.
 
 | Variable | Required | Description |
 | --- | --- | --- |
-| `APP_BASE_URL` | Yes when GitHub login is enabled | Base console URL used to build the OAuth callback path. |
+| `APP_BASE_URL` | Yes when any third-party login is enabled | Base console URL used to build the OAuth callback path. |
 | `GITHUB_OAUTH_CLIENT_ID` | Yes for GitHub login | GitHub OAuth application client ID. |
 | `GITHUB_OAUTH_CLIENT_SECRET` | Yes for GitHub login | GitHub OAuth application client secret. |
+| `DISCORD_OAUTH_CLIENT_ID` | Yes for Discord login | Discord OAuth application client ID. |
+| `DISCORD_OAUTH_CLIENT_SECRET` | Yes for Discord login | Discord OAuth application client secret. |
+| `LINUXDO_OAUTH_CLIENT_ID` | Yes for LinuxDO login | LinuxDO OAuth application client ID. |
+| `LINUXDO_OAUTH_CLIENT_SECRET` | Yes for LinuxDO login | LinuxDO OAuth application client secret. |
+| `OIDC_OAUTH_CLIENT_ID` | Yes for OIDC login | OIDC client ID. |
+| `OIDC_OAUTH_CLIENT_SECRET` | Yes for OIDC login | OIDC client secret. |
+| `OIDC_OAUTH_AUTHORIZATION_URL` | Yes for OIDC login | OIDC authorization endpoint. |
+| `OIDC_OAUTH_TOKEN_URL` | Yes for OIDC login | OIDC token endpoint. |
+| `OIDC_OAUTH_USERINFO_URL` | Yes for OIDC login | OIDC userinfo endpoint. |
+| `OIDC_OAUTH_SCOPE` | No for OIDC login | Scope sent to the authorization endpoint. Defaults to `openid profile email`. |
 
 Behavior notes:
 
-- The callback path is fixed to `/oauth/github` under `APP_BASE_URL`.
+- The callback paths are `/oauth/github`, `/oauth/discord`, `/oauth/linuxdo`, and `/oauth/oidc` under `APP_BASE_URL`.
 - `GET /api/oauth/state` creates the signed state cookie and returns the provider authorize URL.
-- `GET /api/oauth/github` consumes the callback, creates an account when registration is enabled, or binds the GitHub identity to the current authenticated session.
-- The current provider scope is GitHub only. Additional providers can be added later without changing the route shape.
+- `GET /api/oauth/:provider` consumes the callback, creates an account when registration is enabled, or binds the identity to the current authenticated session.
+- OIDC userinfo must return `sub` and `email`. `preferred_username`, `name`, `picture`, and `email_verified` are used when present.
 
 ## Daily check-in
 

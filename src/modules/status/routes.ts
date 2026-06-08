@@ -60,6 +60,16 @@ const statusRoutes: FastifyPluginAsync = async (app) => {
             && (process.env.APP_BASE_URL ?? '').trim(),
           ),
         },
+        oidc: {
+          enabled: Boolean(
+            (process.env.OIDC_OAUTH_CLIENT_ID ?? '').trim()
+            && (process.env.OIDC_OAUTH_CLIENT_SECRET ?? '').trim()
+            && (process.env.OIDC_OAUTH_AUTHORIZATION_URL ?? '').trim()
+            && (process.env.OIDC_OAUTH_TOKEN_URL ?? '').trim()
+            && (process.env.OIDC_OAUTH_USERINFO_URL ?? '').trim()
+            && (process.env.APP_BASE_URL ?? '').trim(),
+          ),
+        },
       },
     };
   });

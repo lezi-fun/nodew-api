@@ -88,6 +88,70 @@ const withLinuxDOOAuthEnv = () => {
   };
 };
 
+const withOIDCOAuthEnv = () => {
+  const previous = {
+    appBaseUrl: process.env.APP_BASE_URL,
+    clientId: process.env.OIDC_OAUTH_CLIENT_ID,
+    clientSecret: process.env.OIDC_OAUTH_CLIENT_SECRET,
+    authorizationUrl: process.env.OIDC_OAUTH_AUTHORIZATION_URL,
+    tokenUrl: process.env.OIDC_OAUTH_TOKEN_URL,
+    userInfoUrl: process.env.OIDC_OAUTH_USERINFO_URL,
+    scope: process.env.OIDC_OAUTH_SCOPE,
+  };
+
+  process.env.APP_BASE_URL = 'http://127.0.0.1:3000';
+  process.env.OIDC_OAUTH_CLIENT_ID = 'oidc-client-id';
+  process.env.OIDC_OAUTH_CLIENT_SECRET = 'oidc-client-secret';
+  process.env.OIDC_OAUTH_AUTHORIZATION_URL = 'https://id.example.test/oauth2/authorize';
+  process.env.OIDC_OAUTH_TOKEN_URL = 'https://id.example.test/oauth2/token';
+  process.env.OIDC_OAUTH_USERINFO_URL = 'https://id.example.test/oauth2/userinfo';
+  process.env.OIDC_OAUTH_SCOPE = 'openid profile email';
+
+  return () => {
+    if (previous.appBaseUrl === undefined) {
+      delete process.env.APP_BASE_URL;
+    } else {
+      process.env.APP_BASE_URL = previous.appBaseUrl;
+    }
+
+    if (previous.clientId === undefined) {
+      delete process.env.OIDC_OAUTH_CLIENT_ID;
+    } else {
+      process.env.OIDC_OAUTH_CLIENT_ID = previous.clientId;
+    }
+
+    if (previous.clientSecret === undefined) {
+      delete process.env.OIDC_OAUTH_CLIENT_SECRET;
+    } else {
+      process.env.OIDC_OAUTH_CLIENT_SECRET = previous.clientSecret;
+    }
+
+    if (previous.authorizationUrl === undefined) {
+      delete process.env.OIDC_OAUTH_AUTHORIZATION_URL;
+    } else {
+      process.env.OIDC_OAUTH_AUTHORIZATION_URL = previous.authorizationUrl;
+    }
+
+    if (previous.tokenUrl === undefined) {
+      delete process.env.OIDC_OAUTH_TOKEN_URL;
+    } else {
+      process.env.OIDC_OAUTH_TOKEN_URL = previous.tokenUrl;
+    }
+
+    if (previous.userInfoUrl === undefined) {
+      delete process.env.OIDC_OAUTH_USERINFO_URL;
+    } else {
+      process.env.OIDC_OAUTH_USERINFO_URL = previous.userInfoUrl;
+    }
+
+    if (previous.scope === undefined) {
+      delete process.env.OIDC_OAUTH_SCOPE;
+    } else {
+      process.env.OIDC_OAUTH_SCOPE = previous.scope;
+    }
+  };
+};
+
 const enableRegistration = async () => {
   await prisma.setupState.create({
     data: {
@@ -582,6 +646,127 @@ describe('oauth linuxdo integration', () => {
         email: 'linuxdo@test.local',
         displayName: 'LinuxDO User',
         refreshToken: 'linuxdo-refresh-token',
+      });
+    } finally {
+      restoreEnv();
+      await closeTestApp(app);
+    }
+  });
+});
+
+describe('oauth oidc integration', () => {
+  it('creates an oauth state cookie and authorize url for oidc', async () => {
+    const restoreEnv = withOIDCOAuthEnv();
+    const app = await createTestApp();
+
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/oauth/state?provider=oidc&redirectTo=/console',
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toMatchObject({
+        success: true,
+        data: {
+          state: expect.any(String),
+        },
+      });
+      expect(response.json().data.authorizeUrl).toContain('https://id.example.test/oauth2/authorize');
+      expect(response.json().data.authorizeUrl).toContain('client_id=oidc-client-id');
+      expect(response.json().data.authorizeUrl).toContain('scope=openid+profile+email');
+      expect(response.json().data.authorizeUrl).toContain('response_type=code');
+      expect(response.json().data.authorizeUrl).toContain(encodeURIComponent('http://127.0.0.1:3000/oauth/oidc'));
+      expect(extractCookieValue(response, 'nodew_oauth_state')).toBeTruthy();
+    } finally {
+      restoreEnv();
+      await closeTestApp(app);
+    }
+  });
+
+  it('creates a user session from the oidc callback when registration is enabled', async () => {
+    const restoreEnv = withOIDCOAuthEnv();
+    await enableRegistration();
+    const app = await createTestApp();
+
+    try {
+      const stateResponse = await app.inject({
+        method: 'GET',
+        url: '/api/oauth/state?provider=oidc&redirectTo=/console',
+      });
+      const stateCookie = extractCookieValue(stateResponse, 'nodew_oauth_state');
+      const state = stateResponse.json().data.state as string;
+
+      mockFetchSequence([
+        {
+          body: {
+            access_token: 'oidc-access-token',
+            token_type: 'Bearer',
+            scope: 'openid profile email',
+            refresh_token: 'oidc-refresh-token',
+            expires_in: 3600,
+            id_token: 'oidc-id-token',
+          },
+        },
+        {
+          body: {
+            sub: 'oidc-subject-1',
+            preferred_username: 'oidc_user',
+            name: 'OIDC User',
+            email: 'oidc@test.local',
+            picture: 'https://cdn.example.test/oidc-user.png',
+            email_verified: true,
+          },
+        },
+      ]);
+
+      const callbackResponse = await app.inject({
+        method: 'GET',
+        url: `/api/oauth/oidc?code=oauth-code&state=${state}`,
+        cookies: {
+          nodew_oauth_state: stateCookie!,
+        },
+      });
+
+      expect(callbackResponse.statusCode).toBe(200);
+      expect(callbackResponse.json()).toMatchObject({
+        success: true,
+        action: 'login',
+        redirectTo: '/console',
+        user: {
+          email: 'oidc@test.local',
+          username: 'oidc_user',
+        },
+      });
+      expect(extractCookieValue(callbackResponse, 'nodew_session')).toBeTruthy();
+
+      const storedUser = await prisma.user.findUnique({
+        where: { email: 'oidc@test.local' },
+        select: {
+          emailVerifiedAt: true,
+        },
+      });
+
+      expect(storedUser?.emailVerifiedAt).toBeTruthy();
+
+      const binding = await prisma.userOAuthBinding.findFirst({
+        where: {
+          provider: 'oidc',
+          providerUserId: 'oidc-subject-1',
+        },
+        select: {
+          email: true,
+          displayName: true,
+          refreshToken: true,
+          avatarUrl: true,
+        },
+      });
+
+      expect(binding).toMatchObject({
+        email: 'oidc@test.local',
+        displayName: 'OIDC User',
+        refreshToken: 'oidc-refresh-token',
+        avatarUrl: 'https://cdn.example.test/oidc-user.png',
       });
     } finally {
       restoreEnv();

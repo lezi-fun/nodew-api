@@ -15,9 +15,28 @@ const oauthStateSchema = z.object({
   issuedAt: z.number().int().nonnegative(),
 });
 
-export type OAuthProvider = 'github' | 'discord' | 'linuxdo';
+export type OAuthProvider = 'github' | 'discord' | 'linuxdo' | 'oidc';
 
-export const oauthProviderSchema = z.enum(['github', 'discord', 'linuxdo']);
+export const oauthProviderSchema = z.enum(['github', 'discord', 'linuxdo', 'oidc']);
+
+const oauthProviderDisplayNames: Record<OAuthProvider, string> = {
+  github: 'GitHub',
+  discord: 'Discord',
+  linuxdo: 'LinuxDO',
+  oidc: 'OIDC',
+};
+
+export const getOAuthProviderDisplayName = (provider: string) =>
+  oauthProviderSchema.safeParse(provider).success ? oauthProviderDisplayNames[provider as OAuthProvider] : provider;
+
+export type OAuthProviderConfig = {
+  clientId: string;
+  clientSecret: string;
+  authorizeUrl: string;
+  scope: string;
+  tokenUrl?: string;
+  userInfoUrl?: string;
+};
 
 export const oauthCookieOptions = {
   httpOnly: true,
@@ -71,7 +90,7 @@ export const readOAuthStateCookie = (request: FastifyRequest) => {
   }
 };
 
-export const getOAuthProviderConfig = (provider: OAuthProvider) => {
+export const getOAuthProviderConfig = (provider: OAuthProvider): OAuthProviderConfig | null => {
   if (provider === 'github') {
     return {
       clientId: process.env.GITHUB_OAUTH_CLIENT_ID?.trim() || '',
@@ -96,6 +115,17 @@ export const getOAuthProviderConfig = (provider: OAuthProvider) => {
       clientSecret: process.env.LINUXDO_OAUTH_CLIENT_SECRET?.trim() || '',
       authorizeUrl: 'https://connect.linux.do/oauth2/authorize',
       scope: 'read',
+    };
+  }
+
+  if (provider === 'oidc') {
+    return {
+      clientId: process.env.OIDC_OAUTH_CLIENT_ID?.trim() || '',
+      clientSecret: process.env.OIDC_OAUTH_CLIENT_SECRET?.trim() || '',
+      authorizeUrl: process.env.OIDC_OAUTH_AUTHORIZATION_URL?.trim() || '',
+      tokenUrl: process.env.OIDC_OAUTH_TOKEN_URL?.trim() || '',
+      userInfoUrl: process.env.OIDC_OAUTH_USERINFO_URL?.trim() || '',
+      scope: process.env.OIDC_OAUTH_SCOPE?.trim() || 'openid profile email',
     };
   }
 

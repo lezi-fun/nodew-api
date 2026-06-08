@@ -49,15 +49,20 @@ SMTP_USER="smtp-user"
 SMTP_PASS="smtp-password"
 ```
 
-如果你要启用 GitHub 登录，再补上：
+如果你要启用第三方登录，再按需补上对应 provider 的配置：
 
 ```bash
 APP_BASE_URL="http://127.0.0.1:3000"
 GITHUB_OAUTH_CLIENT_ID="Iv1.xxxxx"
 GITHUB_OAUTH_CLIENT_SECRET="github-oauth-secret"
+OIDC_OAUTH_CLIENT_ID="oidc-client-id"
+OIDC_OAUTH_CLIENT_SECRET="oidc-client-secret"
+OIDC_OAUTH_AUTHORIZATION_URL="https://id.example.com/oauth2/authorize"
+OIDC_OAUTH_TOKEN_URL="https://id.example.com/oauth2/token"
+OIDC_OAUTH_USERINFO_URL="https://id.example.com/oauth2/userinfo"
 ```
 
-配置完成后，登录页会显示 GitHub 登录入口，后端会启用 `/api/oauth/state` 和 `/api/oauth/github` 回调链路。前端回调路径固定为 `/oauth/github`。
+某个 provider 配置完整后，登录页会显示对应入口，后端会启用 `/api/oauth/state` 和 `/api/oauth/:provider` 回调链路。前端回调路径固定在同一个 `APP_BASE_URL` 下，例如 `/oauth/github` 和 `/oauth/oidc`。
 
 ## 初始化数据库
 

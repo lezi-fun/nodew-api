@@ -3,7 +3,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 
 import { generateAccessToken, hashPassword } from '../../../lib/crypto.js';
-import { oauthProviderSchema } from '../../../lib/oauth.js';
+import { getOAuthProviderDisplayName, oauthProviderSchema } from '../../../lib/oauth.js';
 import { prisma } from '../../../lib/prisma.js';
 import { updateUserPassword } from '../../auth/password-reset.js';
 
@@ -138,7 +138,7 @@ const serializeOAuthBinding = (binding: {
   updatedAt: Date;
 }) => ({
   ...binding,
-  providerName: binding.provider === 'github' ? 'GitHub' : binding.provider,
+  providerName: getOAuthProviderDisplayName(binding.provider),
 });
 
 const ensureGroupExists = async (groupId: string | null | undefined) => {
