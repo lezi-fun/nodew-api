@@ -71,6 +71,8 @@ Optional third-party login:
 APP_BASE_URL="http://127.0.0.1:3000"
 GITHUB_OAUTH_CLIENT_ID="Iv1.xxxxx"
 GITHUB_OAUTH_CLIENT_SECRET="github-oauth-secret"
+OIDC_OAUTH_ENABLED=true
+OIDC_OAUTH_WELL_KNOWN_URL="https://id.example.com/.well-known/openid-configuration"
 OIDC_OAUTH_CLIENT_ID="oidc-client-id"
 OIDC_OAUTH_CLIENT_SECRET="oidc-client-secret"
 OIDC_OAUTH_AUTHORIZATION_URL="https://id.example.com/oauth2/authorize"
@@ -78,7 +80,7 @@ OIDC_OAUTH_TOKEN_URL="https://id.example.com/oauth2/token"
 OIDC_OAUTH_USERINFO_URL="https://id.example.com/oauth2/userinfo"
 ```
 
-After a provider is configured, the login page shows its button and the backend enables `/api/oauth/state` plus `/api/oauth/:provider`. Callback paths are frontend routes under the same `APP_BASE_URL`, such as `/oauth/github` and `/oauth/oidc`.
+After a provider is configured, the login page shows its button and the backend enables `/api/oauth/state` plus `/api/oauth/:provider`. Callback paths are frontend routes under the same `APP_BASE_URL`, such as `/oauth/github` and `/oauth/oidc`. OIDC credentials and endpoints can also be edited later from the admin settings page.
 
 ## Database
 

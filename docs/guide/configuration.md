@@ -38,7 +38,7 @@ When the admin setting for registration email verification is enabled, mail deli
 
 ## Third-party login
 
-Third-party login supports GitHub, Discord, LinuxDO, and OIDC through environment-based configuration.
+Third-party login supports GitHub, Discord, LinuxDO, and OIDC. Built-in providers are configured through environment variables; OIDC can also be edited from the admin settings page.
 
 | Variable | Required | Description |
 | --- | --- | --- |
@@ -49,6 +49,8 @@ Third-party login supports GitHub, Discord, LinuxDO, and OIDC through environmen
 | `DISCORD_OAUTH_CLIENT_SECRET` | Yes for Discord login | Discord OAuth application client secret. |
 | `LINUXDO_OAUTH_CLIENT_ID` | Yes for LinuxDO login | LinuxDO OAuth application client ID. |
 | `LINUXDO_OAUTH_CLIENT_SECRET` | Yes for LinuxDO login | LinuxDO OAuth application client secret. |
+| `OIDC_OAUTH_ENABLED` | No for OIDC login | Explicitly enables or disables OIDC when environment variables are used. Complete OIDC credentials also enable it automatically. |
+| `OIDC_OAUTH_WELL_KNOWN_URL` | No for OIDC login | OIDC discovery document URL. The admin settings page can use it to fetch endpoints. |
 | `OIDC_OAUTH_CLIENT_ID` | Yes for OIDC login | OIDC client ID. |
 | `OIDC_OAUTH_CLIENT_SECRET` | Yes for OIDC login | OIDC client secret. |
 | `OIDC_OAUTH_AUTHORIZATION_URL` | Yes for OIDC login | OIDC authorization endpoint. |
@@ -62,6 +64,7 @@ Behavior notes:
 - `GET /api/oauth/state` creates the signed state cookie and returns the provider authorize URL.
 - `GET /api/oauth/:provider` consumes the callback, creates an account when registration is enabled, or binds the identity to the current authenticated session.
 - OIDC userinfo must return `sub` and `email`. `preferred_username`, `name`, `picture`, and `email_verified` are used when present.
+- Admins can save OIDC credentials and endpoints from the settings page. Saved values override environment defaults and apply without a restart.
 
 ## Daily check-in
 

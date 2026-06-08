@@ -9,6 +9,13 @@ import {
   saveMailConfig,
 } from '../../../lib/mail-config.js';
 import { buildTestMailMessage, sendMailMessage } from '../../../lib/mailer.js';
+import {
+  discoverOIDCConfiguration,
+  evaluateOAuthConfigInput,
+  getOAuthConfiguration,
+  oauthConfigBodySchema,
+  saveOAuthConfig,
+} from '../../../lib/oauth-config.js';
 import { prisma } from '../../../lib/prisma.js';
 
 const optionKeySchema = z.enum([
@@ -43,6 +50,10 @@ const updateOptionBodySchema = z.object({
 
 const sendTestMailBodySchema = z.object({
   email: z.string().email().optional(),
+});
+
+const oidcDiscoveryBodySchema = z.object({
+  wellKnownUrl: z.string().trim().url().max(2048),
 });
 
 const serializeOption = (option: {
@@ -217,6 +228,66 @@ const optionsRoutes: FastifyPluginAsync = async (app) => {
       success: true,
       email,
     });
+  });
+
+  app.get('/options/oauth/status', {
+    preHandler: app.requireAdminUser,
+  }, async () => {
+    const configuration = await getOAuthConfiguration();
+
+    return {
+      item: {
+        ...configuration.status,
+        appBaseUrlConfigured: Boolean((process.env.APP_BASE_URL ?? '').trim()),
+      },
+    };
+  });
+
+  app.get('/options/oauth/config', {
+    preHandler: app.requireAdminUser,
+  }, async () => {
+    const configuration = await getOAuthConfiguration();
+
+    return {
+      item: configuration.draft,
+    };
+  });
+
+  app.put('/options/oauth/config', {
+    preHandler: app.requireAdminUser,
+  }, async (request) => {
+    const body = oauthConfigBodySchema.parse(request.body);
+    const evaluation = evaluateOAuthConfigInput(body);
+
+    if (!evaluation.status.valid) {
+      throw app.httpErrors.badRequest(evaluation.status.errors[0] ?? 'OAuth configuration is invalid');
+    }
+
+    const configuration = await saveOAuthConfig(body);
+
+    return {
+      item: configuration.draft,
+      status: {
+        ...configuration.status,
+        appBaseUrlConfigured: Boolean((process.env.APP_BASE_URL ?? '').trim()),
+      },
+    };
+  });
+
+  app.post('/options/oauth/oidc/discover', {
+    preHandler: app.requireAdminUser,
+  }, async (request) => {
+    const body = oidcDiscoveryBodySchema.parse(request.body);
+
+    try {
+      const item = await discoverOIDCConfiguration(body.wellKnownUrl);
+
+      return {
+        item,
+      };
+    } catch (error) {
+      throw app.httpErrors.badRequest(error instanceof Error ? error.message : 'Failed to fetch OIDC discovery document');
+    }
   });
 };
 

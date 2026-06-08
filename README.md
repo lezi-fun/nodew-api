@@ -133,7 +133,7 @@ Sensitive security actions on the personal page now use a shared verification di
 
 Users can complete this verification with either a 2FA code / backup code or a Passkey. The backend also enforces the same verification window, so calling these endpoints directly without a fresh verification state is rejected.
 
-Third-party login is available through environment-based configuration. Set `APP_BASE_URL` plus the credentials for each provider you want to enable:
+Third-party login is available through environment variables. OIDC can also be edited later from the admin settings page. Set `APP_BASE_URL` plus the credentials for each provider you want to enable:
 
 ```bash
 APP_BASE_URL="http://127.0.0.1:3000"
@@ -143,6 +143,8 @@ DISCORD_OAUTH_CLIENT_ID="discord-client-id"
 DISCORD_OAUTH_CLIENT_SECRET="discord-client-secret"
 LINUXDO_OAUTH_CLIENT_ID="linuxdo-client-id"
 LINUXDO_OAUTH_CLIENT_SECRET="linuxdo-client-secret"
+OIDC_OAUTH_ENABLED=true
+OIDC_OAUTH_WELL_KNOWN_URL="https://id.example.com/.well-known/openid-configuration"
 OIDC_OAUTH_CLIENT_ID="oidc-client-id"
 OIDC_OAUTH_CLIENT_SECRET="oidc-client-secret"
 OIDC_OAUTH_AUTHORIZATION_URL="https://id.example.com/oauth2/authorize"
@@ -151,7 +153,7 @@ OIDC_OAUTH_USERINFO_URL="https://id.example.com/oauth2/userinfo"
 OIDC_OAUTH_SCOPE="openid profile email"
 ```
 
-When a provider is configured, the login page shows its entry button and the backend enables `/api/oauth/state` plus `/api/oauth/:provider`. The callback route also supports bind-mode when the request already has an authenticated session. OIDC userinfo must return `sub` and `email`; `preferred_username`, `name`, `picture`, and `email_verified` are used when present.
+When a provider is configured, the login page shows its entry button and the backend enables `/api/oauth/state` plus `/api/oauth/:provider`. The callback route also supports bind-mode when the request already has an authenticated session. OIDC userinfo must return `sub` and `email`; `preferred_username`, `name`, `picture`, and `email_verified` are used when present. The admin settings page can save OIDC client credentials and endpoints, and can fetch endpoints from a Well-Known discovery document.
 
 Prepare Prisma:
 

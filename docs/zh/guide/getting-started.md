@@ -55,6 +55,8 @@ SMTP_PASS="smtp-password"
 APP_BASE_URL="http://127.0.0.1:3000"
 GITHUB_OAUTH_CLIENT_ID="Iv1.xxxxx"
 GITHUB_OAUTH_CLIENT_SECRET="github-oauth-secret"
+OIDC_OAUTH_ENABLED=true
+OIDC_OAUTH_WELL_KNOWN_URL="https://id.example.com/.well-known/openid-configuration"
 OIDC_OAUTH_CLIENT_ID="oidc-client-id"
 OIDC_OAUTH_CLIENT_SECRET="oidc-client-secret"
 OIDC_OAUTH_AUTHORIZATION_URL="https://id.example.com/oauth2/authorize"
@@ -62,7 +64,7 @@ OIDC_OAUTH_TOKEN_URL="https://id.example.com/oauth2/token"
 OIDC_OAUTH_USERINFO_URL="https://id.example.com/oauth2/userinfo"
 ```
 
-某个 provider 配置完整后，登录页会显示对应入口，后端会启用 `/api/oauth/state` 和 `/api/oauth/:provider` 回调链路。前端回调路径固定在同一个 `APP_BASE_URL` 下，例如 `/oauth/github` 和 `/oauth/oidc`。
+某个 provider 配置完整后，登录页会显示对应入口，后端会启用 `/api/oauth/state` 和 `/api/oauth/:provider` 回调链路。前端回调路径固定在同一个 `APP_BASE_URL` 下，例如 `/oauth/github` 和 `/oauth/oidc`。OIDC 凭据和端点也可以后续在后台设置页里修改。
 
 ## 初始化数据库
 

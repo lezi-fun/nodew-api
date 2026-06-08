@@ -1,11 +1,12 @@
 import type { FastifyPluginAsync } from 'fastify';
 
+import { getOAuthConfiguration } from '../../lib/oauth-config.js';
 import { getPasskeySettings } from '../../lib/passkey.js';
 import { prisma } from '../../lib/prisma.js';
 
 const statusRoutes: FastifyPluginAsync = async (app) => {
   app.get('/status', async () => {
-    const [setupState, userCount, adminCount, apiKeyCount, activeApiKeyCount, channelCount, passkeySettings] = await Promise.all([
+    const [setupState, userCount, adminCount, apiKeyCount, activeApiKeyCount, channelCount, passkeySettings, oauthConfiguration] = await Promise.all([
       prisma.setupState.findFirst({
         select: {
           isInitialized: true,
@@ -18,6 +19,7 @@ const statusRoutes: FastifyPluginAsync = async (app) => {
       prisma.aPIKey.count({ where: { status: 'ACTIVE' } }),
       prisma.channel.count(),
       getPasskeySettings(),
+      getOAuthConfiguration(),
     ]);
 
     return {
@@ -61,14 +63,7 @@ const statusRoutes: FastifyPluginAsync = async (app) => {
           ),
         },
         oidc: {
-          enabled: Boolean(
-            (process.env.OIDC_OAUTH_CLIENT_ID ?? '').trim()
-            && (process.env.OIDC_OAUTH_CLIENT_SECRET ?? '').trim()
-            && (process.env.OIDC_OAUTH_AUTHORIZATION_URL ?? '').trim()
-            && (process.env.OIDC_OAUTH_TOKEN_URL ?? '').trim()
-            && (process.env.OIDC_OAUTH_USERINFO_URL ?? '').trim()
-            && (process.env.APP_BASE_URL ?? '').trim(),
-          ),
+          enabled: oauthConfiguration.status.oidc.enabled && Boolean((process.env.APP_BASE_URL ?? '').trim()),
         },
       },
     };

@@ -5,10 +5,10 @@ import type { FastifyInstance, FastifyPluginAsync, FastifyReply } from 'fastify'
 import { z } from 'zod';
 
 import { generateAccessToken, hashPassword } from '../../lib/crypto.js';
+import { getEffectiveOAuthProviderConfig } from '../../lib/oauth-config.js';
 import {
   clearOAuthStateCookie,
   generateOAuthState,
-  getOAuthProviderConfig,
   oauthProviderSchema,
   readOAuthStateCookie,
   setOAuthStateCookie,
@@ -168,8 +168,8 @@ const resolveOAuthRedirectUri = (provider: OAuthProvider) => {
   return url.toString();
 };
 
-const buildAuthorizeUrl = (provider: OAuthProvider, state: string) => {
-  const config = getOAuthProviderConfig(provider);
+const buildAuthorizeUrl = async (provider: OAuthProvider, state: string) => {
+  const config = await getEffectiveOAuthProviderConfig(provider);
 
   if (!config || !config.clientId || !config.clientSecret || !config.authorizeUrl) {
     return null;
@@ -223,7 +223,7 @@ const fetchGitHubToken = async (args: {
   state: string;
   redirectUri: string;
 }) => {
-  const config = getOAuthProviderConfig('github');
+  const config = await getEffectiveOAuthProviderConfig('github');
 
   if (!config || !config.clientId || !config.clientSecret) {
     throw new Error('GitHub OAuth is not configured');
@@ -292,7 +292,7 @@ const fetchDiscordToken = async (args: {
   code: string;
   redirectUri: string;
 }) => {
-  const config = getOAuthProviderConfig('discord');
+  const config = await getEffectiveOAuthProviderConfig('discord');
 
   if (!config || !config.clientId || !config.clientSecret) {
     throw new Error('Discord OAuth is not configured');
@@ -358,7 +358,7 @@ const fetchLinuxDOToken = async (args: {
   code: string;
   redirectUri: string;
 }) => {
-  const config = getOAuthProviderConfig('linuxdo');
+  const config = await getEffectiveOAuthProviderConfig('linuxdo');
 
   if (!config || !config.clientId || !config.clientSecret) {
     throw new Error('LinuxDO OAuth is not configured');
@@ -421,7 +421,7 @@ const fetchOIDCToken = async (args: {
   code: string;
   redirectUri: string;
 }) => {
-  const config = getOAuthProviderConfig('oidc');
+  const config = await getEffectiveOAuthProviderConfig('oidc');
 
   if (!config || !config.clientId || !config.clientSecret || !config.tokenUrl) {
     throw new Error('OIDC OAuth is not configured');
@@ -453,7 +453,7 @@ const fetchOIDCToken = async (args: {
 };
 
 const fetchOIDCUserInfo = async (accessToken: string) => {
-  const config = getOAuthProviderConfig('oidc');
+  const config = await getEffectiveOAuthProviderConfig('oidc');
 
   if (!config?.userInfoUrl) {
     throw new Error('OIDC OAuth is not configured');
@@ -859,7 +859,7 @@ const oauthRoutes: FastifyPluginAsync = async (app) => {
     let authorizeUrl: string | null;
 
     try {
-      authorizeUrl = buildAuthorizeUrl(query.provider, state);
+      authorizeUrl = await buildAuthorizeUrl(query.provider, state);
     } catch (error) {
       if (error instanceof Error && error.message === 'APP_BASE_URL is required for OAuth') {
         throw app.httpErrors.badRequest(error.message);

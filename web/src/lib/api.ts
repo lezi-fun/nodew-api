@@ -399,6 +399,33 @@ export type MailConfig = {
   resendApiKey: string;
 };
 
+export type OAuthConfig = {
+  oidc: {
+    enabled: boolean;
+    wellKnownUrl: string;
+    clientId: string;
+    clientSecret: string;
+    authorizationUrl: string;
+    tokenUrl: string;
+    userInfoUrl: string;
+    scope: string;
+  };
+};
+
+export type OAuthStatus = {
+  oidc: OAuthConfig['oidc'];
+  source: 'environment' | 'settings' | 'mixed';
+  valid: boolean;
+  errors: string[];
+  appBaseUrlConfigured: boolean;
+};
+
+export type OIDCDiscoveryResult = {
+  authorizationUrl: string;
+  tokenUrl: string;
+  userInfoUrl: string;
+};
+
 export type CheckinStatus = {
   enabled: boolean;
   checkedInToday: boolean;
@@ -795,6 +822,12 @@ export const api = {
     (await client.put<{ item: MailConfig; status: MailStatus }>('/api/options/mail/config', payload)).data,
   sendTestMail: async (payload?: { email?: string }) =>
     (await client.post<{ success: boolean; email: string }>('/api/options/mail/test', payload ?? {})).data,
+  getOAuthStatus: async () => (await client.get<{ item: OAuthStatus }>('/api/options/oauth/status')).data,
+  getOAuthConfig: async () => (await client.get<{ item: OAuthConfig }>('/api/options/oauth/config')).data,
+  updateOAuthConfig: async (payload: OAuthConfig) =>
+    (await client.put<{ item: OAuthConfig; status: OAuthStatus }>('/api/options/oauth/config', payload)).data,
+  discoverOIDCConfig: async (payload: { wellKnownUrl: string }) =>
+    (await client.post<{ item: OIDCDiscoveryResult }>('/api/options/oauth/oidc/discover', payload)).data,
   getCheckinStatus: async (params?: { month?: string }) => (await client.get<{ status: CheckinStatus }>('/api/checkin/status', { params })).data,
   checkIn: async () => (await client.post<CheckinResult>('/api/checkin')).data,
   listUsageLogs: async (params?: UsageQuery) => (await client.get<ListResponse<UsageLogItem>>('/api/usage', { params })).data,

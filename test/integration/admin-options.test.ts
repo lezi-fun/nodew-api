@@ -1,4 +1,5 @@
 import { closeTestApp, createTestApp } from '../helpers/app.js';
+import { mockFetchSequence } from '../helpers/fetch.js';
 import { createAdminUser, createSessionForUser } from '../helpers/factories.js';
 
 describe('admin options integration', () => {
@@ -329,6 +330,111 @@ describe('admin options integration', () => {
       });
     } finally {
       vi.doUnmock('nodemailer');
+      await closeTestApp(app);
+    }
+  });
+
+  it('stores oidc oauth configuration and enables oidc status', async () => {
+    process.env.APP_BASE_URL = 'https://console.example.com';
+    delete process.env.OIDC_OAUTH_CLIENT_ID;
+    delete process.env.OIDC_OAUTH_CLIENT_SECRET;
+    delete process.env.OIDC_OAUTH_AUTHORIZATION_URL;
+    delete process.env.OIDC_OAUTH_TOKEN_URL;
+    delete process.env.OIDC_OAUTH_USERINFO_URL;
+
+    const admin = await createAdminUser();
+    const token = await createSessionForUser(admin.id);
+    const app = await createTestApp();
+
+    try {
+      const cookies = {
+        nodew_session: app.signCookie(token),
+      };
+
+      const saveResponse = await app.inject({
+        method: 'PUT',
+        url: '/api/options/oauth/config',
+        cookies,
+        payload: {
+          oidc: {
+            enabled: true,
+            wellKnownUrl: 'https://id.example.test/.well-known/openid-configuration',
+            clientId: 'settings-oidc-client',
+            clientSecret: 'settings-oidc-secret',
+            authorizationUrl: 'https://id.example.test/oauth2/authorize',
+            tokenUrl: 'https://id.example.test/oauth2/token',
+            userInfoUrl: 'https://id.example.test/oauth2/userinfo',
+            scope: 'openid profile email',
+          },
+        },
+      });
+
+      expect(saveResponse.statusCode).toBe(200);
+      expect(saveResponse.json().item.oidc).toMatchObject({
+        enabled: true,
+        clientId: 'settings-oidc-client',
+        authorizationUrl: 'https://id.example.test/oauth2/authorize',
+      });
+      expect(saveResponse.json().status.oidc.enabled).toBe(true);
+
+      const statusResponse = await app.inject({
+        method: 'GET',
+        url: '/api/status',
+      });
+
+      expect(statusResponse.statusCode).toBe(200);
+      expect(statusResponse.json().oauth.oidc).toEqual({
+        enabled: true,
+      });
+
+      const oauthStateResponse = await app.inject({
+        method: 'GET',
+        url: '/api/oauth/state?provider=oidc&redirectTo=/console',
+      });
+
+      expect(oauthStateResponse.statusCode).toBe(200);
+      expect(oauthStateResponse.json().data.authorizeUrl).toContain('client_id=settings-oidc-client');
+      expect(oauthStateResponse.json().data.authorizeUrl).toContain('https://id.example.test/oauth2/authorize');
+    } finally {
+      delete process.env.APP_BASE_URL;
+      await closeTestApp(app);
+    }
+  });
+
+  it('fetches oidc discovery endpoints for admin oauth settings', async () => {
+    const admin = await createAdminUser();
+    const token = await createSessionForUser(admin.id);
+    const app = await createTestApp();
+
+    try {
+      mockFetchSequence([
+        {
+          body: {
+            authorization_endpoint: 'https://id.example.test/oauth2/authorize',
+            token_endpoint: 'https://id.example.test/oauth2/token',
+            userinfo_endpoint: 'https://id.example.test/oauth2/userinfo',
+          },
+        },
+      ]);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/options/oauth/oidc/discover',
+        cookies: {
+          nodew_session: app.signCookie(token),
+        },
+        payload: {
+          wellKnownUrl: 'https://id.example.test/.well-known/openid-configuration',
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json().item).toEqual({
+        authorizationUrl: 'https://id.example.test/oauth2/authorize',
+        tokenUrl: 'https://id.example.test/oauth2/token',
+        userInfoUrl: 'https://id.example.test/oauth2/userinfo',
+      });
+    } finally {
       await closeTestApp(app);
     }
   });

@@ -3,7 +3,7 @@ import { IconSave, IconRefresh } from '@douyinfe/semi-icons';
 import { useCallback, useContext, useEffect, useState } from 'react';
 
 import { UserContext } from '../context/User';
-import { api, type MailConfig, type MailStatus, type SystemOptionItem, type SystemOptionKey } from '../lib/api';
+import { api, type MailConfig, type MailStatus, type OAuthConfig, type OAuthStatus, type SystemOptionItem, type SystemOptionKey } from '../lib/api';
 
 const generalOptionMeta: Array<{
   key: SystemOptionKey;
@@ -89,6 +89,19 @@ const emptyMailConfig: MailConfig = {
   resendApiKey: '',
 };
 
+const emptyOAuthConfig: OAuthConfig = {
+  oidc: {
+    enabled: false,
+    wellKnownUrl: '',
+    clientId: '',
+    clientSecret: '',
+    authorizationUrl: '',
+    tokenUrl: '',
+    userInfoUrl: '',
+    scope: 'openid profile email',
+  },
+};
+
 export default function SettingPage() {
   const { user } = useContext(UserContext);
   const [values, setValues] = useState<Partial<Record<SystemOptionKey, string>>>({});
@@ -96,7 +109,11 @@ export default function SettingPage() {
   const [saving, setSaving] = useState(false);
   const [mailStatus, setMailStatus] = useState<MailStatus | null>(null);
   const [mailConfig, setMailConfig] = useState<MailConfig>(emptyMailConfig);
+  const [oauthStatus, setOAuthStatus] = useState<OAuthStatus | null>(null);
+  const [oauthConfig, setOAuthConfig] = useState<OAuthConfig>(emptyOAuthConfig);
   const [savingMail, setSavingMail] = useState(false);
+  const [savingOAuth, setSavingOAuth] = useState(false);
+  const [discoveringOIDC, setDiscoveringOIDC] = useState(false);
   const [savingCheckin, setSavingCheckin] = useState(false);
   const [savingPasskey, setSavingPasskey] = useState(false);
   const [testingMail, setTestingMail] = useState(false);
@@ -105,10 +122,12 @@ export default function SettingPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [response, mailResponse, mailConfigResponse] = await Promise.all([
+      const [response, mailResponse, mailConfigResponse, oauthStatusResponse, oauthConfigResponse] = await Promise.all([
         api.listOptions(),
         api.getMailStatus(),
         api.getMailConfig(),
+        api.getOAuthStatus(),
+        api.getOAuthConfig(),
       ]);
       const optionMap = toMap(response.items ?? []);
       const legacyCheckinQuota = optionMap.checkin_reward_quota;
@@ -127,6 +146,8 @@ export default function SettingPage() {
       });
       setMailStatus(mailResponse.item);
       setMailConfig(mailConfigResponse.item);
+      setOAuthStatus(oauthStatusResponse.item);
+      setOAuthConfig(oauthConfigResponse.item);
       setTestMailRecipient((current) => current || user?.email || '');
     } catch (error) {
       Toast.error(error instanceof Error ? error.message : '加载设置失败');
@@ -190,6 +211,49 @@ export default function SettingPage() {
       Toast.error(error instanceof Error ? error.message : '保存邮件配置失败');
     } finally {
       setSavingMail(false);
+    }
+  };
+
+  const saveOAuthConfig = async () => {
+    setSavingOAuth(true);
+    try {
+      const response = await api.updateOAuthConfig(oauthConfig);
+      setOAuthConfig(response.item);
+      setOAuthStatus(response.status);
+      Toast.success('OAuth 设置已保存');
+      await load();
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : '保存 OAuth 设置失败');
+    } finally {
+      setSavingOAuth(false);
+    }
+  };
+
+  const discoverOIDCConfig = async () => {
+    const wellKnownUrl = oauthConfig.oidc.wellKnownUrl.trim();
+
+    if (!wellKnownUrl) {
+      Toast.warning('请先填写 Well-Known URL');
+      return;
+    }
+
+    setDiscoveringOIDC(true);
+    try {
+      const response = await api.discoverOIDCConfig({ wellKnownUrl });
+      setOAuthConfig((current) => ({
+        ...current,
+        oidc: {
+          ...current.oidc,
+          authorizationUrl: response.item.authorizationUrl,
+          tokenUrl: response.item.tokenUrl,
+          userInfoUrl: response.item.userInfoUrl,
+        },
+      }));
+      Toast.success('OIDC 端点已获取');
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : '获取 OIDC 配置失败');
+    } finally {
+      setDiscoveringOIDC(false);
     }
   };
 
@@ -358,6 +422,148 @@ export default function SettingPage() {
           <Button theme="solid" type="primary" icon={<IconSave />} loading={savingPasskey} onClick={() => void savePasskey()}>
             保存 Passkey 设置
           </Button>
+        </Space>
+      </Card>
+
+      <Card bordered={false} className="dashboard-card settings-card" style={{ marginTop: 16 }}>
+        <Space vertical align="start" style={{ width: '100%' }}>
+          <div>
+            <Typography.Title heading={5} style={{ marginBottom: 4 }}>OIDC 登录设置</Typography.Title>
+            <Typography.Paragraph type="tertiary">
+              配置 OIDC 登录入口。回调地址固定为当前应用地址下的 /oauth/oidc。
+            </Typography.Paragraph>
+          </div>
+          <div className="settings-grid" style={{ width: '100%' }}>
+            <label className="setting-field">
+              <span>
+                <strong>启用 OIDC 登录</strong>
+                <em>开启后，配置校验通过且应用地址存在时登录页会显示 OIDC。</em>
+              </span>
+              <Switch
+                checked={oauthConfig.oidc.enabled}
+                onChange={(checked) => setOAuthConfig((current) => ({
+                  ...current,
+                  oidc: { ...current.oidc, enabled: checked },
+                }))}
+              />
+            </label>
+            <label className="setting-field">
+              <span>
+                <strong>Well-Known URL</strong>
+                <em>可选。填写后可自动获取授权、token 与 userinfo 端点。</em>
+              </span>
+              <Input
+                value={oauthConfig.oidc.wellKnownUrl}
+                placeholder="https://id.example.com/.well-known/openid-configuration"
+                onChange={(value) => setOAuthConfig((current) => ({
+                  ...current,
+                  oidc: { ...current.oidc, wellKnownUrl: value },
+                }))}
+              />
+            </label>
+            <label className="setting-field">
+              <span>
+                <strong>Client ID</strong>
+                <em>OIDC 应用的客户端 ID。</em>
+              </span>
+              <Input
+                value={oauthConfig.oidc.clientId}
+                placeholder="oidc-client-id"
+                onChange={(value) => setOAuthConfig((current) => ({
+                  ...current,
+                  oidc: { ...current.oidc, clientId: value },
+                }))}
+              />
+            </label>
+            <label className="setting-field">
+              <span>
+                <strong>Client Secret</strong>
+                <em>OIDC 应用的客户端密钥。</em>
+              </span>
+              <Input
+                mode="password"
+                value={oauthConfig.oidc.clientSecret}
+                placeholder="oidc-client-secret"
+                onChange={(value) => setOAuthConfig((current) => ({
+                  ...current,
+                  oidc: { ...current.oidc, clientSecret: value },
+                }))}
+              />
+            </label>
+            <label className="setting-field">
+              <span>
+                <strong>Authorization Endpoint</strong>
+                <em>用于发起授权跳转。</em>
+              </span>
+              <Input
+                value={oauthConfig.oidc.authorizationUrl}
+                placeholder="https://id.example.com/oauth2/authorize"
+                onChange={(value) => setOAuthConfig((current) => ({
+                  ...current,
+                  oidc: { ...current.oidc, authorizationUrl: value },
+                }))}
+              />
+            </label>
+            <label className="setting-field">
+              <span>
+                <strong>Token Endpoint</strong>
+                <em>用于授权码换 access token。</em>
+              </span>
+              <Input
+                value={oauthConfig.oidc.tokenUrl}
+                placeholder="https://id.example.com/oauth2/token"
+                onChange={(value) => setOAuthConfig((current) => ({
+                  ...current,
+                  oidc: { ...current.oidc, tokenUrl: value },
+                }))}
+              />
+            </label>
+            <label className="setting-field">
+              <span>
+                <strong>Userinfo Endpoint</strong>
+                <em>必须返回 sub 和 email。</em>
+              </span>
+              <Input
+                value={oauthConfig.oidc.userInfoUrl}
+                placeholder="https://id.example.com/oauth2/userinfo"
+                onChange={(value) => setOAuthConfig((current) => ({
+                  ...current,
+                  oidc: { ...current.oidc, userInfoUrl: value },
+                }))}
+              />
+            </label>
+            <label className="setting-field">
+              <span>
+                <strong>Scope</strong>
+                <em>默认使用 openid profile email。</em>
+              </span>
+              <Input
+                value={oauthConfig.oidc.scope}
+                placeholder="openid profile email"
+                onChange={(value) => setOAuthConfig((current) => ({
+                  ...current,
+                  oidc: { ...current.oidc, scope: value },
+                }))}
+              />
+            </label>
+          </div>
+          <Space wrap>
+            <Button loading={discoveringOIDC} onClick={() => void discoverOIDCConfig()}>
+              获取 OIDC 端点
+            </Button>
+            <Button theme="solid" type="primary" icon={<IconSave />} loading={savingOAuth} onClick={() => void saveOAuthConfig()}>
+              保存 OAuth 设置
+            </Button>
+            <Typography.Text>当前来源：{oauthStatus?.source ?? '-'}</Typography.Text>
+            <Typography.Text>应用地址：{oauthStatus?.appBaseUrlConfigured ? '已配置' : '未配置'}</Typography.Text>
+            <Typography.Text>OIDC 状态：{oauthStatus?.oidc.enabled && oauthStatus?.appBaseUrlConfigured ? '已启用' : '未启用'}</Typography.Text>
+            <Typography.Text>配置校验：{oauthStatus?.valid ? '通过' : '未通过'}</Typography.Text>
+          </Space>
+          {oauthStatus?.errors.length ? (
+            <Typography.Paragraph type="danger" style={{ marginBottom: 0 }}>
+              {oauthStatus.errors.join('；')}
+            </Typography.Paragraph>
+          ) : null}
         </Space>
       </Card>
 

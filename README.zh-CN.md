@@ -132,7 +132,7 @@ RESEND_API_KEY="re_xxx"
 
 用户可以用 2FA 验证码 / 备用码，或者用 Passkey 完成这次验证。后端也会校验同一段短时验证态，因此绕过前端直接调用这些接口会被拒绝。
 
-第三方登录可以通过环境变量开启。配置 `APP_BASE_URL` 后，再按需填写要启用的 provider 凭据：
+第三方登录可以通过环境变量开启，OIDC 也可以后续在后台设置页里修改。配置 `APP_BASE_URL` 后，再按需填写要启用的 provider 凭据：
 
 ```bash
 APP_BASE_URL="http://127.0.0.1:3000"
@@ -142,6 +142,8 @@ DISCORD_OAUTH_CLIENT_ID="discord-client-id"
 DISCORD_OAUTH_CLIENT_SECRET="discord-client-secret"
 LINUXDO_OAUTH_CLIENT_ID="linuxdo-client-id"
 LINUXDO_OAUTH_CLIENT_SECRET="linuxdo-client-secret"
+OIDC_OAUTH_ENABLED=true
+OIDC_OAUTH_WELL_KNOWN_URL="https://id.example.com/.well-known/openid-configuration"
 OIDC_OAUTH_CLIENT_ID="oidc-client-id"
 OIDC_OAUTH_CLIENT_SECRET="oidc-client-secret"
 OIDC_OAUTH_AUTHORIZATION_URL="https://id.example.com/oauth2/authorize"
@@ -150,7 +152,7 @@ OIDC_OAUTH_USERINFO_URL="https://id.example.com/oauth2/userinfo"
 OIDC_OAUTH_SCOPE="openid profile email"
 ```
 
-某个 provider 配置完整后，登录页会显示对应入口，后端会开放 `/api/oauth/state` 和 `/api/oauth/:provider` 回调链路。当前回调逻辑也支持已登录 session 下的绑定模式。OIDC userinfo 必须返回 `sub` 和 `email`；如果提供了 `preferred_username`、`name`、`picture`、`email_verified`，系统会一并使用。
+某个 provider 配置完整后，登录页会显示对应入口，后端会开放 `/api/oauth/state` 和 `/api/oauth/:provider` 回调链路。当前回调逻辑也支持已登录 session 下的绑定模式。OIDC userinfo 必须返回 `sub` 和 `email`；如果提供了 `preferred_username`、`name`、`picture`、`email_verified`，系统会一并使用。后台设置页可以保存 OIDC client 凭据和端点，也可以通过 Well-Known discovery 文档自动获取端点。
 
 准备 Prisma：
 

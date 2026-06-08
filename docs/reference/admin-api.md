@@ -93,6 +93,10 @@ The web console uses the backend authentication APIs for login, registration, se
 - `GET /api/users/:id/oauth/bindings` returns a specific user's bound third-party accounts for admin inspection.
 - `DELETE /api/users/:id/oauth/bindings/:provider` removes a specific user's provider binding from the admin console.
 - Supported providers are `github`, `discord`, `linuxdo`, and `oidc`.
+- `GET /api/options/oauth/status` returns admin-only OAuth configuration status.
+- `GET /api/options/oauth/config` returns the editable OIDC OAuth configuration.
+- `PUT /api/options/oauth/config` saves the editable OIDC OAuth configuration.
+- `POST /api/options/oauth/oidc/discover` fetches OIDC endpoints from a Well-Known discovery URL.
 
 ### Email binding routes
 

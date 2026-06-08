@@ -34,7 +34,7 @@ NodEW-api 通过环境变量读取运行配置。
 
 ## 第三方登录
 
-当前第三方登录支持 GitHub、Discord、LinuxDO、OIDC，配置仍然通过环境变量完成。
+当前第三方登录支持 GitHub、Discord、LinuxDO、OIDC。内置 provider 通过环境变量配置；OIDC 也可以在后台设置页里修改。
 
 | 变量 | 必填 | 说明 |
 | --- | --- | --- |
@@ -45,6 +45,8 @@ NodEW-api 通过环境变量读取运行配置。
 | `DISCORD_OAUTH_CLIENT_SECRET` | Discord 登录必填 | Discord OAuth 应用的 Client Secret。 |
 | `LINUXDO_OAUTH_CLIENT_ID` | LinuxDO 登录必填 | LinuxDO OAuth 应用的 Client ID。 |
 | `LINUXDO_OAUTH_CLIENT_SECRET` | LinuxDO 登录必填 | LinuxDO OAuth 应用的 Client Secret。 |
+| `OIDC_OAUTH_ENABLED` | OIDC 登录可选 | 使用环境变量时显式开启或关闭 OIDC。OIDC 凭据完整时也会自动启用。 |
+| `OIDC_OAUTH_WELL_KNOWN_URL` | OIDC 登录可选 | OIDC discovery 文档地址，后台设置页可用它自动获取端点。 |
 | `OIDC_OAUTH_CLIENT_ID` | OIDC 登录必填 | OIDC Client ID。 |
 | `OIDC_OAUTH_CLIENT_SECRET` | OIDC 登录必填 | OIDC Client Secret。 |
 | `OIDC_OAUTH_AUTHORIZATION_URL` | OIDC 登录必填 | OIDC 授权端点。 |
@@ -58,6 +60,7 @@ NodEW-api 通过环境变量读取运行配置。
 - `GET /api/oauth/state` 会创建签名 state cookie，并返回跳转用的授权地址。
 - `GET /api/oauth/:provider` 会消费回调结果；当注册开启时可自动创建账号；如果请求本身已经带有登录态，则会进入绑定模式。
 - OIDC userinfo 必须返回 `sub` 和 `email`；如果提供了 `preferred_username`、`name`、`picture`、`email_verified`，系统会一并使用。
+- 管理员可以在设置页保存 OIDC 凭据和端点。保存后的配置会覆盖环境变量默认值，并即时生效。
 
 ## 对象存储
 
