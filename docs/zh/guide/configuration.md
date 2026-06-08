@@ -61,6 +61,7 @@ NodEW-api 通过环境变量读取运行配置。
 - `GET /api/oauth/:provider` 会消费回调结果；当注册开启时可自动创建账号；如果请求本身已经带有登录态，则会进入绑定模式。
 - OIDC userinfo 必须返回 `sub` 和 `email`；如果提供了 `preferred_username`、`name`、`picture`、`email_verified`，系统会一并使用。
 - 管理员可以在设置页保存 OIDC 凭据和端点。保存后的配置会覆盖环境变量默认值，并即时生效。
+- 设置页也会保存自定义 OAuth provider 配置列表，包含 provider 元信息、端点、字段映射和访问策略占位；通用登录流会在后续步骤接入。
 
 ## 对象存储
 

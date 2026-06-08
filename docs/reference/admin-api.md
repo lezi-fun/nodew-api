@@ -97,6 +97,11 @@ The web console uses the backend authentication APIs for login, registration, se
 - `GET /api/options/oauth/config` returns the editable OIDC OAuth configuration.
 - `PUT /api/options/oauth/config` saves the editable OIDC OAuth configuration.
 - `POST /api/options/oauth/oidc/discover` fetches OIDC endpoints from a Well-Known discovery URL.
+- `GET /api/options/oauth/custom-providers` lists custom OAuth provider configurations.
+- `POST /api/options/oauth/custom-providers` creates a custom OAuth provider configuration.
+- `PUT /api/options/oauth/custom-providers/:id` updates a custom OAuth provider configuration.
+- `DELETE /api/options/oauth/custom-providers/:id` deletes a custom OAuth provider configuration.
+- `POST /api/options/oauth/custom-providers/discover` fetches endpoints for a custom OAuth provider from a Well-Known discovery URL.
 
 ### Email binding routes
 

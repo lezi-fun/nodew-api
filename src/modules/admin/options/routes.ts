@@ -10,11 +10,17 @@ import {
 } from '../../../lib/mail-config.js';
 import { buildTestMailMessage, sendMailMessage } from '../../../lib/mailer.js';
 import {
+  createCustomOAuthProvider,
   discoverOIDCConfiguration,
+  customOAuthProviderCreateSchema,
+  customOAuthProviderUpdateSchema,
+  deleteCustomOAuthProvider,
   evaluateOAuthConfigInput,
   getOAuthConfiguration,
+  listCustomOAuthProviders,
   oauthConfigBodySchema,
   saveOAuthConfig,
+  updateCustomOAuthProvider,
 } from '../../../lib/oauth-config.js';
 import { prisma } from '../../../lib/prisma.js';
 
@@ -54,6 +60,10 @@ const sendTestMailBodySchema = z.object({
 
 const oidcDiscoveryBodySchema = z.object({
   wellKnownUrl: z.string().trim().url().max(2048),
+});
+
+const customOAuthProviderParamsSchema = z.object({
+  id: z.string().trim().min(1).max(64),
 });
 
 const serializeOption = (option: {
@@ -275,6 +285,81 @@ const optionsRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.post('/options/oauth/oidc/discover', {
+    preHandler: app.requireAdminUser,
+  }, async (request) => {
+    const body = oidcDiscoveryBodySchema.parse(request.body);
+
+    try {
+      const item = await discoverOIDCConfiguration(body.wellKnownUrl);
+
+      return {
+        item,
+      };
+    } catch (error) {
+      throw app.httpErrors.badRequest(error instanceof Error ? error.message : 'Failed to fetch OIDC discovery document');
+    }
+  });
+
+  app.get('/options/oauth/custom-providers', {
+    preHandler: app.requireAdminUser,
+  }, async () => ({
+    items: await listCustomOAuthProviders(),
+  }));
+
+  app.post('/options/oauth/custom-providers', {
+    preHandler: app.requireAdminUser,
+  }, async (request) => {
+    const body = customOAuthProviderCreateSchema.parse(request.body);
+
+    try {
+      return {
+        item: await createCustomOAuthProvider(body),
+      };
+    } catch (error) {
+      throw app.httpErrors.badRequest(error instanceof Error ? error.message : 'Failed to create custom OAuth provider');
+    }
+  });
+
+  app.put('/options/oauth/custom-providers/:id', {
+    preHandler: app.requireAdminUser,
+  }, async (request) => {
+    const params = customOAuthProviderParamsSchema.parse(request.params);
+    const body = customOAuthProviderUpdateSchema.parse(request.body);
+
+    try {
+      return {
+        item: await updateCustomOAuthProvider(params.id, body),
+      };
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Custom OAuth provider not found') {
+        throw app.httpErrors.notFound(error.message);
+      }
+
+      throw app.httpErrors.badRequest(error instanceof Error ? error.message : 'Failed to update custom OAuth provider');
+    }
+  });
+
+  app.delete('/options/oauth/custom-providers/:id', {
+    preHandler: app.requireAdminUser,
+  }, async (request) => {
+    const params = customOAuthProviderParamsSchema.parse(request.params);
+
+    try {
+      await deleteCustomOAuthProvider(params.id);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Custom OAuth provider not found') {
+        throw app.httpErrors.notFound(error.message);
+      }
+
+      throw error;
+    }
+
+    return {
+      success: true,
+    };
+  });
+
+  app.post('/options/oauth/custom-providers/discover', {
     preHandler: app.requireAdminUser,
   }, async (request) => {
     const body = oidcDiscoveryBodySchema.parse(request.body);

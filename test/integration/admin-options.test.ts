@@ -438,4 +438,125 @@ describe('admin options integration', () => {
       await closeTestApp(app);
     }
   });
+
+  it('manages custom oauth provider list from admin settings', async () => {
+    const admin = await createAdminUser();
+    const token = await createSessionForUser(admin.id);
+    const app = await createTestApp();
+
+    try {
+      const cookies = {
+        nodew_session: app.signCookie(token),
+      };
+
+      const createResponse = await app.inject({
+        method: 'POST',
+        url: '/api/options/oauth/custom-providers',
+        cookies,
+        payload: {
+          name: 'Example IdP',
+          slug: 'example-idp',
+          icon: 'key',
+          enabled: true,
+          clientId: 'example-client-id',
+          clientSecret: 'example-client-secret',
+          authorizationUrl: 'https://id.example.test/oauth2/authorize',
+          tokenUrl: 'https://id.example.test/oauth2/token',
+          userInfoUrl: 'https://id.example.test/oauth2/userinfo',
+          scopes: 'openid profile email',
+          userIdField: 'sub',
+          usernameField: 'preferred_username',
+          displayNameField: 'name',
+          emailField: 'email',
+          wellKnownUrl: 'https://id.example.test/.well-known/openid-configuration',
+          authStyle: 0,
+          accessPolicy: '',
+          accessDeniedMessage: '',
+        },
+      });
+
+      expect(createResponse.statusCode).toBe(200);
+      expect(createResponse.json().item).toMatchObject({
+        id: expect.any(String),
+        name: 'Example IdP',
+        slug: 'example-idp',
+        enabled: true,
+        hasClientSecret: true,
+      });
+      expect(createResponse.json().item.clientSecret).toBeUndefined();
+
+      const providerId = createResponse.json().item.id as string;
+      const listResponse = await app.inject({
+        method: 'GET',
+        url: '/api/options/oauth/custom-providers',
+        cookies,
+      });
+
+      expect(listResponse.statusCode).toBe(200);
+      expect(listResponse.json().items).toEqual([
+        expect.objectContaining({
+          id: providerId,
+          slug: 'example-idp',
+          hasClientSecret: true,
+        }),
+      ]);
+
+      const updateResponse = await app.inject({
+        method: 'PUT',
+        url: `/api/options/oauth/custom-providers/${providerId}`,
+        cookies,
+        payload: {
+          name: 'Example Identity',
+          slug: 'example-identity',
+          icon: 'shield',
+          enabled: false,
+          clientId: 'updated-client-id',
+          clientSecret: '',
+          authorizationUrl: 'https://id.example.test/oauth2/authorize',
+          tokenUrl: 'https://id.example.test/oauth2/token',
+          userInfoUrl: 'https://id.example.test/oauth2/userinfo',
+          scopes: 'openid profile email',
+          userIdField: 'sub',
+          usernameField: 'preferred_username',
+          displayNameField: 'name',
+          emailField: 'email',
+          wellKnownUrl: '',
+          authStyle: 2,
+          accessPolicy: '{"field":"groups","operator":"contains","value":"staff"}',
+          accessDeniedMessage: 'Access denied',
+        },
+      });
+
+      expect(updateResponse.statusCode).toBe(200);
+      expect(updateResponse.json().item).toMatchObject({
+        id: providerId,
+        name: 'Example Identity',
+        slug: 'example-identity',
+        enabled: false,
+        clientId: 'updated-client-id',
+        authStyle: 2,
+        hasClientSecret: true,
+      });
+
+      const deleteResponse = await app.inject({
+        method: 'DELETE',
+        url: `/api/options/oauth/custom-providers/${providerId}`,
+        cookies,
+      });
+
+      expect(deleteResponse.statusCode).toBe(200);
+      expect(deleteResponse.json()).toEqual({ success: true });
+
+      const finalListResponse = await app.inject({
+        method: 'GET',
+        url: '/api/options/oauth/custom-providers',
+        cookies,
+      });
+
+      expect(finalListResponse.statusCode).toBe(200);
+      expect(finalListResponse.json().items).toEqual([]);
+    } finally {
+      await closeTestApp(app);
+    }
+  });
 });

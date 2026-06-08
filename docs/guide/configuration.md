@@ -65,6 +65,7 @@ Behavior notes:
 - `GET /api/oauth/:provider` consumes the callback, creates an account when registration is enabled, or binds the identity to the current authenticated session.
 - OIDC userinfo must return `sub` and `email`. `preferred_username`, `name`, `picture`, and `email_verified` are used when present.
 - Admins can save OIDC credentials and endpoints from the settings page. Saved values override environment defaults and apply without a restart.
+- The settings page also stores a custom OAuth provider configuration list. This list captures provider metadata, endpoints, field mappings, and access-policy placeholders; the generic login flow is implemented in a follow-up step.
 
 ## Daily check-in
 

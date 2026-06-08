@@ -45,6 +45,7 @@ Current capabilities include:
 - Account security flows, including email verification, password reset, 2FA, Passkey, and session management.
 - Verified email rebinding from the personal page, with both mail-link and verification-code completion paths.
 - Third-party login for GitHub, Discord, LinuxDO, and OIDC with callback handling, automatic account creation, and bind-mode support for authenticated sessions.
+- Admin-managed custom OAuth provider configuration list, ready for the follow-up generic login flow.
 - Personal-page third-party account binding status plus self-service unbind support.
 - Admin-side inspection and removal for user third-party account bindings.
 - Daily check-in with configurable random quota rewards, monthly history, and streak statistics.

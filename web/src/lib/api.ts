@@ -426,6 +426,32 @@ export type OIDCDiscoveryResult = {
   userInfoUrl: string;
 };
 
+export type CustomOAuthProvider = {
+  id: string;
+  name: string;
+  slug: string;
+  icon: string;
+  enabled: boolean;
+  clientId: string;
+  authorizationUrl: string;
+  tokenUrl: string;
+  userInfoUrl: string;
+  scopes: string;
+  userIdField: string;
+  usernameField: string;
+  displayNameField: string;
+  emailField: string;
+  wellKnownUrl: string;
+  authStyle: 0 | 1 | 2;
+  accessPolicy: string;
+  accessDeniedMessage: string;
+  hasClientSecret: boolean;
+};
+
+export type CustomOAuthProviderPayload = Omit<CustomOAuthProvider, 'id' | 'hasClientSecret'> & {
+  clientSecret: string;
+};
+
 export type CheckinStatus = {
   enabled: boolean;
   checkedInToday: boolean;
@@ -828,6 +854,16 @@ export const api = {
     (await client.put<{ item: OAuthConfig; status: OAuthStatus }>('/api/options/oauth/config', payload)).data,
   discoverOIDCConfig: async (payload: { wellKnownUrl: string }) =>
     (await client.post<{ item: OIDCDiscoveryResult }>('/api/options/oauth/oidc/discover', payload)).data,
+  listCustomOAuthProviders: async () =>
+    (await client.get<{ items: CustomOAuthProvider[] }>('/api/options/oauth/custom-providers')).data,
+  createCustomOAuthProvider: async (payload: CustomOAuthProviderPayload) =>
+    (await client.post<{ item: CustomOAuthProvider }>('/api/options/oauth/custom-providers', payload)).data,
+  updateCustomOAuthProvider: async (id: string, payload: CustomOAuthProviderPayload) =>
+    (await client.put<{ item: CustomOAuthProvider }>(`/api/options/oauth/custom-providers/${id}`, payload)).data,
+  deleteCustomOAuthProvider: async (id: string) =>
+    (await client.delete<{ success: boolean }>(`/api/options/oauth/custom-providers/${id}`)).data,
+  discoverCustomOAuthProvider: async (payload: { wellKnownUrl: string }) =>
+    (await client.post<{ item: OIDCDiscoveryResult }>('/api/options/oauth/custom-providers/discover', payload)).data,
   getCheckinStatus: async (params?: { month?: string }) => (await client.get<{ status: CheckinStatus }>('/api/checkin/status', { params })).data,
   checkIn: async () => (await client.post<CheckinResult>('/api/checkin')).data,
   listUsageLogs: async (params?: UsageQuery) => (await client.get<ListResponse<UsageLogItem>>('/api/usage', { params })).data,

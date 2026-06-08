@@ -1,3 +1,5 @@
+import { randomBytes } from 'node:crypto';
+
 import { z } from 'zod';
 
 import {
@@ -16,6 +18,7 @@ export const oauthOptionKeys = {
   oidcTokenUrl: 'oauth_oidc_token_url',
   oidcUserInfoUrl: 'oauth_oidc_userinfo_url',
   oidcScope: 'oauth_oidc_scope',
+  customProviders: 'oauth_custom_providers',
 } as const;
 
 export type OIDCOAuthConfigDraft = {
@@ -47,12 +50,40 @@ export type OAuthConfiguration = {
   };
 };
 
+export type CustomOAuthProviderConfig = {
+  id: string;
+  name: string;
+  slug: string;
+  icon: string;
+  enabled: boolean;
+  clientId: string;
+  clientSecret: string;
+  authorizationUrl: string;
+  tokenUrl: string;
+  userInfoUrl: string;
+  scopes: string;
+  userIdField: string;
+  usernameField: string;
+  displayNameField: string;
+  emailField: string;
+  wellKnownUrl: string;
+  authStyle: 0 | 1 | 2;
+  accessPolicy: string;
+  accessDeniedMessage: string;
+};
+
+export type CustomOAuthProviderPublic = Omit<CustomOAuthProviderConfig, 'clientSecret'> & {
+  hasClientSecret: boolean;
+};
+
 type StoredOIDCDraft = {
   draft: OIDCOAuthConfigDraft;
   keys: Set<string>;
 };
 
 const defaultOIDCScope = 'openid profile email';
+const customOAuthProvidersOptionKey = oauthOptionKeys.customProviders;
+const builtinOAuthProviderSlugs = new Set(['github', 'discord', 'linuxdo', 'oidc']);
 
 const parseString = (value: unknown) =>
   typeof value === 'string' ? value.trim() : '';
@@ -218,6 +249,174 @@ export const oidcOAuthConfigBodySchema = z.object({
 export const oauthConfigBodySchema = z.object({
   oidc: oidcOAuthConfigBodySchema,
 });
+
+const customProviderSlugSchema = z.string().trim().min(1).max(64).regex(/^[a-z0-9-]+$/);
+
+const customOAuthProviderStoredSchema = z.object({
+  id: z.string().trim().min(1).max(64),
+  name: z.string().trim().min(1).max(64),
+  slug: customProviderSlugSchema,
+  icon: z.string().trim().max(128).default(''),
+  enabled: z.boolean().default(false),
+  clientId: z.string().trim().min(1).max(255),
+  clientSecret: z.string().trim().min(1).max(1024),
+  authorizationUrl: z.string().trim().url().max(2048),
+  tokenUrl: z.string().trim().url().max(2048),
+  userInfoUrl: z.string().trim().url().max(2048),
+  scopes: z.string().trim().max(255).default(defaultOIDCScope),
+  userIdField: z.string().trim().min(1).max(128).default('sub'),
+  usernameField: z.string().trim().max(128).default('preferred_username'),
+  displayNameField: z.string().trim().max(128).default('name'),
+  emailField: z.string().trim().max(128).default('email'),
+  wellKnownUrl: z.string().trim().max(2048).default(''),
+  authStyle: z.union([z.literal(0), z.literal(1), z.literal(2)]).default(0),
+  accessPolicy: z.string().trim().max(10000).default(''),
+  accessDeniedMessage: z.string().trim().max(512).default(''),
+});
+
+export const customOAuthProviderCreateSchema = customOAuthProviderStoredSchema.omit({ id: true }).extend({
+  clientSecret: z.string().trim().min(1).max(1024),
+});
+
+export const customOAuthProviderUpdateSchema = customOAuthProviderStoredSchema.omit({ id: true, clientSecret: true }).extend({
+  clientSecret: z.string().trim().max(1024).optional().default(''),
+});
+
+const customOAuthProviderListSchema = z.array(customOAuthProviderStoredSchema);
+
+const serializeCustomOAuthProvider = (provider: CustomOAuthProviderConfig): CustomOAuthProviderPublic => {
+  const { clientSecret, ...publicProvider } = provider;
+
+  return {
+    ...publicProvider,
+    hasClientSecret: Boolean(clientSecret),
+  };
+};
+
+const normalizeCustomOAuthProvider = (provider: CustomOAuthProviderConfig): CustomOAuthProviderConfig => ({
+  ...provider,
+  name: provider.name.trim(),
+  slug: provider.slug.trim().toLowerCase(),
+  icon: provider.icon.trim(),
+  clientId: provider.clientId.trim(),
+  clientSecret: provider.clientSecret.trim(),
+  authorizationUrl: provider.authorizationUrl.trim(),
+  tokenUrl: provider.tokenUrl.trim(),
+  userInfoUrl: provider.userInfoUrl.trim(),
+  scopes: provider.scopes.trim() || defaultOIDCScope,
+  userIdField: provider.userIdField.trim() || 'sub',
+  usernameField: provider.usernameField.trim() || 'preferred_username',
+  displayNameField: provider.displayNameField.trim() || 'name',
+  emailField: provider.emailField.trim() || 'email',
+  wellKnownUrl: provider.wellKnownUrl.trim(),
+  accessPolicy: provider.accessPolicy.trim(),
+  accessDeniedMessage: provider.accessDeniedMessage.trim(),
+});
+
+const validateCustomOAuthProviders = (providers: CustomOAuthProviderConfig[]) => {
+  const slugs = new Set<string>();
+
+  for (const provider of providers) {
+    if (builtinOAuthProviderSlugs.has(provider.slug)) {
+      throw new Error('Custom OAuth provider slug conflicts with a built-in provider');
+    }
+
+    if (slugs.has(provider.slug)) {
+      throw new Error('Custom OAuth provider slug must be unique');
+    }
+
+    slugs.add(provider.slug);
+  }
+};
+
+const readStoredCustomOAuthProviders = async (): Promise<CustomOAuthProviderConfig[]> => {
+  const option = await prisma.systemOption.findUnique({
+    where: { key: customOAuthProvidersOptionKey },
+    select: { value: true },
+  });
+
+  if (!option?.value) {
+    return [];
+  }
+
+  try {
+    const parsed = customOAuthProviderListSchema.parse(JSON.parse(option.value));
+    return parsed.map(normalizeCustomOAuthProvider);
+  } catch {
+    return [];
+  }
+};
+
+const saveStoredCustomOAuthProviders = async (providers: CustomOAuthProviderConfig[]) => {
+  const normalizedProviders = providers.map(normalizeCustomOAuthProvider);
+  validateCustomOAuthProviders(normalizedProviders);
+
+  await prisma.systemOption.upsert({
+    where: { key: customOAuthProvidersOptionKey },
+    update: { value: JSON.stringify(normalizedProviders) },
+    create: {
+      key: customOAuthProvidersOptionKey,
+      value: JSON.stringify(normalizedProviders),
+    },
+  });
+
+  return normalizedProviders;
+};
+
+const generateCustomOAuthProviderId = () => `custom_${randomBytes(8).toString('hex')}`;
+
+export const listCustomOAuthProviders = async () => {
+  const providers = await readStoredCustomOAuthProviders();
+  return providers.map(serializeCustomOAuthProvider);
+};
+
+export const createCustomOAuthProvider = async (input: z.infer<typeof customOAuthProviderCreateSchema>) => {
+  const providers = await readStoredCustomOAuthProviders();
+  const provider = normalizeCustomOAuthProvider({
+    id: generateCustomOAuthProviderId(),
+    ...input,
+  });
+
+  const savedProviders = await saveStoredCustomOAuthProviders([...providers, provider]);
+  const savedProvider = savedProviders.find((item) => item.id === provider.id);
+
+  return serializeCustomOAuthProvider(savedProvider ?? provider);
+};
+
+export const updateCustomOAuthProvider = async (
+  id: string,
+  input: z.infer<typeof customOAuthProviderUpdateSchema>,
+) => {
+  const providers = await readStoredCustomOAuthProviders();
+  const existing = providers.find((provider) => provider.id === id);
+
+  if (!existing) {
+    throw new Error('Custom OAuth provider not found');
+  }
+
+  const updated = normalizeCustomOAuthProvider({
+    ...existing,
+    ...input,
+    clientSecret: input.clientSecret?.trim() || existing.clientSecret,
+  });
+  const savedProviders = await saveStoredCustomOAuthProviders(providers.map((provider) => (
+    provider.id === id ? updated : provider
+  )));
+  const savedProvider = savedProviders.find((provider) => provider.id === id);
+
+  return serializeCustomOAuthProvider(savedProvider ?? updated);
+};
+
+export const deleteCustomOAuthProvider = async (id: string) => {
+  const providers = await readStoredCustomOAuthProviders();
+  const nextProviders = providers.filter((provider) => provider.id !== id);
+
+  if (nextProviders.length === providers.length) {
+    throw new Error('Custom OAuth provider not found');
+  }
+
+  await saveStoredCustomOAuthProviders(nextProviders);
+};
 
 export const getOAuthConfiguration = async (): Promise<OAuthConfiguration> => {
   const environment = readEnvironmentOIDCDraft();
