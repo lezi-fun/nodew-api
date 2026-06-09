@@ -38,6 +38,7 @@ const enThemeConfig = {
         items: [
           { text: 'Getting Started', link: '/guide/getting-started' },
           { text: 'Configuration', link: '/guide/configuration' },
+          { text: 'Wallet Top-Up', link: '/guide/wallet-topup' },
           { text: 'Database', link: '/guide/database' },
         ],
       },
@@ -88,6 +89,7 @@ const zhThemeConfig = {
         items: [
           { text: '快速开始', link: '/zh/guide/getting-started' },
           { text: '配置说明', link: '/zh/guide/configuration' },
+          { text: '钱包充值', link: '/zh/guide/wallet-topup' },
           { text: '数据库', link: '/zh/guide/database' },
         ],
       },

@@ -2,6 +2,8 @@
 
 NodEW-api reads runtime configuration from environment variables.
 
+For payment-specific setup, return URLs, provider flows, and troubleshooting, see [Wallet Top-Up](./wallet-topup.md).
+
 ## Core variables
 
 | Variable | Required | Description |

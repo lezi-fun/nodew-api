@@ -1,0 +1,125 @@
+# Wallet Top-Up
+
+Wallet top-up is currently configured with environment variables. The console can show Stripe and Creem entries on `/console/topup` after the corresponding provider is enabled.
+
+## Capability matrix
+
+| Provider | Checkout creation | Automatic quota settlement | Current status |
+| --- | --- | --- | --- |
+| Stripe | Supported | Supported through signed webhook | Usable for one-time quota purchases. |
+| Creem | Supported | Not implemented yet | Can create Checkout Sessions, but payment completion must not be treated as automatic quota settlement yet. |
+| Waffo | Not implemented yet | Not implemented yet | Placeholder only. |
+
+Do not enable a provider for production billing until the required settlement path is available and tested for your deployment.
+
+## Shared requirements
+
+Set `APP_BASE_URL` to the public console origin, without a trailing path:
+
+```bash
+APP_BASE_URL="https://your-domain.example"
+```
+
+This value is used to build return URLs such as `/console/topup?stripe=success&order=...`. For Vercel or any reverse-proxied deployment, it must be the externally reachable HTTPS URL, not an internal hostname.
+
+Run migrations before enabling payment entries:
+
+```bash
+npm run prisma:generate
+npm run prisma:migrate:deploy
+```
+
+The Vercel build command already runs Prisma generation and production migrations through `npm run vercel-build`.
+
+## Stripe
+
+Stripe uses hosted Checkout Sessions and settles quota from signed webhook events.
+
+```bash
+STRIPE_TOPUP_ENABLED=true
+STRIPE_SECRET_KEY="sk_live_xxx"
+STRIPE_WEBHOOK_SECRET="whsec_xxx"
+STRIPE_CURRENCY="usd"
+STRIPE_QUOTA_PER_UNIT=100000
+STRIPE_UNIT_AMOUNT_CENTS=100
+STRIPE_MIN_UNITS=1
+```
+
+### Flow
+
+1. The console calls `GET /api/user/topup/stripe/config`.
+2. The user submits a unit count to `POST /api/user/topup/stripe/checkout`.
+3. The backend creates a pending `TopUpOrder` and a Stripe Checkout Session.
+4. Stripe redirects the user back to `/console/topup`.
+5. Stripe sends a webhook to `/api/user/topup/stripe/webhook`.
+6. The backend verifies `Stripe-Signature`, marks the order as paid, and increments the user's remaining quota exactly once.
+
+### Webhook events
+
+Configure the Stripe webhook endpoint as:
+
+```text
+https://your-domain.example/api/user/topup/stripe/webhook
+```
+
+The backend handles:
+
+| Event | Behavior |
+| --- | --- |
+| `checkout.session.completed` | Credits quota when `payment_status` is `paid`. |
+| `checkout.session.async_payment_succeeded` | Credits quota for delayed payment methods. |
+| `checkout.session.expired` | Marks the pending order as expired. |
+| `checkout.session.async_payment_failed` | Marks the pending order as failed. |
+
+Duplicate paid webhook delivery is idempotent. The order is credited only while it is still pending.
+
+## Creem
+
+Creem uses fixed products. Each product in `CREEM_PRODUCTS` maps a Creem product ID to the quota and display price used by this application.
+
+```bash
+CREEM_TOPUP_ENABLED=true
+CREEM_API_KEY="creem_xxx"
+CREEM_WEBHOOK_SECRET="creem_whsec_xxx"
+CREEM_TEST_MODE=false
+CREEM_PRODUCTS='[{"productId":"prod_xxx","name":"100k quota","quotaAmount":100000,"amountCents":1000,"currency":"usd"}]'
+```
+
+`CREEM_PRODUCTS` accepts these compatible field names:
+
+| Canonical field | Accepted aliases | Description |
+| --- | --- | --- |
+| `productId` | `product_id` | Creem product ID. |
+| `quotaAmount` | `quota` | Quota credited after future settlement. |
+| `amountCents` | `priceCents`, decimal `price` | Product amount in the smallest currency unit. |
+| `currency` | none | Currency code, default `usd`. |
+
+### Flow
+
+1. The console calls `GET /api/user/topup/creem/config`.
+2. The user selects a configured fixed product.
+3. The console calls `POST /api/user/topup/creem/checkout` with `{ "productId": "prod_xxx" }`.
+4. The backend creates a pending `TopUpOrder` and a Creem Checkout Session.
+5. Creem redirects the user back to `/console/topup`.
+
+Creem webhook settlement is not implemented yet. Until that is completed, a successful Creem checkout return page does not automatically credit quota.
+
+## Troubleshooting
+
+| Symptom | Check |
+| --- | --- |
+| Provider shows as unavailable | Confirm the provider enable flag is `true`, `APP_BASE_URL` is set, and the provider secret is present. |
+| Stripe checkout creation fails | Check `STRIPE_SECRET_KEY`, currency, unit amount, and whether migrations have run. |
+| Stripe payment returns but quota does not change | Check that the Stripe webhook endpoint is configured, reachable, and uses the matching `STRIPE_WEBHOOK_SECRET`. |
+| Creem product list is empty | Validate that `CREEM_PRODUCTS` is valid JSON and every item has a product ID, quota, and amount. |
+| Creem checkout succeeds but quota does not change | Expected for now; Creem webhook settlement is still pending. |
+
+## API summary
+
+| Route | Auth | Purpose |
+| --- | --- | --- |
+| `GET /api/user/topup/stripe/config` | User session | Read Stripe top-up status. |
+| `POST /api/user/topup/stripe/checkout` | User session | Create a Stripe Checkout Session. |
+| `POST /api/user/topup/stripe/webhook` | Stripe signature | Settle Stripe payment events. |
+| `GET /api/user/topup/creem/config` | User session | Read Creem readiness and fixed products. |
+| `POST /api/user/topup/creem/checkout` | User session | Create a Creem Checkout Session for a configured product. |
