@@ -173,7 +173,7 @@ STRIPE_MIN_UNITS=1
 
 Stripe webhook 地址配置为 `https://your-domain.example/api/user/topup/stripe/webhook`。后端会处理 `checkout.session.completed`、`checkout.session.async_payment_succeeded`、`checkout.session.expired` 和 `checkout.session.async_payment_failed`，已支付订单重复投递不会重复入账。
 
-Creem 钱包充值产品目录也可以先通过环境变量准备好。后端现在会把已配置的产品目录和可用状态展示到钱包页，并为已配置产品创建 Checkout Session；webhook 入账放在下一步继续实现。
+Creem 钱包充值产品目录也可以先通过环境变量准备好。后端现在会把已配置的产品目录和可用状态展示到钱包页，为已配置产品创建 Checkout Session，并通过签名 Creem webhook 确认付款后入账。
 
 ```bash
 APP_BASE_URL="https://your-domain.example"
@@ -183,6 +183,8 @@ CREEM_WEBHOOK_SECRET="creem_whsec_xxx"
 CREEM_TEST_MODE=false
 CREEM_PRODUCTS='[{"productId":"prod_xxx","name":"100k quota","quotaAmount":100000,"amountCents":1000,"currency":"usd"}]'
 ```
+
+Creem webhook 地址配置为 `https://your-domain.example/api/user/topup/creem/webhook`。已支付 `checkout.completed` 事件是幂等的，只有匹配订单仍处于待支付状态时才会增加额度。
 
 准备 Prisma：
 

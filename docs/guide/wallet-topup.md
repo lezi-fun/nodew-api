@@ -7,7 +7,7 @@ Wallet top-up is currently configured with environment variables. The console ca
 | Provider | Checkout creation | Automatic quota settlement | Current status |
 | --- | --- | --- | --- |
 | Stripe | Supported | Supported through signed webhook | Usable for one-time quota purchases. |
-| Creem | Supported | Not implemented yet | Can create Checkout Sessions, but payment completion must not be treated as automatic quota settlement yet. |
+| Creem | Supported | Supported through signed webhook | Usable for fixed-product quota purchases. |
 | Waffo | Not implemented yet | Not implemented yet | Placeholder only. |
 
 Do not enable a provider for production billing until the required settlement path is available and tested for your deployment.
@@ -101,8 +101,20 @@ CREEM_PRODUCTS='[{"productId":"prod_xxx","name":"100k quota","quotaAmount":10000
 3. The console calls `POST /api/user/topup/creem/checkout` with `{ "productId": "prod_xxx" }`.
 4. The backend creates a pending `TopUpOrder` and a Creem Checkout Session.
 5. Creem redirects the user back to `/console/topup`.
+6. Creem sends a webhook to `/api/user/topup/creem/webhook`.
+7. The backend verifies `creem-signature`, marks the order as paid, and increments the user's remaining quota exactly once.
 
-Creem webhook settlement is not implemented yet. Until that is completed, a successful Creem checkout return page does not automatically credit quota.
+### Webhook events
+
+Configure the Creem webhook endpoint as:
+
+```text
+https://your-domain.example/api/user/topup/creem/webhook
+```
+
+The backend handles `checkout.completed` events when the order status is `paid`. Non-paid orders and unsupported order types are acknowledged without crediting quota.
+
+Duplicate paid webhook delivery is idempotent. The order is credited only while it is still pending.
 
 ## Troubleshooting
 
@@ -112,7 +124,7 @@ Creem webhook settlement is not implemented yet. Until that is completed, a succ
 | Stripe checkout creation fails | Check `STRIPE_SECRET_KEY`, currency, unit amount, and whether migrations have run. |
 | Stripe payment returns but quota does not change | Check that the Stripe webhook endpoint is configured, reachable, and uses the matching `STRIPE_WEBHOOK_SECRET`. |
 | Creem product list is empty | Validate that `CREEM_PRODUCTS` is valid JSON and every item has a product ID, quota, and amount. |
-| Creem checkout succeeds but quota does not change | Expected for now; Creem webhook settlement is still pending. |
+| Creem checkout succeeds but quota does not change | Check that the Creem webhook endpoint is configured, reachable, and uses the matching `CREEM_WEBHOOK_SECRET`. |
 
 ## API summary
 
@@ -123,3 +135,4 @@ Creem webhook settlement is not implemented yet. Until that is completed, a succ
 | `POST /api/user/topup/stripe/webhook` | Stripe signature | Settle Stripe payment events. |
 | `GET /api/user/topup/creem/config` | User session | Read Creem readiness and fixed products. |
 | `POST /api/user/topup/creem/checkout` | User session | Create a Creem Checkout Session for a configured product. |
+| `POST /api/user/topup/creem/webhook` | Creem signature | Settle Creem payment events. |

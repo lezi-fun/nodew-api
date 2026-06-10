@@ -1,3 +1,5 @@
+import { createHmac } from 'node:crypto';
+
 import { prisma } from '../../src/lib/prisma.js';
 import { closeTestApp, createTestApp } from '../helpers/app.js';
 import { mockFetchOnce } from '../helpers/fetch.js';
@@ -13,6 +15,9 @@ const creemEnvKeys = [
 ] as const;
 
 const savedEnv = new Map<string, string | undefined>();
+
+const signCreemPayload = (payload: string, secret = 'creem-webhook-secret') =>
+  createHmac('sha256', secret).update(payload).digest('hex');
 
 beforeEach(() => {
   savedEnv.clear();
@@ -276,6 +281,243 @@ describe('Creem top-up configuration integration', () => {
       expect(invalidProductResponse.json().message).toBe('Creem product is not configured');
       expect(disabledResponse.statusCode).toBe(400);
       expect(disabledResponse.json().message).toBe('Creem top-up is not configured');
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
+  it('settles paid Creem webhook events once and ignores duplicate delivery', async () => {
+    const user = await createUser({ quotaRemaining: 25n });
+    const order = await prisma.topUpOrder.create({
+      data: {
+        userId: user.id,
+        provider: 'CREEM',
+        status: 'PENDING',
+        quotaAmount: 100000n,
+        amountCents: 1250,
+        currency: 'usd',
+        creemCheckoutId: 'chk_test_123',
+        creemRequestId: 'creem-request-123',
+        creemProductId: 'prod_test_100k',
+      },
+    });
+    const payload = JSON.stringify({
+      id: 'evt_creem_123',
+      eventType: 'checkout.completed',
+      object: {
+        id: 'chk_test_123',
+        request_id: order.id,
+        order: {
+          id: 'creem-order-123',
+          amount_paid: 1250,
+          currency: 'usd',
+          status: 'paid',
+          type: 'onetime',
+        },
+        product: {
+          id: 'prod_test_100k',
+          name: '100k quota',
+        },
+      },
+    });
+    const app = await createTestApp();
+
+    try {
+      const firstResponse = await app.inject({
+        method: 'POST',
+        url: '/api/user/topup/creem/webhook',
+        headers: {
+          'content-type': 'application/json',
+          'creem-signature': signCreemPayload(payload),
+        },
+        payload,
+      });
+      const secondResponse = await app.inject({
+        method: 'POST',
+        url: '/api/user/topup/creem/webhook',
+        headers: {
+          'content-type': 'application/json',
+          'creem-signature': signCreemPayload(payload),
+        },
+        payload,
+      });
+
+      expect(firstResponse.statusCode).toBe(200);
+      expect(firstResponse.json()).toMatchObject({
+        success: true,
+        settled: true,
+        orderId: order.id,
+      });
+      expect(secondResponse.statusCode).toBe(200);
+      expect(secondResponse.json()).toMatchObject({
+        success: true,
+        settled: false,
+        orderId: order.id,
+      });
+
+      const storedOrder = await prisma.topUpOrder.findUnique({
+        where: { id: order.id },
+      });
+      const storedUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { quotaRemaining: true },
+      });
+
+      expect(storedOrder).toMatchObject({
+        status: 'PAID',
+        creemOrderId: 'creem-order-123',
+      });
+      expect(storedOrder?.paidAt).not.toBeNull();
+      expect(storedUser?.quotaRemaining).toBe(100025n);
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
+  it('rejects invalid Creem webhook signatures and ignores unpaid orders', async () => {
+    const user = await createUser({ quotaRemaining: 25n });
+    const order = await prisma.topUpOrder.create({
+      data: {
+        userId: user.id,
+        provider: 'CREEM',
+        status: 'PENDING',
+        quotaAmount: 100000n,
+        amountCents: 1250,
+        currency: 'usd',
+        creemCheckoutId: 'chk_test_unpaid',
+        creemRequestId: 'creem-request-unpaid',
+        creemProductId: 'prod_test_100k',
+      },
+    });
+    const payload = JSON.stringify({
+      id: 'evt_creem_unpaid',
+      eventType: 'checkout.completed',
+      object: {
+        request_id: order.id,
+        order: {
+          id: 'creem-order-unpaid',
+          status: 'pending',
+          type: 'onetime',
+        },
+      },
+    });
+    const app = await createTestApp();
+
+    try {
+      const badSignatureResponse = await app.inject({
+        method: 'POST',
+        url: '/api/user/topup/creem/webhook',
+        headers: {
+          'content-type': 'application/json',
+          'creem-signature': 'bad-signature',
+        },
+        payload,
+      });
+      const unpaidResponse = await app.inject({
+        method: 'POST',
+        url: '/api/user/topup/creem/webhook',
+        headers: {
+          'content-type': 'application/json',
+          'creem-signature': signCreemPayload(payload),
+        },
+        payload,
+      });
+
+      expect(badSignatureResponse.statusCode).toBe(400);
+      expect(badSignatureResponse.json().message).toBe('Creem webhook signature is invalid');
+      expect(unpaidResponse.statusCode).toBe(200);
+      expect(unpaidResponse.json()).toMatchObject({
+        success: true,
+        ignored: true,
+        reason: 'order_not_paid',
+      });
+
+      const storedOrder = await prisma.topUpOrder.findUnique({
+        where: { id: order.id },
+      });
+      const storedUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { quotaRemaining: true },
+      });
+
+      expect(storedOrder?.status).toBe('PENDING');
+      expect(storedUser?.quotaRemaining).toBe(25n);
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
+  it('rejects invalid Creem webhook JSON and mismatched paid orders', async () => {
+    const user = await createUser({ quotaRemaining: 25n });
+    const order = await prisma.topUpOrder.create({
+      data: {
+        userId: user.id,
+        provider: 'CREEM',
+        status: 'PENDING',
+        quotaAmount: 100000n,
+        amountCents: 1250,
+        currency: 'usd',
+        creemCheckoutId: 'chk_test_mismatch',
+        creemRequestId: 'creem-request-mismatch',
+        creemProductId: 'prod_test_100k',
+      },
+    });
+    const invalidJsonPayload = '{"eventType":"checkout.completed"';
+    const mismatchPayload = JSON.stringify({
+      id: 'evt_creem_mismatch',
+      eventType: 'checkout.completed',
+      object: {
+        request_id: order.id,
+        order: {
+          id: 'creem-order-mismatch',
+          amount_paid: 1300,
+          currency: 'usd',
+          status: 'paid',
+          type: 'onetime',
+        },
+        product: {
+          id: 'prod_test_100k',
+          name: '100k quota',
+        },
+      },
+    });
+    const app = await createTestApp();
+
+    try {
+      const invalidJsonResponse = await app.inject({
+        method: 'POST',
+        url: '/api/user/topup/creem/webhook',
+        headers: {
+          'content-type': 'application/json',
+          'creem-signature': signCreemPayload(invalidJsonPayload),
+        },
+        payload: invalidJsonPayload,
+      });
+      const mismatchResponse = await app.inject({
+        method: 'POST',
+        url: '/api/user/topup/creem/webhook',
+        headers: {
+          'content-type': 'application/json',
+          'creem-signature': signCreemPayload(mismatchPayload),
+        },
+        payload: mismatchPayload,
+      });
+
+      expect(invalidJsonResponse.statusCode).toBe(400);
+      expect(invalidJsonResponse.json().message).toBe('Creem webhook body must be valid JSON');
+      expect(mismatchResponse.statusCode).toBe(400);
+      expect(mismatchResponse.json().message).toBe('Creem top-up amount does not match the pending order');
+
+      const storedOrder = await prisma.topUpOrder.findUnique({
+        where: { id: order.id },
+      });
+      const storedUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { quotaRemaining: true },
+      });
+
+      expect(storedOrder?.status).toBe('PENDING');
+      expect(storedUser?.quotaRemaining).toBe(25n);
     } finally {
       await closeTestApp(app);
     }

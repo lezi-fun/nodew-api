@@ -1,3 +1,5 @@
+import { createHmac, timingSafeEqual } from 'node:crypto';
+
 import { z } from 'zod';
 
 export type CreemTopUpProduct = {
@@ -129,6 +131,21 @@ const readCreemErrorMessage = (payload: unknown) => {
 
 const getCreemApiBaseUrl = (testMode: boolean) =>
   testMode ? 'https://test-api.creem.io' : 'https://api.creem.io';
+
+const safeEqualHex = (left: string, right: string) => {
+  const leftBuffer = Buffer.from(left, 'hex');
+  const rightBuffer = Buffer.from(right, 'hex');
+
+  return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer);
+};
+
+export const verifyCreemWebhookSignature = (payload: string, signature: string, secret: string) => {
+  const expected = createHmac('sha256', secret).update(payload).digest('hex');
+
+  if (!safeEqualHex(signature.trim(), expected)) {
+    throw new Error('Creem webhook signature is invalid');
+  }
+};
 
 export const createCreemCheckoutSession = async (input: {
   apiKey: string;

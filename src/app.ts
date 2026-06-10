@@ -34,6 +34,10 @@ import authPlugin from './plugins/auth.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const frontendRoot = path.resolve(__dirname, '../web/dist');
+const rawBodyRoutes = new Set([
+  '/api/user/topup/stripe/webhook',
+  '/api/user/topup/creem/webhook',
+]);
 
 type AppEnv = typeof envShape;
 
@@ -77,7 +81,7 @@ export const createApp = async (appEnv: AppEnv = parseEnv()) => {
   });
 
   app.addHook('preParsing', async (request, _reply, payload) => {
-    if (request.method !== 'POST' || request.url.split('?')[0] !== '/api/user/topup/stripe/webhook') {
+    if (request.method !== 'POST' || !rawBodyRoutes.has(request.url.split('?')[0] ?? '')) {
       return payload;
     }
 

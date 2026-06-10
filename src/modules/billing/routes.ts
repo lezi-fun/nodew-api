@@ -1,7 +1,11 @@
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
-import { createCreemCheckoutSession, getCreemTopUpConfig } from '../../lib/creem.js';
+import {
+  createCreemCheckoutSession,
+  getCreemTopUpConfig,
+  verifyCreemWebhookSignature,
+} from '../../lib/creem.js';
 import { prisma } from '../../lib/prisma.js';
 import {
   createStripeCheckoutSession,
@@ -29,6 +33,25 @@ type StripeWebhookEvent = {
   type?: string;
   data?: {
     object?: StripeCheckoutSessionObject;
+  };
+};
+
+type CreemWebhookEvent = {
+  id?: string;
+  eventType?: string;
+  object?: {
+    request_id?: string;
+    order?: {
+      id?: string;
+      amount_paid?: number;
+      currency?: string;
+      status?: string;
+      type?: string;
+    };
+    product?: {
+      id?: string;
+      name?: string;
+    };
   };
 };
 
@@ -77,6 +100,23 @@ const serializeOrder = (order: {
   paidAt: order.paidAt?.toISOString() ?? null,
   createdAt: order.createdAt.toISOString(),
 });
+
+const creemWebhookTerminalErrors = new Set([
+  'Creem event does not reference a top-up order',
+  'Creem top-up order not found',
+  'Creem top-up order is not pending',
+  'Creem top-up amount does not match the pending order',
+  'Creem top-up currency does not match the pending order',
+  'Creem top-up product does not match the pending order',
+]);
+
+const isCreemWebhookTerminalError = (error: unknown): error is Error =>
+  error instanceof Error && creemWebhookTerminalErrors.has(error.message);
+
+const billingRawBodyRoutes = new Set([
+  '/api/user/topup/stripe/webhook',
+  '/api/user/topup/creem/webhook',
+]);
 
 const settleStripeOrder = async (session: StripeCheckoutSessionObject) => {
   const orderId = session.metadata?.orderId?.trim();
@@ -141,7 +181,104 @@ const settleStripeOrder = async (session: StripeCheckoutSessionObject) => {
   });
 };
 
+const settleCreemOrder = async (event: CreemWebhookEvent) => {
+  const requestId = event.object?.request_id?.trim();
+  const orderId = event.object?.order?.id?.trim();
+  const paidAmount = event.object?.order?.amount_paid;
+  const paidCurrency = event.object?.order?.currency?.trim().toLowerCase();
+  const productId = event.object?.product?.id?.trim();
+
+  if (!requestId && !orderId) {
+    throw new Error('Creem event does not reference a top-up order');
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const order = await tx.topUpOrder.findFirst({
+      where: {
+        provider: 'CREEM',
+        OR: [
+          ...(requestId ? [{ id: requestId }, { creemRequestId: requestId }] : []),
+          ...(orderId ? [{ creemOrderId: orderId }] : []),
+        ],
+      },
+      select: {
+        id: true,
+        userId: true,
+        status: true,
+        quotaAmount: true,
+        amountCents: true,
+        currency: true,
+        creemProductId: true,
+      },
+    });
+
+    if (!order) {
+      throw new Error('Creem top-up order not found');
+    }
+
+    if (order.status === 'PAID') {
+      return { settled: false, orderId: order.id };
+    }
+
+    if (order.status !== 'PENDING') {
+      throw new Error('Creem top-up order is not pending');
+    }
+
+    if (typeof paidAmount === 'number' && paidAmount !== order.amountCents) {
+      throw new Error('Creem top-up amount does not match the pending order');
+    }
+
+    if (paidCurrency && paidCurrency !== order.currency.toLowerCase()) {
+      throw new Error('Creem top-up currency does not match the pending order');
+    }
+
+    if (productId && order.creemProductId && productId !== order.creemProductId) {
+      throw new Error('Creem top-up product does not match the pending order');
+    }
+
+    const updated = await tx.topUpOrder.updateMany({
+      where: {
+        id: order.id,
+        status: 'PENDING',
+      },
+      data: {
+        status: 'PAID',
+        creemOrderId: orderId ?? undefined,
+        paidAt: new Date(),
+      },
+    });
+
+    if (updated.count === 0) {
+      return { settled: false, orderId: order.id };
+    }
+
+    await tx.user.update({
+      where: { id: order.userId },
+      data: {
+        quotaRemaining: { increment: order.quotaAmount },
+      },
+    });
+
+    return { settled: true, orderId: order.id };
+  });
+};
+
 const billingRoutes: FastifyPluginAsync = async (app) => {
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (request, body, done) => {
+    const rawJsonBody = typeof body === 'string' ? body : body.toString('utf8');
+
+    if (request.method === 'POST' && billingRawBodyRoutes.has(request.url.split('?')[0] ?? '')) {
+      done(null, rawJsonBody);
+      return;
+    }
+
+    try {
+      done(null, rawJsonBody.trim() ? JSON.parse(rawJsonBody) : {});
+    } catch {
+      done(app.httpErrors.badRequest("Body is not valid JSON but content-type is set to 'application/json'"));
+    }
+  });
+
   app.get('/user/topup/stripe/config', {
     preHandler: app.requireUser,
   }, async () => ({
@@ -276,6 +413,84 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
       success: true,
       checkoutUrl: session.url,
       order: serializeOrder(updatedOrder),
+    };
+  });
+
+  app.post('/user/topup/creem/webhook', async (request) => {
+    const rawBody = (request as RawBodyRequest).rawBody;
+
+    if (!rawBody) {
+      throw app.httpErrors.badRequest('Creem webhook body is missing');
+    }
+
+    const webhookSecret = process.env.CREEM_WEBHOOK_SECRET?.trim();
+
+    if (!webhookSecret) {
+      throw app.httpErrors.badRequest('Creem webhook secret is not configured');
+    }
+
+    const signature = request.headers['creem-signature'];
+
+    if (typeof signature !== 'string') {
+      throw app.httpErrors.badRequest('Creem webhook signature is missing');
+    }
+
+    try {
+      verifyCreemWebhookSignature(rawBody, signature, webhookSecret);
+    } catch (error) {
+      throw app.httpErrors.badRequest(error instanceof Error ? error.message : 'Creem webhook signature is invalid');
+    }
+
+    let event: CreemWebhookEvent;
+
+    try {
+      event = JSON.parse(rawBody) as CreemWebhookEvent;
+    } catch {
+      throw app.httpErrors.badRequest('Creem webhook body must be valid JSON');
+    }
+
+    if (!event.eventType || !event.object) {
+      throw app.httpErrors.badRequest('Creem webhook event is invalid');
+    }
+
+    if (event.eventType !== 'checkout.completed') {
+      return {
+        success: true,
+        ignored: true,
+      };
+    }
+
+    if (event.object.order?.status !== 'paid') {
+      return {
+        success: true,
+        ignored: true,
+        reason: 'order_not_paid',
+      };
+    }
+
+    if (event.object.order?.type && event.object.order.type !== 'onetime') {
+      return {
+        success: true,
+        ignored: true,
+        reason: 'unsupported_order_type',
+      };
+    }
+
+    let result: Awaited<ReturnType<typeof settleCreemOrder>>;
+
+    try {
+      result = await settleCreemOrder(event);
+    } catch (error) {
+      if (isCreemWebhookTerminalError(error)) {
+        throw app.httpErrors.badRequest(error.message);
+      }
+
+      throw error;
+    }
+
+    return {
+      success: true,
+      ...result,
     };
   });
 

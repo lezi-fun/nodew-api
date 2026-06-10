@@ -96,7 +96,7 @@ Behavior notes:
 
 ## Creem wallet top-up catalog
 
-Creem wallet top-up uses fixed products created in Creem. Signed-in users can read the safe product catalog and create a Checkout Session for a configured product; webhook settlement remains a later step.
+Creem wallet top-up uses fixed products created in Creem. Signed-in users can read the safe product catalog, create a Checkout Session for a configured product, and receive quota after signed webhook settlement.
 
 | Variable | Required | Description |
 | --- | --- | --- |
@@ -111,6 +111,8 @@ Behavior notes:
 
 - `GET /api/user/topup/creem/config` returns only non-sensitive configuration status and normalized products.
 - `POST /api/user/topup/creem/checkout` accepts `{ "productId": string }`, creates a pending top-up order for the configured product, and returns the Creem Checkout URL.
+- Configure the Creem webhook endpoint as `/api/user/topup/creem/webhook`.
+- Paid Creem webhooks credit quota exactly once, even when Creem retries the same event.
 - Product entries accept `productId` or `product_id`, `quotaAmount` or `quota`, and either `amountCents`, `priceCents`, or decimal `price`.
 - Invalid product JSON is treated as an empty catalog, so Creem top-up is not reported as configured.
 
