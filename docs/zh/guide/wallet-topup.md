@@ -116,6 +116,8 @@ https://your-domain.example/api/user/topup/creem/webhook
 
 已支付 webhook 重复投递是幂等的。只有订单仍处于待支付状态时才会入账。
 
+生产环境开启 Creem 充值前，需要在 Creem 后台创建同一个 webhook endpoint，把签名密钥写入 `CREEM_WEBHOOK_SECRET`，并先发送测试事件确认可达。如果应用前面有代理，需要确保公网 URL 原样转发到这个 API 路径，因为签名校验依赖原始请求体。
+
 ## 排障
 
 | 现象 | 检查项 |

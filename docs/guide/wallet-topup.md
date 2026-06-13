@@ -116,6 +116,8 @@ The backend handles `checkout.completed` events when the order status is `paid`.
 
 Duplicate paid webhook delivery is idempotent. The order is credited only while it is still pending.
 
+Before enabling Creem top-up in production, create the webhook in Creem with the same endpoint, copy the signing secret to `CREEM_WEBHOOK_SECRET`, and send a test event. If the app is behind a proxy, make sure the public URL reaches this API path unchanged because signature verification uses the raw request body.
+
 ## Troubleshooting
 
 | Symptom | Check |
