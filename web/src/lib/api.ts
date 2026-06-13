@@ -869,6 +869,8 @@ export const api = {
     (await client.get<{ item: CreemTopUpConfig }>('/api/user/topup/creem/config')).data,
   createStripeCheckout: async (payload: { units: number }) =>
     (await client.post<{ success: boolean; checkoutUrl: string; order: TopUpOrder }>('/api/user/topup/stripe/checkout', payload)).data,
+  createCreemCheckout: async (payload: { productId: string }) =>
+    (await client.post<{ success: boolean; checkoutUrl: string; order: TopUpOrder }>('/api/user/topup/creem/checkout', payload)).data,
   updateRedemption: async (id: string, payload: RedemptionUpdatePayload) =>
     (await client.patch<{ item: RedemptionItem }>(`/api/redemptions/${id}`, payload)).data,
   deleteRedemption: async (id: string) => (await client.delete<{ success: boolean }>(`/api/redemptions/${id}`)).data,

@@ -1071,9 +1071,26 @@ body[theme-mode='dark'] .dashboard-timeline-item {
 
 .wallet-feature-list,
 .wallet-help-list,
-.wallet-stripe-form {
+.wallet-stripe-form,
+.wallet-creem-products {
   display: grid;
   gap: 8px;
+}
+
+.wallet-creem-product {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.wallet-creem-product > div {
+  display: grid;
+  gap: 2px;
+}
+
+.wallet-creem-product span {
+  color: var(--semi-color-text-2);
 }
 
 .wallet-feature-list span,

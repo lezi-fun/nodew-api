@@ -64,6 +64,7 @@ export default function TopUpPage() {
   const [stripeUnits, setStripeUnits] = useState('1');
   const [stripeLoading, setStripeLoading] = useState(false);
   const [creemConfig, setCreemConfig] = useState<CreemTopUpConfig>(fallbackCreemConfig);
+  const [creemLoadingProductId, setCreemLoadingProductId] = useState<string | null>(null);
 
   const loadPricing = useCallback(async () => {
     setPricingLoading(true);
@@ -93,9 +94,10 @@ export default function TopUpPage() {
   }, [loadPricing]);
 
   useEffect(() => {
-    const result = searchParams.get('stripe');
+    const stripeResult = searchParams.get('stripe');
+    const creemResult = searchParams.get('creem');
 
-    if (result === 'success') {
+    if (stripeResult === 'success') {
       Toast.info('Stripe 支付完成后会通过 webhook 入账，请稍后刷新余额');
       setSearchParams((current) => {
         current.delete('stripe');
@@ -104,10 +106,19 @@ export default function TopUpPage() {
       }, { replace: true });
     }
 
-    if (result === 'cancel') {
+    if (stripeResult === 'cancel') {
       Toast.warning('Stripe 支付已取消');
       setSearchParams((current) => {
         current.delete('stripe');
+        current.delete('order');
+        return current;
+      }, { replace: true });
+    }
+
+    if (creemResult === 'success') {
+      Toast.info('Creem 支付完成后会通过 webhook 入账，请稍后刷新余额');
+      setSearchParams((current) => {
+        current.delete('creem');
         current.delete('order');
         return current;
       }, { replace: true });
@@ -160,6 +171,23 @@ export default function TopUpPage() {
       Toast.error(error instanceof Error ? error.message : '创建 Stripe 支付失败');
     } finally {
       setStripeLoading(false);
+    }
+  };
+
+  const createCreemCheckout = async (productId: string) => {
+    if (!creemConfig.enabled) {
+      Toast.error('Creem 充值暂未启用');
+      return;
+    }
+
+    setCreemLoadingProductId(productId);
+    try {
+      const response = await api.createCreemCheckout({ productId });
+      window.location.assign(response.checkoutUrl);
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : '创建 Creem 支付失败');
+    } finally {
+      setCreemLoadingProductId(null);
     }
   };
 
@@ -281,13 +309,35 @@ export default function TopUpPage() {
                         前往 Stripe Checkout
                       </Button>
                     </div>
+                  ) : method.key === 'creem' ? (
+                    <div className="wallet-creem-products">
+                      {creemConfig.configured ? (
+                        creemConfig.products.map((product) => (
+                          <div key={product.productId} className="wallet-creem-product">
+                            <div>
+                              <strong>{product.name}</strong>
+                              <span>{formatQuota(product.quotaAmount)} quota</span>
+                            </div>
+                            <Button
+                              theme="solid"
+                              type="primary"
+                              loading={creemLoadingProductId === product.productId}
+                              disabled={!creemConfig.enabled}
+                              onClick={() => void createCreemCheckout(product.productId)}
+                            >
+                              {`${(product.amountCents / 100).toFixed(2)} ${product.currency.toUpperCase()}`}
+                            </Button>
+                          </div>
+                        ))
+                      ) : (
+                        <Typography.Text type="tertiary">Creem 产品目录尚未配置</Typography.Text>
+                      )}
+                      {creemConfig.configured && !creemConfig.webhookConfigured && (
+                        <Typography.Text type="warning">Webhook Secret 未配置，付款后不会自动入账</Typography.Text>
+                      )}
+                    </div>
                   ) : (
                     <>
-                      {method.key === 'creem' && creemConfig.configured && (
-                        <Typography.Text type="tertiary">
-                          已配置 {creemConfig.products.length} 个固定金额产品，支付会话下一步接入
-                        </Typography.Text>
-                      )}
                       <Button theme="light" onClick={() => showPaymentPending(method.name)}>查看状态</Button>
                     </>
                   )}
