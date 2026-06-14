@@ -123,6 +123,7 @@ The web console uses the backend authentication APIs for login, registration, se
 
 - `GET /api/user/topup/stripe/config`
 - `GET /api/user/topup/creem/config`
+- `GET /api/user/topup/waffo/config`
 - `POST /api/user/topup/stripe/checkout`
 - `POST /api/user/topup/creem/checkout`
 - `POST /api/user/topup/stripe/webhook`

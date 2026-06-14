@@ -363,6 +363,22 @@ export type CreemTopUpConfig = {
   products: CreemTopUpProduct[];
 };
 
+export type WaffoTopUpProduct = {
+  productId: string;
+  name: string;
+  quotaAmount: number;
+  amountCents: number;
+  currency: string;
+};
+
+export type WaffoTopUpConfig = {
+  enabled: boolean;
+  configured: boolean;
+  webhookConfigured: boolean;
+  testMode: boolean;
+  products: WaffoTopUpProduct[];
+};
+
 export type TopUpOrder = {
   id: string;
   status: 'PENDING' | 'PAID' | 'CANCELED' | 'EXPIRED' | 'FAILED';
@@ -867,6 +883,8 @@ export const api = {
     (await client.get<{ item: StripeTopUpConfig }>('/api/user/topup/stripe/config')).data,
   getCreemTopUpConfig: async () =>
     (await client.get<{ item: CreemTopUpConfig }>('/api/user/topup/creem/config')).data,
+  getWaffoTopUpConfig: async () =>
+    (await client.get<{ item: WaffoTopUpConfig }>('/api/user/topup/waffo/config')).data,
   createStripeCheckout: async (payload: { units: number }) =>
     (await client.post<{ success: boolean; checkoutUrl: string; order: TopUpOrder }>('/api/user/topup/stripe/checkout', payload)).data,
   createCreemCheckout: async (payload: { productId: string }) =>

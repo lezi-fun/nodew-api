@@ -116,6 +116,25 @@ Behavior notes:
 - Product entries accept `productId` or `product_id`, `quotaAmount` or `quota`, and either `amountCents`, `priceCents`, or decimal `price`.
 - Invalid product JSON is treated as an empty catalog, so Creem top-up is not reported as configured.
 
+## Waffo wallet top-up catalog
+
+Waffo wallet top-up uses the same fixed-product configuration shape. Signed-in users can read the safe product catalog and readiness state; checkout creation and webhook settlement are intentionally left for the next Waffo step.
+
+| Variable | Required | Description |
+| --- | --- | --- |
+| `APP_BASE_URL` | Yes when Waffo top-up is enabled | Public console URL reserved for Waffo checkout redirects. |
+| `WAFFO_TOPUP_ENABLED` | No | Enables the wallet Waffo readiness state when set to `true`. Defaults to `false`. |
+| `WAFFO_API_KEY` | Yes when enabled | Waffo API key reserved for checkout creation. Never returned to clients. |
+| `WAFFO_WEBHOOK_SECRET` | Yes for webhook settlement | Waffo webhook signing secret. Never returned to clients. |
+| `WAFFO_TEST_MODE` | No | Marks Waffo configuration as test-mode. Defaults to `false`. |
+| `WAFFO_PRODUCTS` | Yes when enabled | JSON array of fixed products, for example `[{"productId":"prod_xxx","name":"100k quota","quotaAmount":100000,"amountCents":1000,"currency":"usd"}]`. |
+
+Behavior notes:
+
+- `GET /api/user/topup/waffo/config` returns only non-sensitive configuration status and normalized products.
+- `WAFFO_PRODUCTS` accepts `productId` or `product_id`, `quotaAmount` or `quota`, and either `amountCents`, `priceCents`, or decimal `price`.
+- Invalid product JSON is treated as an empty catalog, so Waffo top-up is not reported as configured.
+
 ## Daily check-in
 
 Daily check-in settings are stored in system options rather than environment variables.

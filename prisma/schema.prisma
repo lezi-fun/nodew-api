@@ -36,6 +36,7 @@ enum RedemptionStatus {
 enum TopUpOrderProvider {
   STRIPE
   CREEM
+  WAFFO
 }
 
 enum TopUpOrderStatus {
@@ -248,6 +249,9 @@ model TopUpOrder {
   creemRequestId        String?            @unique @db.VarChar(255)
   creemOrderId          String?            @unique @db.VarChar(255)
   creemProductId        String?            @db.VarChar(255)
+  waffoCheckoutId       String?            @unique @db.VarChar(255)
+  waffoOrderId          String?            @unique @db.VarChar(255)
+  waffoProductId        String?            @db.VarChar(255)
   metadata              Json?
   paidAt                DateTime?
   createdAt             DateTime           @default(now())
@@ -258,6 +262,7 @@ model TopUpOrder {
   @@index([provider])
   @@index([status])
   @@index([creemProductId])
+  @@index([waffoProductId])
   @@index([createdAt])
 }
 

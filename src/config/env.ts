@@ -60,6 +60,11 @@ const envSchema = z.object({
   CREEM_WEBHOOK_SECRET: z.string().min(1).optional(),
   CREEM_TEST_MODE: booleanStringSchema.default(false),
   CREEM_PRODUCTS: z.string().default('[]'),
+  WAFFO_TOPUP_ENABLED: booleanStringSchema.default(false),
+  WAFFO_API_KEY: z.string().min(1).optional(),
+  WAFFO_WEBHOOK_SECRET: z.string().min(1).optional(),
+  WAFFO_TEST_MODE: booleanStringSchema.default(false),
+  WAFFO_PRODUCTS: z.string().default('[]'),
 });
 
 export const parseEnv = (input: NodeJS.ProcessEnv = process.env) => {

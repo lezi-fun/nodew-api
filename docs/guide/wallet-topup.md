@@ -8,7 +8,7 @@ Wallet top-up is currently configured with environment variables. The console ca
 | --- | --- | --- | --- |
 | Stripe | Supported | Supported through signed webhook | Usable for one-time quota purchases. |
 | Creem | Supported | Supported through signed webhook | Usable for fixed-product quota purchases. |
-| Waffo | Not implemented yet | Not implemented yet | Placeholder only. |
+| Waffo | Catalog status only | Not implemented yet | Fixed product catalog and order fields are reserved; checkout creation is next. |
 
 Do not enable a provider for production billing until the required settlement path is available and tested for your deployment.
 
@@ -118,6 +118,20 @@ Duplicate paid webhook delivery is idempotent. The order is credited only while 
 
 Before enabling Creem top-up in production, create the webhook in Creem with the same endpoint, copy the signing secret to `CREEM_WEBHOOK_SECRET`, and send a test event. If the app is behind a proxy, make sure the public URL reaches this API path unchanged because signature verification uses the raw request body.
 
+## Waffo
+
+Waffo currently has the safe configuration surface and order fields only. Use this step to prepare a fixed product catalog before adding checkout creation.
+
+```bash
+WAFFO_TOPUP_ENABLED=true
+WAFFO_API_KEY="waffo_xxx"
+WAFFO_WEBHOOK_SECRET="waffo_whsec_xxx"
+WAFFO_TEST_MODE=false
+WAFFO_PRODUCTS='[{"productId":"prod_xxx","name":"100k quota","quotaAmount":100000,"amountCents":1000,"currency":"usd"}]'
+```
+
+`WAFFO_PRODUCTS` accepts the same compatible field names as Creem: `productId` or `product_id`, `quotaAmount` or `quota`, and `amountCents`, `priceCents`, or decimal `price`. The safe catalog is available at `GET /api/user/topup/waffo/config`.
+
 ## Troubleshooting
 
 | Symptom | Check |
@@ -127,6 +141,7 @@ Before enabling Creem top-up in production, create the webhook in Creem with the
 | Stripe payment returns but quota does not change | Check that the Stripe webhook endpoint is configured, reachable, and uses the matching `STRIPE_WEBHOOK_SECRET`. |
 | Creem product list is empty | Validate that `CREEM_PRODUCTS` is valid JSON and every item has a product ID, quota, and amount. |
 | Creem checkout succeeds but quota does not change | Check that the Creem webhook endpoint is configured, reachable, and uses the matching `CREEM_WEBHOOK_SECRET`. |
+| Waffo product list is empty | Validate that `WAFFO_PRODUCTS` is valid JSON and every item has a product ID, quota, and amount. |
 
 ## API summary
 
@@ -138,3 +153,4 @@ Before enabling Creem top-up in production, create the webhook in Creem with the
 | `GET /api/user/topup/creem/config` | User session | Read Creem readiness and fixed products. |
 | `POST /api/user/topup/creem/checkout` | User session | Create a Creem Checkout Session for a configured product. |
 | `POST /api/user/topup/creem/webhook` | Creem signature | Settle Creem payment events. |
+| `GET /api/user/topup/waffo/config` | User session | Read Waffo readiness and fixed products. |

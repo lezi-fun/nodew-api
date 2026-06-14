@@ -8,7 +8,7 @@
 | --- | --- | --- | --- |
 | Stripe | 已支持 | 已支持，通过签名 webhook 入账 | 可用于一次性额度充值。 |
 | Creem | 已支持 | 已支持，通过签名 webhook 入账 | 可用于固定产品额度充值。 |
-| Waffo | 尚未实现 | 尚未实现 | 仅保留占位入口。 |
+| Waffo | 仅产品目录状态 | 尚未实现 | 已预留固定产品目录和订单字段，下一步创建支付会话。 |
 
 不要在生产计费中启用还没有完整入账链路的 provider，除非你已经有人工核验和补账流程。
 
@@ -118,6 +118,20 @@ https://your-domain.example/api/user/topup/creem/webhook
 
 生产环境开启 Creem 充值前，需要在 Creem 后台创建同一个 webhook endpoint，把签名密钥写入 `CREEM_WEBHOOK_SECRET`，并先发送测试事件确认可达。如果应用前面有代理，需要确保公网 URL 原样转发到这个 API 路径，因为签名校验依赖原始请求体。
 
+## Waffo
+
+Waffo 当前只提供安全配置面和订单字段预留。可以先用这一步准备固定产品目录，后续再补创建支付会话。
+
+```bash
+WAFFO_TOPUP_ENABLED=true
+WAFFO_API_KEY="waffo_xxx"
+WAFFO_WEBHOOK_SECRET="waffo_whsec_xxx"
+WAFFO_TEST_MODE=false
+WAFFO_PRODUCTS='[{"productId":"prod_xxx","name":"100k quota","quotaAmount":100000,"amountCents":1000,"currency":"usd"}]'
+```
+
+`WAFFO_PRODUCTS` 兼容和 Creem 相同的字段：`productId` 或 `product_id`、`quotaAmount` 或 `quota`，以及 `amountCents`、`priceCents` 或小数 `price`。安全产品目录可通过 `GET /api/user/topup/waffo/config` 读取。
+
 ## 排障
 
 | 现象 | 检查项 |
@@ -127,6 +141,7 @@ https://your-domain.example/api/user/topup/creem/webhook
 | Stripe 支付返回后额度没变 | 检查 Stripe webhook endpoint 是否配置、可访问，并且 `STRIPE_WEBHOOK_SECRET` 匹配。 |
 | Creem 产品列表为空 | 检查 `CREEM_PRODUCTS` 是否是合法 JSON，且每个产品都有 product ID、额度和金额。 |
 | Creem Checkout 成功但额度没变 | 检查 Creem webhook endpoint 是否配置、可访问，并且 `CREEM_WEBHOOK_SECRET` 匹配。 |
+| Waffo 产品列表为空 | 检查 `WAFFO_PRODUCTS` 是否是合法 JSON，且每个产品都有 product ID、额度和金额。 |
 
 ## API 摘要
 
@@ -138,3 +153,4 @@ https://your-domain.example/api/user/topup/creem/webhook
 | `GET /api/user/topup/creem/config` | 用户 session | 读取 Creem 可用状态和固定产品。 |
 | `POST /api/user/topup/creem/checkout` | 用户 session | 为已配置产品创建 Creem Checkout Session。 |
 | `POST /api/user/topup/creem/webhook` | Creem 签名 | 处理 Creem 支付事件并入账。 |
+| `GET /api/user/topup/waffo/config` | 用户 session | 读取 Waffo 可用状态和固定产品。 |

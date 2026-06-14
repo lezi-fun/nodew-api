@@ -12,6 +12,7 @@ import {
   getStripeTopUpConfig,
   verifyStripeWebhookSignature,
 } from '../../lib/stripe.js';
+import { getWaffoTopUpConfig } from '../../lib/waffo.js';
 
 type RawBodyRequest = FastifyRequest & {
   rawBody?: string;
@@ -289,6 +290,12 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
     preHandler: app.requireUser,
   }, async () => ({
     item: getCreemTopUpConfig(),
+  }));
+
+  app.get('/user/topup/waffo/config', {
+    preHandler: app.requireUser,
+  }, async () => ({
+    item: getWaffoTopUpConfig(),
   }));
 
   app.post('/user/topup/creem/checkout', {

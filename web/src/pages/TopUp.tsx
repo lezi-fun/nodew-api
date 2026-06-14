@@ -4,7 +4,7 @@ import { useCallback, useContext, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { UserContext } from '../context/User';
-import { api, type CreemTopUpConfig, type PricingInfo, type StripeTopUpConfig } from '../lib/api';
+import { api, type CreemTopUpConfig, type PricingInfo, type StripeTopUpConfig, type WaffoTopUpConfig } from '../lib/api';
 import { formatDateTime, formatQuota } from '../lib/format';
 
 const fallbackPricing: PricingInfo = {
@@ -53,6 +53,14 @@ const fallbackCreemConfig: CreemTopUpConfig = {
   products: [],
 };
 
+const fallbackWaffoConfig: WaffoTopUpConfig = {
+  enabled: false,
+  configured: false,
+  webhookConfigured: false,
+  testMode: false,
+  products: [],
+};
+
 export default function TopUpPage() {
   const { user, refresh } = useContext(UserContext);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -65,19 +73,22 @@ export default function TopUpPage() {
   const [stripeLoading, setStripeLoading] = useState(false);
   const [creemConfig, setCreemConfig] = useState<CreemTopUpConfig>(fallbackCreemConfig);
   const [creemLoadingProductId, setCreemLoadingProductId] = useState<string | null>(null);
+  const [waffoConfig, setWaffoConfig] = useState<WaffoTopUpConfig>(fallbackWaffoConfig);
 
   const loadPricing = useCallback(async () => {
     setPricingLoading(true);
     try {
-      const [pricingResponse, stripeResponse, creemResponse] = await Promise.all([
+      const [pricingResponse, stripeResponse, creemResponse, waffoResponse] = await Promise.all([
         api.getPricing(),
         api.getStripeTopUpConfig(),
         api.getCreemTopUpConfig(),
+        api.getWaffoTopUpConfig(),
       ]);
       const minUnits = Math.max(1, stripeResponse.item.minUnits);
       setPricing(pricingResponse.data);
       setStripeConfig(stripeResponse.item);
       setCreemConfig(creemResponse.item);
+      setWaffoConfig(waffoResponse.item);
       setStripeUnits((current) => {
         const parsed = Number(current);
         return Number.isInteger(parsed) && parsed >= minUnits ? current : String(minUnits);
@@ -278,11 +289,13 @@ export default function TopUpPage() {
                     <strong>{method.name}</strong>
                     <Tag color={(
                       (method.key === 'stripe' && stripeConfig.enabled) ||
-                      (method.key === 'creem' && creemConfig.enabled)
+                      (method.key === 'creem' && creemConfig.enabled) ||
+                      (method.key === 'waffo' && waffoConfig.enabled)
                     ) ? 'green' : 'grey'}>
                       {(
                         (method.key === 'stripe' && stripeConfig.enabled) ||
-                        (method.key === 'creem' && creemConfig.enabled)
+                        (method.key === 'creem' && creemConfig.enabled) ||
+                        (method.key === 'waffo' && waffoConfig.enabled)
                       ) ? '已配置' : '待接入'}
                     </Tag>
                   </div>
@@ -337,9 +350,27 @@ export default function TopUpPage() {
                       )}
                     </div>
                   ) : (
-                    <>
+                    <div className="wallet-creem-products">
+                      {waffoConfig.configured ? (
+                        waffoConfig.products.map((product) => (
+                          <div key={product.productId} className="wallet-creem-product">
+                            <div>
+                              <strong>{product.name}</strong>
+                              <span>{formatQuota(product.quotaAmount)} quota</span>
+                            </div>
+                            <Button theme="light" disabled>
+                              {`${(product.amountCents / 100).toFixed(2)} ${product.currency.toUpperCase()}`}
+                            </Button>
+                          </div>
+                        ))
+                      ) : (
+                        <Typography.Text type="tertiary">Waffo 产品目录尚未配置</Typography.Text>
+                      )}
+                      {waffoConfig.configured && !waffoConfig.webhookConfigured && (
+                        <Typography.Text type="warning">Webhook Secret 未配置，后续付款回调无法自动入账</Typography.Text>
+                      )}
                       <Button theme="light" onClick={() => showPaymentPending(method.name)}>查看状态</Button>
-                    </>
+                    </div>
                   )}
                 </div>
               ))}
