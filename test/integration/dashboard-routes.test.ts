@@ -141,4 +141,64 @@ describe('dashboard compatibility routes', () => {
       await closeTestApp(app);
     }
   });
+
+  it('returns configured subscription plans for signed-in users', async () => {
+    const user = await createUser();
+    const token = await createSessionForUser(user.id);
+    await prisma.systemOption.create({
+      data: {
+        key: 'subscription_plans',
+        value: JSON.stringify([
+          {
+            id: 'monthly-basic',
+            title: '基础版',
+            subtitle: '适合轻量使用',
+            description: '按月提供固定额度与基础权益',
+            badge: '热门',
+            priceAmount: 29.9,
+            currency: 'CNY',
+            quota: '每月 500,000 额度',
+            duration: '30 天',
+            features: ['基础模型访问', '标准优先级'],
+            enabled: true,
+            sortOrder: 100,
+          },
+          {
+            id: 'disabled-plan',
+            title: '隐藏版',
+            priceAmount: 99,
+            currency: 'CNY',
+            quota: '隐藏',
+            duration: '30 天',
+            features: [],
+            enabled: false,
+            sortOrder: 10,
+          },
+        ]),
+      },
+    });
+    const app = await createTestApp();
+
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/subscription/plans',
+        cookies: {
+          nodew_session: app.signCookie(token),
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json().items).toEqual([
+        expect.objectContaining({
+          id: 'monthly-basic',
+          title: '基础版',
+          badge: '热门',
+        }),
+      ]);
+      expect(response.json().total).toBe(1);
+    } finally {
+      await closeTestApp(app);
+    }
+  });
 });

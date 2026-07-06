@@ -23,6 +23,7 @@ import {
   updateCustomOAuthProvider,
 } from '../../../lib/oauth-config.js';
 import { prisma } from '../../../lib/prisma.js';
+import { parseSubscriptionPlans, subscriptionPlanOptionKey } from '../../../lib/subscription-plans.js';
 
 const optionKeySchema = z.enum([
   'registration_enabled',
@@ -48,6 +49,7 @@ const optionKeySchema = z.enum([
   'privacy_policy',
   'about',
   'home_page_content',
+  subscriptionPlanOptionKey,
 ]);
 
 const updateOptionBodySchema = z.object({
@@ -127,6 +129,15 @@ const optionsRoutes: FastifyPluginAsync = async (app) => {
 
       if (params.key === 'passkey_attachment_preference') {
         return z.enum(['', 'platform', 'cross-platform']).parse(String(body.value));
+      }
+
+      if (params.key === subscriptionPlanOptionKey) {
+        const value = typeof body.value === 'string'
+          ? body.value
+          : JSON.stringify(body.value);
+
+        parseSubscriptionPlans(value);
+        return value;
       }
 
       return typeof body.value === 'string'

@@ -82,6 +82,20 @@ const passkeyOptionMeta: Array<{
   },
 ];
 
+const subscriptionOptionMeta: Array<{
+  key: SystemOptionKey;
+  title: string;
+  description: string;
+  type: 'textarea';
+}> = [
+  {
+    key: 'subscription_plans',
+    title: '订阅套餐配置',
+    description: '填写 JSON 数组。字段支持 id、title、subtitle、description、badge、priceAmount、currency、quota、duration、features、enabled、sortOrder。',
+    type: 'textarea',
+  },
+];
+
 const editableOptionMeta = generalOptionMeta;
 
 const toMap = (items: SystemOptionItem[]) =>
@@ -153,6 +167,7 @@ export default function SettingPage() {
   const [deletingCustomOAuthProviderId, setDeletingCustomOAuthProviderId] = useState<string | null>(null);
   const [savingCheckin, setSavingCheckin] = useState(false);
   const [savingPasskey, setSavingPasskey] = useState(false);
+  const [savingSubscription, setSavingSubscription] = useState(false);
   const [testingMail, setTestingMail] = useState(false);
   const [testMailRecipient, setTestMailRecipient] = useState('');
 
@@ -181,6 +196,7 @@ export default function SettingPage() {
         passkey_allow_insecure_origin: optionMap.passkey_allow_insecure_origin ?? 'false',
         passkey_user_verification: optionMap.passkey_user_verification ?? 'preferred',
         passkey_attachment_preference: optionMap.passkey_attachment_preference ?? '',
+        subscription_plans: optionMap.subscription_plans ?? '[]',
       });
       setMailStatus(mailResponse.item);
       setMailConfig(mailConfigResponse.item);
@@ -235,6 +251,19 @@ export default function SettingPage() {
       Toast.error(error instanceof Error ? error.message : '保存 Passkey 设置失败');
     } finally {
       setSavingPasskey(false);
+    }
+  };
+
+  const saveSubscription = async () => {
+    setSavingSubscription(true);
+    try {
+      await Promise.all(subscriptionOptionMeta.map((option) => api.updateOption(option.key, values[option.key] ?? '[]')));
+      Toast.success('订阅套餐设置已保存');
+      await load();
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : '保存订阅套餐设置失败');
+    } finally {
+      setSavingSubscription(false);
     }
   };
 
@@ -550,6 +579,36 @@ export default function SettingPage() {
           </div>
           <Button theme="solid" type="primary" icon={<IconSave />} loading={savingPasskey} onClick={() => void savePasskey()}>
             保存 Passkey 设置
+          </Button>
+        </Space>
+      </Card>
+
+      <Card bordered={false} className="dashboard-card settings-card" style={{ marginTop: 16 }}>
+        <Space vertical align="start" style={{ width: '100%' }}>
+          <div>
+            <Typography.Title heading={5} style={{ marginBottom: 4 }}>订阅套餐设置</Typography.Title>
+            <Typography.Paragraph type="tertiary">
+              先用 JSON 完成套餐列表配置，后面再补独立 CRUD、购买与回调。
+            </Typography.Paragraph>
+          </div>
+          <div className="settings-grid" style={{ width: '100%' }}>
+            {subscriptionOptionMeta.map((option) => (
+              <label className="setting-field" key={option.key}>
+                <span>
+                  <strong>{option.title}</strong>
+                  <em>{option.description}</em>
+                </span>
+                <TextArea
+                  rows={12}
+                  value={values[option.key] ?? '[]'}
+                  placeholder={`[\n  {\n    "id": "monthly-basic",\n    "title": "基础版",\n    "subtitle": "适合轻量使用",\n    "description": "按月提供固定额度与基础权益",\n    "badge": "热门",\n    "priceAmount": 29.9,\n    "currency": "CNY",\n    "quota": "每月 500,000 额度",\n    "quotaAmount": 500000,\n    "duration": "30 天",\n    "durationDays": 30,\n    "features": ["基础模型访问", "标准优先级"],\n    "enabled": true,\n    "sortOrder": 100\n  }\n]`}
+                  onChange={(value) => setValues((current) => ({ ...current, [option.key]: value }))}
+                />
+              </label>
+            ))}
+          </div>
+          <Button theme="solid" type="primary" icon={<IconSave />} loading={savingSubscription} onClick={() => void saveSubscription()}>
+            保存订阅套餐设置
           </Button>
         </Space>
       </Card>

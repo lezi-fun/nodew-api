@@ -53,6 +53,9 @@ export const createStripeCheckoutSession = async (input: {
   currency: string;
   successUrl: string;
   cancelUrl: string;
+  itemName?: string;
+  itemDescription?: string;
+  metadata?: Record<string, string>;
 }) => {
   const body = new URLSearchParams();
   body.set('mode', 'payment');
@@ -63,11 +66,14 @@ export const createStripeCheckoutSession = async (input: {
   body.set('metadata[orderId]', input.orderId);
   body.set('metadata[userId]', input.userId);
   body.set('metadata[quotaAmount]', input.quotaAmount.toString());
+  for (const [key, value] of Object.entries(input.metadata ?? {})) {
+    body.set(`metadata[${key}]`, value);
+  }
   body.set('line_items[0][quantity]', String(input.units));
   body.set('line_items[0][price_data][currency]', input.currency);
   body.set('line_items[0][price_data][unit_amount]', String(input.unitAmountCents));
-  body.set('line_items[0][price_data][product_data][name]', 'Quota top-up');
-  body.set('line_items[0][price_data][product_data][description]', `${input.quotaAmount.toString()} quota`);
+  body.set('line_items[0][price_data][product_data][name]', input.itemName ?? 'Quota top-up');
+  body.set('line_items[0][price_data][product_data][description]', input.itemDescription ?? `${input.quotaAmount.toString()} quota`);
 
   const response = await fetch('https://api.stripe.com/v1/checkout/sessions', {
     method: 'POST',

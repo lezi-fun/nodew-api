@@ -249,7 +249,7 @@ export default function App() {
           <Route path="/console/log" element={<PrivateRoute><LogPage /></PrivateRoute>} />
           <Route path="/console/models" element={<AdminRoute><ModelsPage /></AdminRoute>} />
           <Route path="/console/deployment" element={<AdminRoute><DeploymentPage /></AdminRoute>} />
-          <Route path="/console/subscription" element={<AdminRoute><SubscriptionPage /></AdminRoute>} />
+          <Route path="/console/subscription" element={<PrivateRoute><SubscriptionPage /></PrivateRoute>} />
           <Route path="/console/setting" element={<AdminRoute><SettingPage /></AdminRoute>} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>

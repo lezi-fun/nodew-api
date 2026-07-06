@@ -43,6 +43,7 @@ const sections = [
     key: 'personal',
     items: [
       { key: 'topup', to: '/console/topup', textKey: '钱包管理', icon: <IconPriceTag /> },
+      { key: 'subscription', to: '/console/subscription', textKey: '订阅管理', icon: <IconKey /> },
       { key: 'personal', to: '/console/personal', textKey: '个人设置', icon: <IconUser /> },
     ],
   },
@@ -51,7 +52,6 @@ const sections = [
     key: 'admin',
     items: [
       { key: 'channel', to: '/console/channel', textKey: '渠道管理', icon: <IconActivity /> },
-      { key: 'subscription', to: '/console/subscription', textKey: '订阅管理', icon: <IconKey /> },
       { key: 'models', to: '/console/models', textKey: '模型管理', icon: <IconApps /> },
       { key: 'deployment', to: '/console/deployment', textKey: '模型部署', icon: <IconLayers /> },
       { key: 'redemption', to: '/console/redemption', textKey: '兑换码管理', icon: <IconGift /> },

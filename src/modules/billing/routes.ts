@@ -7,6 +7,7 @@ import {
   verifyCreemWebhookSignature,
 } from '../../lib/creem.js';
 import { prisma } from '../../lib/prisma.js';
+import { appendUserSubscription } from '../../lib/user-subscriptions.js';
 import {
   createStripeCheckoutSession,
   getStripeTopUpConfig,
@@ -119,6 +120,12 @@ const billingRawBodyRoutes = new Set([
   '/api/user/topup/creem/webhook',
 ]);
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value && typeof value === 'object' && !Array.isArray(value));
+
+const readOrderKind = (metadata: unknown) =>
+  isRecord(metadata) && typeof metadata.kind === 'string' ? metadata.kind : 'topup';
+
 const settleStripeOrder = async (session: StripeCheckoutSessionObject) => {
   const orderId = session.metadata?.orderId?.trim();
   const sessionId = session.id?.trim();
@@ -140,6 +147,9 @@ const settleStripeOrder = async (session: StripeCheckoutSessionObject) => {
         userId: true,
         status: true,
         quotaAmount: true,
+        amountCents: true,
+        currency: true,
+        metadata: true,
       },
     });
 
@@ -171,12 +181,56 @@ const settleStripeOrder = async (session: StripeCheckoutSessionObject) => {
       return { settled: false, orderId: order.id };
     }
 
-    await tx.user.update({
-      where: { id: order.userId },
-      data: {
-        quotaRemaining: { increment: order.quotaAmount },
-      },
-    });
+    if (readOrderKind(order.metadata) === 'subscription') {
+      const now = new Date();
+      const metadata = isRecord(order.metadata) ? order.metadata : {};
+      const durationDays = typeof metadata.durationDays === 'number' && Number.isFinite(metadata.durationDays)
+        ? Math.max(0, Math.trunc(metadata.durationDays))
+        : 0;
+      const endAt = durationDays > 0
+        ? new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000).toISOString()
+        : null;
+      const user = await tx.user.findUnique({
+        where: { id: order.userId },
+        select: { settings: true },
+      });
+
+      await tx.user.update({
+        where: { id: order.userId },
+        data: {
+          quotaRemaining: order.quotaAmount > 0n ? { increment: order.quotaAmount } : undefined,
+          settings: appendUserSubscription(user?.settings, {
+            id: order.id,
+            planId: typeof metadata.planId === 'string' ? metadata.planId : order.id,
+            title: typeof metadata.planTitle === 'string' ? metadata.planTitle : 'Subscription',
+            subtitle: typeof metadata.planSubtitle === 'string' ? metadata.planSubtitle : '',
+            badge: typeof metadata.badge === 'string' ? metadata.badge : '',
+            description: typeof metadata.description === 'string' ? metadata.description : '',
+            quota: typeof metadata.quota === 'string' ? metadata.quota : '',
+            quotaAmount: order.quotaAmount.toString(),
+            duration: typeof metadata.duration === 'string' ? metadata.duration : '',
+            durationDays,
+            features: Array.isArray(metadata.features)
+              ? metadata.features.filter((item): item is string => typeof item === 'string')
+              : [],
+            provider: 'STRIPE',
+            amountCents: order.amountCents,
+            currency: order.currency,
+            status: 'ACTIVE',
+            startAt: now.toISOString(),
+            endAt,
+            createdAt: now.toISOString(),
+          }),
+        },
+      });
+    } else {
+      await tx.user.update({
+        where: { id: order.userId },
+        data: {
+          quotaRemaining: { increment: order.quotaAmount },
+        },
+      });
+    }
 
     return { settled: true, orderId: order.id };
   });

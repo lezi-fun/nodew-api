@@ -28,6 +28,7 @@ import relayRoutes from './modules/relay/routes.js';
 import selfRoutes from './modules/self/routes.js';
 import setupRoutes from './modules/setup/routes.js';
 import statusRoutes from './modules/status/routes.js';
+import subscriptionRoutes from './modules/subscription/routes.js';
 import usageRoutes from './modules/usage/routes.js';
 import authPlugin from './plugins/auth.js';
 
@@ -118,6 +119,7 @@ export const createApp = async (appEnv: AppEnv = parseEnv()) => {
     await api.register(oauthRoutes);
     await api.register(selfRoutes);
     await api.register(dashboardRoutes);
+    await api.register(subscriptionRoutes);
     await api.register(apiKeyRoutes);
     await api.register(usersRoutes);
     await api.register(optionsRoutes);

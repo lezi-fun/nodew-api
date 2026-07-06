@@ -274,7 +274,8 @@ export type SystemOptionKey =
   | 'user_agreement'
   | 'privacy_policy'
   | 'about'
-  | 'home_page_content';
+  | 'home_page_content'
+  | 'subscription_plans';
 
 export type SystemOptionItem = {
   key: SystemOptionKey;
@@ -336,6 +337,44 @@ export type PricingInfo = {
     models: number;
   };
   note: string;
+};
+
+export type SubscriptionPlanItem = {
+  id: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  badge: string;
+  priceAmount: number;
+  currency: string;
+  quota: string;
+  quotaAmount: number;
+  duration: string;
+  durationDays: number;
+  features: string[];
+  enabled: boolean;
+  sortOrder: number;
+};
+
+export type UserSubscriptionItem = {
+  id: string;
+  planId: string;
+  title: string;
+  subtitle: string;
+  badge: string;
+  description: string;
+  quota: string;
+  quotaAmount: string;
+  duration: string;
+  durationDays: number;
+  features: string[];
+  provider: string;
+  amountCents: number;
+  currency: string;
+  status: 'ACTIVE' | 'EXPIRED';
+  startAt: string;
+  endAt: string | null;
+  createdAt: string;
 };
 
 export type StripeTopUpConfig = {
@@ -944,6 +983,12 @@ export const api = {
   getAboutContent: async () => (await client.get<LegacyDataResponse<string>>('/api/about')).data,
   getNoticeContent: async () => (await client.get<LegacyDataResponse<string>>('/api/notice')).data,
   getPricing: async () => (await client.get<LegacyDataResponse<PricingInfo>>('/api/pricing')).data,
+  listSubscriptionPlans: async () =>
+    (await client.get<ListResponse<SubscriptionPlanItem>>('/api/subscription/plans')).data,
+  getSelfSubscriptions: async () =>
+    (await client.get<{ success: boolean; items: UserSubscriptionItem[]; allItems: UserSubscriptionItem[]; total: number; activeTotal: number }>('/api/subscription/self')).data,
+  createSubscriptionStripeCheckout: async (payload: { planId: string }) =>
+    (await client.post<{ success: boolean; checkoutUrl: string; order: TopUpOrder }>('/api/subscription/stripe/checkout', payload)).data,
   listModels: async (params?: { limit?: number; cursor?: string; keyword?: string }) =>
     (await client.get<ListResponse<ModelItem>>('/api/models', { params })).data,
   listMissingModels: async (params?: { limit?: number; cursor?: string; keyword?: string }) =>
