@@ -8,7 +8,7 @@
 | --- | --- | --- | --- |
 | Stripe | 已支持 | 已支持，通过签名 webhook 入账 | 可用于一次性额度充值。 |
 | Creem | 已支持 | 已支持，通过签名 webhook 入账 | 可用于固定产品额度充值。 |
-| Waffo | 仅产品目录状态 | 尚未实现 | 已预留固定产品目录和订单字段，下一步创建支付会话。 |
+| Waffo | 已支持 | 尚未实现 | 可为固定产品创建托管 checkout 订单；webhook 入账和控制台购买按钮是下一步。 |
 
 不要在生产计费中启用还没有完整入账链路的 provider，除非你已经有人工核验和补账流程。
 
@@ -120,17 +120,18 @@ https://your-domain.example/api/user/topup/creem/webhook
 
 ## Waffo
 
-Waffo 当前只提供安全配置面和订单字段预留。可以先用这一步准备固定产品目录，后续再补创建支付会话。
+Waffo 当前已提供安全配置面、固定产品目录和托管 checkout 订单创建能力。webhook 入账和控制台购买按钮作为后续小项处理。
 
 ```bash
 WAFFO_TOPUP_ENABLED=true
 WAFFO_API_KEY="waffo_xxx"
+WAFFO_PRIVATE_KEY="base64_pkcs8_private_key"
 WAFFO_WEBHOOK_SECRET="waffo_whsec_xxx"
 WAFFO_TEST_MODE=false
 WAFFO_PRODUCTS='[{"productId":"prod_xxx","name":"100k quota","quotaAmount":100000,"amountCents":1000,"currency":"usd"}]'
 ```
 
-`WAFFO_PRODUCTS` 兼容和 Creem 相同的字段：`productId` 或 `product_id`、`quotaAmount` 或 `quota`，以及 `amountCents`、`priceCents` 或小数 `price`。安全产品目录可通过 `GET /api/user/topup/waffo/config` 读取。
+`WAFFO_PRODUCTS` 兼容和 Creem 相同的字段：`productId` 或 `product_id`、`quotaAmount` 或 `quota`，以及 `amountCents`、`priceCents` 或小数 `price`。安全产品目录可通过 `GET /api/user/topup/waffo/config` 读取，支付会话可通过 `POST /api/user/topup/waffo/checkout` 创建。
 
 ## 排障
 
@@ -142,6 +143,7 @@ WAFFO_PRODUCTS='[{"productId":"prod_xxx","name":"100k quota","quotaAmount":10000
 | Creem 产品列表为空 | 检查 `CREEM_PRODUCTS` 是否是合法 JSON，且每个产品都有 product ID、额度和金额。 |
 | Creem Checkout 成功但额度没变 | 检查 Creem webhook endpoint 是否配置、可访问，并且 `CREEM_WEBHOOK_SECRET` 匹配。 |
 | Waffo 产品列表为空 | 检查 `WAFFO_PRODUCTS` 是否是合法 JSON，且每个产品都有 product ID、额度和金额。 |
+| Waffo Checkout 创建失败 | 检查 `WAFFO_API_KEY`、`WAFFO_PRIVATE_KEY`、产品币种和金额，以及 `APP_BASE_URL` 是否可公开访问。 |
 
 ## API 摘要
 
@@ -154,3 +156,4 @@ WAFFO_PRODUCTS='[{"productId":"prod_xxx","name":"100k quota","quotaAmount":10000
 | `POST /api/user/topup/creem/checkout` | 用户 session | 为已配置产品创建 Creem Checkout Session。 |
 | `POST /api/user/topup/creem/webhook` | Creem 签名 | 处理 Creem 支付事件并入账。 |
 | `GET /api/user/topup/waffo/config` | 用户 session | 读取 Waffo 可用状态和固定产品。 |
+| `POST /api/user/topup/waffo/checkout` | 用户 session | 为已配置产品创建 Waffo 托管 checkout 订单。 |

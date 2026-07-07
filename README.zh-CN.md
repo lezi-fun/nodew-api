@@ -186,12 +186,13 @@ CREEM_PRODUCTS='[{"productId":"prod_xxx","name":"100k quota","quotaAmount":10000
 
 Creem webhook 地址配置为 `https://your-domain.example/api/user/topup/creem/webhook`。已支付 `checkout.completed` 事件是幂等的，只有匹配订单仍处于待支付状态时才会增加额度。
 
-Waffo 钱包充值产品目录也可以先按同样的固定产品格式准备好。当前后端会暴露安全的产品目录并预留订单字段；创建支付会话和 webhook 入账是下一步 Waffo 小项。
+Waffo 钱包充值使用同样的固定产品格式。当前后端会暴露安全产品目录，并且可以创建托管 checkout 订单；webhook 入账和控制台购买按钮是下一步 Waffo 小项。
 
 ```bash
 APP_BASE_URL="https://your-domain.example"
 WAFFO_TOPUP_ENABLED=true
 WAFFO_API_KEY="waffo_xxx"
+WAFFO_PRIVATE_KEY="base64_pkcs8_private_key"
 WAFFO_WEBHOOK_SECRET="waffo_whsec_xxx"
 WAFFO_TEST_MODE=false
 WAFFO_PRODUCTS='[{"productId":"prod_xxx","name":"100k quota","quotaAmount":100000,"amountCents":1000,"currency":"usd"}]'

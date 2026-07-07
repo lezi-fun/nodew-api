@@ -62,6 +62,7 @@ const envSchema = z.object({
   CREEM_PRODUCTS: z.string().default('[]'),
   WAFFO_TOPUP_ENABLED: booleanStringSchema.default(false),
   WAFFO_API_KEY: z.string().min(1).optional(),
+  WAFFO_PRIVATE_KEY: z.string().min(1).optional(),
   WAFFO_WEBHOOK_SECRET: z.string().min(1).optional(),
   WAFFO_TEST_MODE: booleanStringSchema.default(false),
   WAFFO_PRODUCTS: z.string().default('[]'),

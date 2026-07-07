@@ -13,7 +13,7 @@ import {
   getStripeTopUpConfig,
   verifyStripeWebhookSignature,
 } from '../../lib/stripe.js';
-import { getWaffoTopUpConfig } from '../../lib/waffo.js';
+import { createWaffoCheckoutSession, getWaffoTopUpConfig } from '../../lib/waffo.js';
 
 type RawBodyRequest = FastifyRequest & {
   rawBody?: string;
@@ -62,6 +62,10 @@ const stripeCheckoutBodySchema = z.object({
 });
 
 const creemCheckoutBodySchema = z.object({
+  productId: z.string().trim().min(1).max(255),
+});
+
+const waffoCheckoutBodySchema = z.object({
   productId: z.string().trim().min(1).max(255),
 });
 
@@ -403,6 +407,71 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
         creemCheckoutId: session.id,
         creemRequestId: session.requestId,
         creemOrderId: session.orderId ?? undefined,
+      },
+      select: topUpOrderSelect,
+    });
+
+    return {
+      success: true,
+      checkoutUrl: session.url,
+      order: serializeOrder(updatedOrder),
+    };
+  });
+
+  app.post('/user/topup/waffo/checkout', {
+    preHandler: app.requireUser,
+  }, async (request) => {
+    const body = waffoCheckoutBodySchema.parse(request.body);
+    const config = getWaffoTopUpConfig();
+    const apiKey = process.env.WAFFO_API_KEY?.trim();
+    const privateKey = process.env.WAFFO_PRIVATE_KEY?.trim();
+
+    if (!config.enabled || !apiKey || !privateKey) {
+      throw app.httpErrors.badRequest('Waffo top-up is not configured');
+    }
+
+    const product = config.products.find((item) => item.productId === body.productId);
+
+    if (!product) {
+      throw app.httpErrors.badRequest('Waffo product is not configured');
+    }
+
+    const quotaAmount = BigInt(product.quotaAmount);
+    const order = await prisma.topUpOrder.create({
+      data: {
+        userId: request.currentUser!.id,
+        provider: 'WAFFO',
+        status: 'PENDING',
+        quotaAmount,
+        amountCents: product.amountCents,
+        currency: product.currency,
+        waffoProductId: product.productId,
+        metadata: {
+          productId: product.productId,
+          productName: product.name,
+          quantity: 1,
+        },
+      },
+      select: topUpOrderSelect,
+    });
+    const successUrl = buildAppUrl(`/console/topup?waffo=success&order=${order.id}`);
+    const notifyUrl = buildAppUrl('/api/user/topup/waffo/webhook');
+    const session = await createWaffoCheckoutSession({
+      apiKey,
+      privateKey,
+      product,
+      requestId: order.id,
+      userId: request.currentUser!.id,
+      userEmail: request.currentUser!.email,
+      successUrl,
+      notifyUrl,
+      testMode: config.testMode,
+    });
+    const updatedOrder = await prisma.topUpOrder.update({
+      where: { id: order.id },
+      data: {
+        waffoCheckoutId: session.id,
+        waffoOrderId: session.orderId,
       },
       select: topUpOrderSelect,
     });
