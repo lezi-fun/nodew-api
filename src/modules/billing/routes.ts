@@ -13,7 +13,11 @@ import {
   getStripeTopUpConfig,
   verifyStripeWebhookSignature,
 } from '../../lib/stripe.js';
-import { createWaffoCheckoutSession, getWaffoTopUpConfig } from '../../lib/waffo.js';
+import {
+  createWaffoCheckoutSession,
+  getWaffoTopUpConfig,
+  verifyWaffoWebhookSignature,
+} from '../../lib/waffo.js';
 
 type RawBodyRequest = FastifyRequest & {
   rawBody?: string;
@@ -55,6 +59,13 @@ type CreemWebhookEvent = {
       name?: string;
     };
   };
+};
+
+type WaffoWebhookEvent = {
+  eventType?: string;
+  result?: Record<string, unknown>;
+  data?: Record<string, unknown>;
+  object?: Record<string, unknown>;
 };
 
 const stripeCheckoutBodySchema = z.object({
@@ -119,9 +130,22 @@ const creemWebhookTerminalErrors = new Set([
 const isCreemWebhookTerminalError = (error: unknown): error is Error =>
   error instanceof Error && creemWebhookTerminalErrors.has(error.message);
 
+const waffoWebhookTerminalErrors = new Set([
+  'Waffo event does not reference a top-up order',
+  'Waffo top-up order not found',
+  'Waffo top-up order is not pending',
+  'Waffo top-up amount does not match the pending order',
+  'Waffo top-up currency does not match the pending order',
+  'Waffo top-up product does not match the pending order',
+]);
+
+const isWaffoWebhookTerminalError = (error: unknown): error is Error =>
+  error instanceof Error && waffoWebhookTerminalErrors.has(error.message);
+
 const billingRawBodyRoutes = new Set([
   '/api/user/topup/stripe/webhook',
   '/api/user/topup/creem/webhook',
+  '/api/user/topup/waffo/webhook',
 ]);
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -129,6 +153,56 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const readOrderKind = (metadata: unknown) =>
   isRecord(metadata) && typeof metadata.kind === 'string' ? metadata.kind : 'topup';
+
+const readStringField = (record: Record<string, unknown>, keys: string[]) => {
+  for (const key of keys) {
+    const value = record[key];
+
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return null;
+};
+
+const readWaffoPaymentResult = (event: WaffoWebhookEvent) => {
+  const candidate = event.result ?? event.data ?? event.object;
+  return isRecord(candidate) ? candidate : null;
+};
+
+const readWaffoAmountCents = (value: unknown) => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.round(value * 100);
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? Math.round(parsed * 100) : undefined;
+  }
+
+  return undefined;
+};
+
+const getWaffoOrderSelectors = (result: Record<string, unknown>) => {
+  const merchantOrderId = readStringField(result, ['merchantOrderId', 'merchantOrderID', 'merchant_order_id']);
+  const paymentRequestId = readStringField(result, ['paymentRequestId', 'paymentRequestID', 'payment_request_id']);
+  const orderId = readStringField(result, ['orderId', 'orderID', 'order_id']);
+  const selectors = [
+    ...(merchantOrderId ? [{ id: merchantOrderId }] : []),
+    ...(paymentRequestId ? [{ id: paymentRequestId }] : []),
+    ...(orderId ? [{ waffoOrderId: orderId }, { waffoCheckoutId: orderId }] : []),
+  ];
+
+  return {
+    merchantOrderId,
+    paymentRequestId,
+    orderId,
+    selectors,
+  };
+};
+
+const waffoPaidStatuses = new Set(['PAY_SUCCESS', 'SUCCESS', 'PAID']);
 
 const settleStripeOrder = async (session: StripeCheckoutSessionObject) => {
   const orderId = session.metadata?.orderId?.trim();
@@ -303,6 +377,111 @@ const settleCreemOrder = async (event: CreemWebhookEvent) => {
       data: {
         status: 'PAID',
         creemOrderId: orderId ?? undefined,
+        paidAt: new Date(),
+      },
+    });
+
+    if (updated.count === 0) {
+      return { settled: false, orderId: order.id };
+    }
+
+    await tx.user.update({
+      where: { id: order.userId },
+      data: {
+        quotaRemaining: { increment: order.quotaAmount },
+      },
+    });
+
+    return { settled: true, orderId: order.id };
+  });
+};
+
+const failWaffoOrder = async (result: Record<string, unknown>) => {
+  const { selectors, merchantOrderId, paymentRequestId, orderId } = getWaffoOrderSelectors(result);
+
+  if (selectors.length === 0) {
+    return {
+      failed: false,
+      orderId: null,
+    };
+  }
+
+  const updated = await prisma.topUpOrder.updateMany({
+    where: {
+      provider: 'WAFFO',
+      status: 'PENDING',
+      OR: selectors,
+    },
+    data: {
+      status: 'FAILED',
+    },
+  });
+
+  return {
+    failed: updated.count > 0,
+    orderId: merchantOrderId ?? paymentRequestId ?? orderId ?? null,
+  };
+};
+
+const settleWaffoOrder = async (result: Record<string, unknown>) => {
+  const { selectors, orderId } = getWaffoOrderSelectors(result);
+  const paidAmountCents = readWaffoAmountCents(result.orderAmount ?? result.amount ?? result.paymentAmount);
+  const paidCurrency = readStringField(result, ['orderCurrency', 'currency'])?.toLowerCase();
+  const productId = readStringField(result, ['productId', 'product_id']);
+
+  if (selectors.length === 0) {
+    throw new Error('Waffo event does not reference a top-up order');
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const order = await tx.topUpOrder.findFirst({
+      where: {
+        provider: 'WAFFO',
+        OR: selectors,
+      },
+      select: {
+        id: true,
+        userId: true,
+        status: true,
+        quotaAmount: true,
+        amountCents: true,
+        currency: true,
+        waffoProductId: true,
+      },
+    });
+
+    if (!order) {
+      throw new Error('Waffo top-up order not found');
+    }
+
+    if (order.status === 'PAID') {
+      return { settled: false, orderId: order.id };
+    }
+
+    if (order.status !== 'PENDING') {
+      throw new Error('Waffo top-up order is not pending');
+    }
+
+    if (paidAmountCents !== undefined && paidAmountCents !== order.amountCents) {
+      throw new Error('Waffo top-up amount does not match the pending order');
+    }
+
+    if (paidCurrency && paidCurrency !== order.currency.toLowerCase()) {
+      throw new Error('Waffo top-up currency does not match the pending order');
+    }
+
+    if (productId && order.waffoProductId && productId !== order.waffoProductId) {
+      throw new Error('Waffo top-up product does not match the pending order');
+    }
+
+    const updated = await tx.topUpOrder.updateMany({
+      where: {
+        id: order.id,
+        status: 'PENDING',
+      },
+      data: {
+        status: 'PAID',
+        waffoOrderId: orderId ?? undefined,
         paidAt: new Date(),
       },
     });
@@ -621,6 +800,83 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
     return {
       success: true,
       ...result,
+    };
+  });
+
+  app.post('/user/topup/waffo/webhook', async (request) => {
+    const rawBody = (request as RawBodyRequest).rawBody;
+
+    if (!rawBody) {
+      throw app.httpErrors.badRequest('Waffo webhook body is missing');
+    }
+
+    const publicKey = process.env.WAFFO_PUBLIC_KEY?.trim();
+
+    if (!publicKey) {
+      throw app.httpErrors.badRequest('Waffo webhook public key is not configured');
+    }
+
+    const signature = request.headers['x-signature'];
+
+    if (typeof signature !== 'string') {
+      throw app.httpErrors.badRequest('Waffo webhook signature is missing');
+    }
+
+    try {
+      verifyWaffoWebhookSignature(rawBody, signature, publicKey);
+    } catch (error) {
+      throw app.httpErrors.badRequest(error instanceof Error ? error.message : 'Waffo webhook signature is invalid');
+    }
+
+    let event: WaffoWebhookEvent;
+
+    try {
+      event = JSON.parse(rawBody) as WaffoWebhookEvent;
+    } catch {
+      throw app.httpErrors.badRequest('Waffo webhook body must be valid JSON');
+    }
+
+    const result = readWaffoPaymentResult(event);
+
+    if (!event.eventType && !result) {
+      throw app.httpErrors.badRequest('Waffo webhook event is invalid');
+    }
+
+    if (!result) {
+      return {
+        success: true,
+        ignored: true,
+      };
+    }
+
+    const orderStatus = readStringField(result, ['orderStatus', 'order_status', 'status']);
+
+    if (!orderStatus || !waffoPaidStatuses.has(orderStatus)) {
+      const failed = await failWaffoOrder(result);
+
+      return {
+        success: true,
+        ignored: true,
+        reason: 'order_not_paid',
+        ...failed,
+      };
+    }
+
+    let settleResult: Awaited<ReturnType<typeof settleWaffoOrder>>;
+
+    try {
+      settleResult = await settleWaffoOrder(result);
+    } catch (error) {
+      if (isWaffoWebhookTerminalError(error)) {
+        throw app.httpErrors.badRequest(error.message);
+      }
+
+      throw error;
+    }
+
+    return {
+      success: true,
+      ...settleResult,
     };
   });
 

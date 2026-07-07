@@ -1,4 +1,4 @@
-import { createPrivateKey, createSign } from 'node:crypto';
+import { createPrivateKey, createPublicKey, createSign, createVerify } from 'node:crypto';
 
 import { z } from 'zod';
 
@@ -103,7 +103,7 @@ export const getWaffoTopUpConfig = (): WaffoTopUpConfig => {
   return {
     enabled: readBooleanEnv(process.env.WAFFO_TOPUP_ENABLED) && configured,
     configured,
-    webhookConfigured: Boolean(process.env.WAFFO_WEBHOOK_SECRET?.trim()),
+    webhookConfigured: Boolean(process.env.WAFFO_PUBLIC_KEY?.trim()),
     testMode: readBooleanEnv(process.env.WAFFO_TEST_MODE),
     products,
   };
@@ -141,6 +141,35 @@ const signWaffoPayload = (payload: string, privateKey: string) => {
   signer.end();
 
   return signer.sign(key, 'base64');
+};
+
+const readWaffoPublicKey = (publicKey: string) => {
+  const trimmedPublicKey = publicKey.trim();
+
+  return trimmedPublicKey.includes('BEGIN')
+    ? trimmedPublicKey
+    : createPublicKey({
+      key: Buffer.from(trimmedPublicKey.replaceAll(/\s/g, ''), 'base64'),
+      format: 'der',
+      type: 'spki',
+    });
+};
+
+export const verifyWaffoWebhookSignature = (payload: string, signature: string, publicKey: string) => {
+  const key = readWaffoPublicKey(publicKey);
+  const trimmedSignature = signature.trim();
+
+  for (const encoding of ['base64', 'hex'] as const) {
+    const verifier = createVerify('RSA-SHA256');
+    verifier.update(payload);
+    verifier.end();
+
+    if (verifier.verify(key, trimmedSignature, encoding)) {
+      return;
+    }
+  }
+
+  throw new Error('Waffo webhook signature is invalid');
 };
 
 export const createWaffoCheckoutSession = async (input: {

@@ -8,7 +8,7 @@ Wallet top-up is currently configured with environment variables. The console ca
 | --- | --- | --- | --- |
 | Stripe | Supported | Supported through signed webhook | Usable for one-time quota purchases. |
 | Creem | Supported | Supported through signed webhook | Usable for fixed-product quota purchases. |
-| Waffo | Supported | Not implemented yet | Can create hosted checkout orders for fixed products; webhook settlement and the console purchase button are next. |
+| Waffo | Supported | Supported through signed webhook | Can create hosted checkout orders for fixed products; the console purchase button is next. |
 
 Do not enable a provider for production billing until the required settlement path is available and tested for your deployment.
 
@@ -120,18 +120,18 @@ Before enabling Creem top-up in production, create the webhook in Creem with the
 
 ## Waffo
 
-Waffo currently has the safe configuration surface, fixed product catalog, and hosted checkout order creation. Webhook settlement and the console purchase button are separate follow-up steps.
+Waffo currently has the safe configuration surface, fixed product catalog, hosted checkout order creation, and signed webhook quota settlement. The console purchase button is a separate follow-up step.
 
 ```bash
 WAFFO_TOPUP_ENABLED=true
 WAFFO_API_KEY="waffo_xxx"
 WAFFO_PRIVATE_KEY="base64_pkcs8_private_key"
-WAFFO_WEBHOOK_SECRET="waffo_whsec_xxx"
+WAFFO_PUBLIC_KEY="base64_x509_public_key"
 WAFFO_TEST_MODE=false
 WAFFO_PRODUCTS='[{"productId":"prod_xxx","name":"100k quota","quotaAmount":100000,"amountCents":1000,"currency":"usd"}]'
 ```
 
-`WAFFO_PRODUCTS` accepts the same compatible field names as Creem: `productId` or `product_id`, `quotaAmount` or `quota`, and `amountCents`, `priceCents`, or decimal `price`. The safe catalog is available at `GET /api/user/topup/waffo/config`, and checkout creation is available at `POST /api/user/topup/waffo/checkout`.
+`WAFFO_PRODUCTS` accepts the same compatible field names as Creem: `productId` or `product_id`, `quotaAmount` or `quota`, and `amountCents`, `priceCents`, or decimal `price`. The safe catalog is available at `GET /api/user/topup/waffo/config`, checkout creation is available at `POST /api/user/topup/waffo/checkout`, and payment settlement is handled by `POST /api/user/topup/waffo/webhook`.
 
 ## Troubleshooting
 
@@ -144,6 +144,7 @@ WAFFO_PRODUCTS='[{"productId":"prod_xxx","name":"100k quota","quotaAmount":10000
 | Creem checkout succeeds but quota does not change | Check that the Creem webhook endpoint is configured, reachable, and uses the matching `CREEM_WEBHOOK_SECRET`. |
 | Waffo product list is empty | Validate that `WAFFO_PRODUCTS` is valid JSON and every item has a product ID, quota, and amount. |
 | Waffo checkout creation fails | Check `WAFFO_API_KEY`, `WAFFO_PRIVATE_KEY`, product currency/amount, and whether `APP_BASE_URL` is publicly reachable. |
+| Waffo payment returns but quota does not change | Check that the Waffo webhook endpoint is configured, reachable, and uses the matching `WAFFO_PUBLIC_KEY`. |
 
 ## API summary
 
@@ -157,3 +158,4 @@ WAFFO_PRODUCTS='[{"productId":"prod_xxx","name":"100k quota","quotaAmount":10000
 | `POST /api/user/topup/creem/webhook` | Creem signature | Settle Creem payment events. |
 | `GET /api/user/topup/waffo/config` | User session | Read Waffo readiness and fixed products. |
 | `POST /api/user/topup/waffo/checkout` | User session | Create a Waffo hosted checkout order for a configured product. |
+| `POST /api/user/topup/waffo/webhook` | Waffo signature | Settle Waffo payment events. |

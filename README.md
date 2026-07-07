@@ -187,14 +187,14 @@ CREEM_PRODUCTS='[{"productId":"prod_xxx","name":"100k quota","quotaAmount":10000
 
 Configure the Creem webhook endpoint as `https://your-domain.example/api/user/topup/creem/webhook`. Paid `checkout.completed` events are idempotent and credit quota only while the matching order is still pending.
 
-Waffo wallet top-up uses the same fixed-product shape. The backend exposes the safe catalog and can create hosted checkout orders; webhook settlement and the console purchase button are the next Waffo steps.
+Waffo wallet top-up uses the same fixed-product shape. The backend exposes the safe catalog, can create hosted checkout orders, and settles signed webhook payment events; the console purchase button is the next Waffo step.
 
 ```bash
 APP_BASE_URL="https://your-domain.example"
 WAFFO_TOPUP_ENABLED=true
 WAFFO_API_KEY="waffo_xxx"
 WAFFO_PRIVATE_KEY="base64_pkcs8_private_key"
-WAFFO_WEBHOOK_SECRET="waffo_whsec_xxx"
+WAFFO_PUBLIC_KEY="base64_x509_public_key"
 WAFFO_TEST_MODE=false
 WAFFO_PRODUCTS='[{"productId":"prod_xxx","name":"100k quota","quotaAmount":100000,"amountCents":1000,"currency":"usd"}]'
 ```

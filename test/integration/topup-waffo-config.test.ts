@@ -1,4 +1,4 @@
-import { generateKeyPairSync } from 'node:crypto';
+import { createPrivateKey, createSign, generateKeyPairSync } from 'node:crypto';
 
 import { prisma } from '../../src/lib/prisma.js';
 import { closeTestApp, createTestApp } from '../helpers/app.js';
@@ -10,6 +10,7 @@ const waffoEnvKeys = [
   'WAFFO_TOPUP_ENABLED',
   'WAFFO_API_KEY',
   'WAFFO_PRIVATE_KEY',
+  'WAFFO_PUBLIC_KEY',
   'WAFFO_WEBHOOK_SECRET',
   'WAFFO_TEST_MODE',
   'WAFFO_PRODUCTS',
@@ -17,10 +18,27 @@ const waffoEnvKeys = [
 
 const savedEnv = new Map<string, string | undefined>();
 
-const createTestWaffoPrivateKey = () => {
-  const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+const createTestWaffoKeyPair = () => {
+  const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
 
-  return privateKey.export({ format: 'der', type: 'pkcs8' }).toString('base64');
+  return {
+    privateKey: privateKey.export({ format: 'der', type: 'pkcs8' }).toString('base64'),
+    publicKey: publicKey.export({ format: 'der', type: 'spki' }).toString('base64'),
+  };
+};
+
+const signWaffoPayload = (payload: string) => {
+  const privateKey = createPrivateKey({
+    key: Buffer.from(process.env.WAFFO_PRIVATE_KEY!, 'base64'),
+    format: 'der',
+    type: 'pkcs8',
+  });
+  const signer = createSign('RSA-SHA256');
+
+  signer.update(payload);
+  signer.end();
+
+  return signer.sign(privateKey, 'base64');
 };
 
 beforeEach(() => {
@@ -33,7 +51,9 @@ beforeEach(() => {
   process.env.APP_BASE_URL = 'http://127.0.0.1:3000';
   process.env.WAFFO_TOPUP_ENABLED = 'true';
   process.env.WAFFO_API_KEY = 'waffo-secret-key';
-  process.env.WAFFO_PRIVATE_KEY = createTestWaffoPrivateKey();
+  const keyPair = createTestWaffoKeyPair();
+  process.env.WAFFO_PRIVATE_KEY = keyPair.privateKey;
+  process.env.WAFFO_PUBLIC_KEY = keyPair.publicKey;
   process.env.WAFFO_WEBHOOK_SECRET = 'waffo-webhook-secret';
   process.env.WAFFO_TEST_MODE = 'true';
   process.env.WAFFO_PRODUCTS = JSON.stringify([
@@ -301,6 +321,175 @@ describe('Waffo top-up configuration integration', () => {
       expect(invalidProductResponse.json().message).toBe('Waffo product is not configured');
       expect(disabledResponse.statusCode).toBe(400);
       expect(disabledResponse.json().message).toBe('Waffo top-up is not configured');
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
+  it('rejects Waffo webhook events with an invalid signature', async () => {
+    const payload = JSON.stringify({
+      eventType: 'PAYMENT_NOTIFICATION',
+      result: {
+        merchantOrderId: 'missing-order',
+        orderStatus: 'PAY_SUCCESS',
+      },
+    });
+    const app = await createTestApp();
+
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/user/topup/waffo/webhook',
+        headers: {
+          'content-type': 'application/json',
+          'x-signature': 'invalid-signature',
+        },
+        payload,
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json().message).toBe('Waffo webhook signature is invalid');
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
+  it('settles paid Waffo webhook events once and ignores duplicate delivery', async () => {
+    const user = await createUser({ quotaRemaining: 25n });
+    const order = await prisma.topUpOrder.create({
+      data: {
+        userId: user.id,
+        provider: 'WAFFO',
+        status: 'PENDING',
+        quotaAmount: 100000n,
+        amountCents: 850,
+        currency: 'usd',
+        waffoCheckoutId: 'waffo-checkout-123',
+        waffoOrderId: 'waffo-order-123',
+        waffoProductId: 'waffo_test_100k',
+      },
+    });
+    const payload = JSON.stringify({
+      eventType: 'PAYMENT_NOTIFICATION',
+      result: {
+        merchantOrderId: order.id,
+        orderId: 'waffo-order-123',
+        orderStatus: 'PAY_SUCCESS',
+        orderAmount: '8.50',
+        orderCurrency: 'usd',
+        productId: 'waffo_test_100k',
+      },
+    });
+    const signature = signWaffoPayload(payload);
+    const app = await createTestApp();
+
+    try {
+      const firstResponse = await app.inject({
+        method: 'POST',
+        url: '/api/user/topup/waffo/webhook',
+        headers: {
+          'content-type': 'application/json',
+          'x-signature': signature,
+        },
+        payload,
+      });
+      const secondResponse = await app.inject({
+        method: 'POST',
+        url: '/api/user/topup/waffo/webhook',
+        headers: {
+          'content-type': 'application/json',
+          'x-signature': signature,
+        },
+        payload,
+      });
+
+      expect(firstResponse.statusCode).toBe(200);
+      expect(firstResponse.json()).toMatchObject({
+        success: true,
+        settled: true,
+        orderId: order.id,
+      });
+      expect(secondResponse.statusCode).toBe(200);
+      expect(secondResponse.json()).toMatchObject({
+        success: true,
+        settled: false,
+        orderId: order.id,
+      });
+
+      const storedOrder = await prisma.topUpOrder.findUnique({
+        where: { id: order.id },
+      });
+      const storedUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { quotaRemaining: true },
+      });
+
+      expect(storedOrder).toMatchObject({
+        status: 'PAID',
+        waffoOrderId: 'waffo-order-123',
+      });
+      expect(storedOrder?.paidAt).toBeInstanceOf(Date);
+      expect(storedUser?.quotaRemaining).toBe(100025n);
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
+  it('marks non-paid Waffo webhook events as failed without adding quota', async () => {
+    const user = await createUser({ quotaRemaining: 25n });
+    const order = await prisma.topUpOrder.create({
+      data: {
+        userId: user.id,
+        provider: 'WAFFO',
+        status: 'PENDING',
+        quotaAmount: 100000n,
+        amountCents: 850,
+        currency: 'usd',
+        waffoCheckoutId: 'waffo-checkout-123',
+        waffoOrderId: 'waffo-order-123',
+        waffoProductId: 'waffo_test_100k',
+      },
+    });
+    const payload = JSON.stringify({
+      eventType: 'PAYMENT_NOTIFICATION',
+      result: {
+        merchantOrderId: order.id,
+        orderId: 'waffo-order-123',
+        orderStatus: 'PAY_FAILED',
+      },
+    });
+    const app = await createTestApp();
+
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/user/topup/waffo/webhook',
+        headers: {
+          'content-type': 'application/json',
+          'x-signature': signWaffoPayload(payload),
+        },
+        payload,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toMatchObject({
+        success: true,
+        ignored: true,
+        reason: 'order_not_paid',
+        failed: true,
+        orderId: order.id,
+      });
+
+      const storedOrder = await prisma.topUpOrder.findUnique({
+        where: { id: order.id },
+      });
+      const storedUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { quotaRemaining: true },
+      });
+
+      expect(storedOrder?.status).toBe('FAILED');
+      expect(storedUser?.quotaRemaining).toBe(25n);
     } finally {
       await closeTestApp(app);
     }

@@ -38,6 +38,7 @@ const frontendRoot = path.resolve(__dirname, '../web/dist');
 const rawBodyRoutes = new Set([
   '/api/user/topup/stripe/webhook',
   '/api/user/topup/creem/webhook',
+  '/api/user/topup/waffo/webhook',
 ]);
 
 type AppEnv = typeof envShape;

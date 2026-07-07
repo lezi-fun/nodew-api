@@ -118,7 +118,7 @@ Behavior notes:
 
 ## Waffo wallet top-up catalog
 
-Waffo wallet top-up uses the same fixed-product configuration shape. Signed-in users can read the safe product catalog and create hosted checkout orders; webhook settlement and the console purchase button remain separate follow-up work.
+Waffo wallet top-up uses the same fixed-product configuration shape. Signed-in users can read the safe product catalog and create hosted checkout orders; signed webhook payment events settle quota automatically.
 
 | Variable | Required | Description |
 | --- | --- | --- |
@@ -126,7 +126,7 @@ Waffo wallet top-up uses the same fixed-product configuration shape. Signed-in u
 | `WAFFO_TOPUP_ENABLED` | No | Enables the wallet Waffo readiness state when set to `true`. Defaults to `false`. |
 | `WAFFO_API_KEY` | Yes when enabled | Waffo API key for checkout creation. Never returned to clients. |
 | `WAFFO_PRIVATE_KEY` | Yes when enabled | Base64 PKCS#8 DER RSA private key used to sign checkout creation requests. |
-| `WAFFO_WEBHOOK_SECRET` | Yes for webhook settlement | Waffo webhook signing secret. Never returned to clients. |
+| `WAFFO_PUBLIC_KEY` | Yes for webhook settlement | Base64 X.509 DER RSA public key used to verify Waffo webhook request signatures. |
 | `WAFFO_TEST_MODE` | No | Marks Waffo configuration as test-mode. Defaults to `false`. |
 | `WAFFO_PRODUCTS` | Yes when enabled | JSON array of fixed products, for example `[{"productId":"prod_xxx","name":"100k quota","quotaAmount":100000,"amountCents":1000,"currency":"usd"}]`. |
 
@@ -134,6 +134,7 @@ Behavior notes:
 
 - `GET /api/user/topup/waffo/config` returns only non-sensitive configuration status and normalized products.
 - `POST /api/user/topup/waffo/checkout` creates a pending order and returns the hosted checkout URL for a configured product.
+- `POST /api/user/topup/waffo/webhook` verifies `X-SIGNATURE`, credits paid orders once, and marks non-paid pending orders as failed.
 - `WAFFO_PRODUCTS` accepts `productId` or `product_id`, `quotaAmount` or `quota`, and either `amountCents`, `priceCents`, or decimal `price`.
 - Invalid product JSON is treated as an empty catalog, so Waffo top-up is not reported as configured.
 
