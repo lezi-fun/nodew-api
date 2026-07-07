@@ -1,6 +1,6 @@
 # 钱包充值
 
-钱包充值目前通过环境变量配置。对应 provider 开启后，控制台会在 `/console/topup` 展示 Stripe 和 Creem 入口。
+钱包充值目前通过环境变量配置。对应 provider 开启后，控制台会在 `/console/topup` 展示 Stripe、Creem 和 Waffo 入口。
 
 ## 能力矩阵
 
@@ -8,7 +8,7 @@
 | --- | --- | --- | --- |
 | Stripe | 已支持 | 已支持，通过签名 webhook 入账 | 可用于一次性额度充值。 |
 | Creem | 已支持 | 已支持，通过签名 webhook 入账 | 可用于固定产品额度充值。 |
-| Waffo | 已支持 | 已支持，通过签名 webhook 入账 | 可为固定产品创建托管 checkout 订单；控制台购买按钮是下一步。 |
+| Waffo | 已支持 | 已支持，通过签名 webhook 入账 | 可用于固定产品托管 checkout 充值。 |
 
 不要在生产计费中启用还没有完整入账链路的 provider，除非你已经有人工核验和补账流程。
 
@@ -120,7 +120,7 @@ https://your-domain.example/api/user/topup/creem/webhook
 
 ## Waffo
 
-Waffo 当前已提供安全配置面、固定产品目录、托管 checkout 订单创建能力和签名 webhook 额度入账。控制台购买按钮作为后续小项处理。
+Waffo 当前已提供安全配置面、固定产品目录、控制台 checkout 入口、托管 checkout 订单创建能力和签名 webhook 额度入账。
 
 ```bash
 WAFFO_TOPUP_ENABLED=true

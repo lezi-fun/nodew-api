@@ -22,17 +22,17 @@ const paymentMethods = [
   {
     key: 'stripe',
     name: 'Stripe',
-    description: '国际卡与 Stripe Checkout，下一项会接入支付会话。',
+    description: '国际卡与 Stripe Checkout，支付完成后通过 webhook 自动入账。',
   },
   {
     key: 'creem',
     name: 'Creem',
-    description: '适合订阅与一次性付款，后续会接入产品 ID 与回调。',
+    description: '适合订阅与一次性付款，按固定产品目录创建托管支付。',
   },
   {
     key: 'waffo',
     name: 'Waffo',
-    description: '适合本地化支付方式，后续会接入支付方法列表。',
+    description: '适合本地化支付方式，按后台配置的产品跳转支付页。',
   },
 ];
 
@@ -74,6 +74,7 @@ export default function TopUpPage() {
   const [creemConfig, setCreemConfig] = useState<CreemTopUpConfig>(fallbackCreemConfig);
   const [creemLoadingProductId, setCreemLoadingProductId] = useState<string | null>(null);
   const [waffoConfig, setWaffoConfig] = useState<WaffoTopUpConfig>(fallbackWaffoConfig);
+  const [waffoLoadingProductId, setWaffoLoadingProductId] = useState<string | null>(null);
 
   const loadPricing = useCallback(async () => {
     setPricingLoading(true);
@@ -107,6 +108,7 @@ export default function TopUpPage() {
   useEffect(() => {
     const stripeResult = searchParams.get('stripe');
     const creemResult = searchParams.get('creem');
+    const waffoResult = searchParams.get('waffo');
 
     if (stripeResult === 'success') {
       Toast.info('Stripe 支付完成后会通过 webhook 入账，请稍后刷新余额');
@@ -130,6 +132,15 @@ export default function TopUpPage() {
       Toast.info('Creem 支付完成后会通过 webhook 入账，请稍后刷新余额');
       setSearchParams((current) => {
         current.delete('creem');
+        current.delete('order');
+        return current;
+      }, { replace: true });
+    }
+
+    if (waffoResult === 'success') {
+      Toast.info('Waffo 支付完成后会通过 webhook 入账，请稍后刷新余额');
+      setSearchParams((current) => {
+        current.delete('waffo');
         current.delete('order');
         return current;
       }, { replace: true });
@@ -163,7 +174,7 @@ export default function TopUpPage() {
   };
 
   const showPaymentPending = (method: string) => {
-    Toast.info(`${method} 支付会在下一步接入`);
+    Toast.info(`${method} 暂未直接绑定支付入口，请在下方选择已启用的支付方式`);
   };
 
   const createStripeCheckout = async () => {
@@ -202,6 +213,23 @@ export default function TopUpPage() {
     }
   };
 
+  const createWaffoCheckout = async (productId: string) => {
+    if (!waffoConfig.enabled) {
+      Toast.error('Waffo 充值暂未启用');
+      return;
+    }
+
+    setWaffoLoadingProductId(productId);
+    try {
+      const response = await api.createWaffoCheckout({ productId });
+      window.location.assign(response.checkoutUrl);
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : '创建 Waffo 支付失败');
+    } finally {
+      setWaffoLoadingProductId(null);
+    }
+  };
+
   const stripeUnitsNumber = Number(stripeUnits);
   const stripePreviewUnits = Number.isFinite(stripeUnitsNumber) ? Math.max(stripeConfig.minUnits, stripeUnitsNumber) : stripeConfig.minUnits;
   const stripePreviewQuota = BigInt(Math.trunc(stripePreviewUnits)) * BigInt(stripeConfig.quotaPerUnit);
@@ -214,7 +242,7 @@ export default function TopUpPage() {
           <div className="console-eyebrow">Wallet</div>
           <Typography.Title heading={2} style={{ margin: '6px 0 8px' }}>钱包管理</Typography.Title>
           <Typography.Paragraph className="console-description">
-            查看余额、充值套餐、支付方式和兑换码入口。在线支付接入前，兑换码仍是当前可用的充值方式。
+            查看余额、充值套餐、支付方式和兑换码入口。已启用的在线支付会跳转到托管支付页，完成后请返回刷新余额。
           </Typography.Paragraph>
         </div>
         <Button icon={<IconRefresh />} loading={pricingLoading} onClick={() => void refreshWallet()}>刷新充值信息</Button>
@@ -280,7 +308,7 @@ export default function TopUpPage() {
             className="dashboard-card wallet-card"
           >
             <Typography.Paragraph type="tertiary">
-              阶段四会逐步接入 Stripe、Creem 和 Waffo。当前页面先展示入口状态，避免用户误以为已经拉起真实支付。
+              已启用的 Stripe、Creem 和 Waffo 可直接创建支付会话；付款完成后由 webhook 入账，页面返回时会提示刷新余额。
             </Typography.Paragraph>
             <div className="wallet-payment-grid">
               {paymentMethods.map((method) => (
@@ -296,7 +324,7 @@ export default function TopUpPage() {
                         (method.key === 'stripe' && stripeConfig.enabled) ||
                         (method.key === 'creem' && creemConfig.enabled) ||
                         (method.key === 'waffo' && waffoConfig.enabled)
-                      ) ? '已配置' : '待接入'}
+                      ) ? '已配置' : '待配置'}
                     </Tag>
                   </div>
                   <Typography.Text type="tertiary">{method.description}</Typography.Text>
@@ -358,7 +386,13 @@ export default function TopUpPage() {
                               <strong>{product.name}</strong>
                               <span>{formatQuota(product.quotaAmount)} quota</span>
                             </div>
-                            <Button theme="light" disabled>
+                            <Button
+                              theme="solid"
+                              type="primary"
+                              loading={waffoLoadingProductId === product.productId}
+                              disabled={!waffoConfig.enabled}
+                              onClick={() => void createWaffoCheckout(product.productId)}
+                            >
                               {`${(product.amountCents / 100).toFixed(2)} ${product.currency.toUpperCase()}`}
                             </Button>
                           </div>
@@ -367,9 +401,8 @@ export default function TopUpPage() {
                         <Typography.Text type="tertiary">Waffo 产品目录尚未配置</Typography.Text>
                       )}
                       {waffoConfig.configured && !waffoConfig.webhookConfigured && (
-                        <Typography.Text type="warning">Webhook Secret 未配置，后续付款回调无法自动入账</Typography.Text>
+                        <Typography.Text type="warning">Webhook 公钥未配置，付款后不会自动入账</Typography.Text>
                       )}
-                      <Button theme="light" onClick={() => showPaymentPending(method.name)}>查看状态</Button>
                     </div>
                   )}
                 </div>

@@ -1,6 +1,6 @@
 # Wallet Top-Up
 
-Wallet top-up is currently configured with environment variables. The console can show Stripe and Creem entries on `/console/topup` after the corresponding provider is enabled.
+Wallet top-up is currently configured with environment variables. The console can show Stripe, Creem, and Waffo entries on `/console/topup` after the corresponding provider is enabled.
 
 ## Capability matrix
 
@@ -8,7 +8,7 @@ Wallet top-up is currently configured with environment variables. The console ca
 | --- | --- | --- | --- |
 | Stripe | Supported | Supported through signed webhook | Usable for one-time quota purchases. |
 | Creem | Supported | Supported through signed webhook | Usable for fixed-product quota purchases. |
-| Waffo | Supported | Supported through signed webhook | Can create hosted checkout orders for fixed products; the console purchase button is next. |
+| Waffo | Supported | Supported through signed webhook | Usable for fixed-product hosted checkout orders. |
 
 Do not enable a provider for production billing until the required settlement path is available and tested for your deployment.
 
@@ -120,7 +120,7 @@ Before enabling Creem top-up in production, create the webhook in Creem with the
 
 ## Waffo
 
-Waffo currently has the safe configuration surface, fixed product catalog, hosted checkout order creation, and signed webhook quota settlement. The console purchase button is a separate follow-up step.
+Waffo currently has the safe configuration surface, fixed product catalog, console checkout entry, hosted checkout order creation, and signed webhook quota settlement.
 
 ```bash
 WAFFO_TOPUP_ENABLED=true
