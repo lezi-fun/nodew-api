@@ -150,5 +150,21 @@
   "发送邮箱绑定验证失败": "Failed to send email-change verification",
   "请输入验证码": "Enter the verification code",
   "新邮箱已绑定": "New email address linked",
-  "邮箱绑定失败": "Failed to change email address"
+  "邮箱绑定失败": "Failed to change email address",
+  "不支持的第三方登录类型": "Unsupported third-party login provider",
+  "去登录": "Go to login",
+  "打开邮件链接或输入验证码，完成注册前邮箱验证。": "Open the email link or enter the verification code before completing registration.",
+  "新邮箱已绑定，可以返回个人设置查看。": "Your new email address is linked. Return to personal settings to review it.",
+  "正在处理回调，请稍候。": "Processing the callback. Please wait.",
+  "注册邮箱已验证，请返回注册页完成注册": "Registration email verified. Return to the registration page to finish.",
+  "第三方登录": "Third-party sign-in",
+  "第三方登录失败": "Third-party sign-in failed",
+  "绑定成功": "Account linked successfully",
+  "请在已登录状态下打开邮件链接，或在个人设置里输入验证码完成邮箱绑定。": "Open the email link while signed in, or enter the verification code in personal settings to link the email address.",
+  "输入邮件中的 token 完成邮箱验证。": "Enter the token from the email to verify your address.",
+  "返回注册": "Back to registration",
+  "邮箱已验证，可以继续登录使用。": "Email verified. You can continue to sign in.",
+  "邮箱已验证，可以返回注册页完成注册。": "Email verified. Return to the registration page to finish.",
+  "验证失败": "Verification failed",
+  "验证邮箱": "Verify email"
 }
