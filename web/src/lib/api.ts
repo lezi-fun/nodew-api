@@ -987,6 +987,14 @@ export const api = {
   getPricing: async () => (await client.get<LegacyDataResponse<PricingInfo>>('/api/pricing')).data,
   listSubscriptionPlans: async () =>
     (await client.get<ListResponse<SubscriptionPlanItem>>('/api/subscription/plans')).data,
+  listAdminSubscriptionPlans: async () =>
+    (await client.get<ListResponse<SubscriptionPlanItem>>('/api/subscription/admin/plans')).data,
+  createSubscriptionPlan: async (plan: SubscriptionPlanItem) =>
+    (await client.post<{ success: boolean; item: SubscriptionPlanItem }>('/api/subscription/admin/plans', { plan })).data,
+  updateSubscriptionPlan: async (id: string, plan: SubscriptionPlanItem) =>
+    (await client.put<{ success: boolean; item: SubscriptionPlanItem }>(`/api/subscription/admin/plans/${id}`, { plan })).data,
+  deleteSubscriptionPlan: async (id: string) =>
+    (await client.delete<{ success: boolean }>(`/api/subscription/admin/plans/${id}`)).data,
   getSelfSubscriptions: async () =>
     (await client.get<{ success: boolean; items: UserSubscriptionItem[]; allItems: UserSubscriptionItem[]; total: number; activeTotal: number }>('/api/subscription/self')).data,
   createSubscriptionStripeCheckout: async (payload: { planId: string }) =>

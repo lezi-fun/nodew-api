@@ -1,5 +1,5 @@
-import { Button, Card, Input, InputNumber, Select, Space, Switch, TextArea, Toast, Typography } from '@douyinfe/semi-ui';
-import { IconSave, IconRefresh } from '@douyinfe/semi-icons';
+import { Button, Card, Input, InputNumber, Popconfirm, Select, Space, Switch, Tag, TextArea, Toast, Typography } from '@douyinfe/semi-ui';
+import { IconDelete, IconEdit, IconPlus, IconRefresh, IconSave } from '@douyinfe/semi-icons';
 import { useCallback, useContext, useEffect, useState } from 'react';
 
 import { UserContext } from '../context/User';
@@ -11,6 +11,7 @@ import {
   type MailStatus,
   type OAuthConfig,
   type OAuthStatus,
+  type SubscriptionPlanItem,
   type SystemOptionItem,
   type SystemOptionKey,
 } from '../lib/api';
@@ -82,20 +83,6 @@ const passkeyOptionMeta: Array<{
   },
 ];
 
-const subscriptionOptionMeta: Array<{
-  key: SystemOptionKey;
-  title: string;
-  description: string;
-  type: 'textarea';
-}> = [
-  {
-    key: 'subscription_plans',
-    title: '订阅套餐配置',
-    description: '填写 JSON 数组。字段支持 id、title、subtitle、description、badge、priceAmount、currency、quota、duration、features、enabled、sortOrder。',
-    type: 'textarea',
-  },
-];
-
 const editableOptionMeta = generalOptionMeta;
 
 const toMap = (items: SystemOptionItem[]) =>
@@ -147,6 +134,44 @@ const emptyCustomOAuthProviderForm: CustomOAuthProviderPayload = {
   accessDeniedMessage: '',
 };
 
+type SubscriptionPlanForm = Omit<SubscriptionPlanItem, 'features'> & {
+  featuresText: string;
+};
+
+const emptySubscriptionPlanForm: SubscriptionPlanForm = {
+  id: '',
+  title: '',
+  subtitle: '',
+  description: '',
+  badge: '',
+  priceAmount: 0,
+  currency: 'CNY',
+  quota: '',
+  quotaAmount: 0,
+  duration: '30 天',
+  durationDays: 30,
+  featuresText: '',
+  enabled: true,
+  sortOrder: 0,
+};
+
+const toSubscriptionPlanForm = (plan: SubscriptionPlanItem): SubscriptionPlanForm => ({
+  ...plan,
+  featuresText: plan.features.join('\n'),
+});
+
+const toSubscriptionPlanItem = (form: SubscriptionPlanForm): SubscriptionPlanItem => {
+  const { featuresText, ...plan } = form;
+
+  return {
+    ...plan,
+    features: featuresText
+      .split(/\r?\n/)
+      .map((feature) => feature.trim())
+      .filter(Boolean),
+  };
+};
+
 export default function SettingPage() {
   const { user } = useContext(UserContext);
   const [values, setValues] = useState<Partial<Record<SystemOptionKey, string>>>({});
@@ -159,28 +184,33 @@ export default function SettingPage() {
   const [customOAuthProviders, setCustomOAuthProviders] = useState<CustomOAuthProvider[]>([]);
   const [customOAuthProviderForm, setCustomOAuthProviderForm] = useState<CustomOAuthProviderPayload>(emptyCustomOAuthProviderForm);
   const [editingCustomOAuthProviderId, setEditingCustomOAuthProviderId] = useState<string | null>(null);
+  const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlanItem[]>([]);
+  const [subscriptionPlanForm, setSubscriptionPlanForm] = useState<SubscriptionPlanForm>(emptySubscriptionPlanForm);
+  const [editingSubscriptionPlanId, setEditingSubscriptionPlanId] = useState<string | null>(null);
   const [savingMail, setSavingMail] = useState(false);
   const [savingOAuth, setSavingOAuth] = useState(false);
   const [discoveringOIDC, setDiscoveringOIDC] = useState(false);
   const [savingCustomOAuthProvider, setSavingCustomOAuthProvider] = useState(false);
   const [discoveringCustomOAuthProvider, setDiscoveringCustomOAuthProvider] = useState(false);
   const [deletingCustomOAuthProviderId, setDeletingCustomOAuthProviderId] = useState<string | null>(null);
+  const [savingSubscriptionPlan, setSavingSubscriptionPlan] = useState(false);
+  const [deletingSubscriptionPlanId, setDeletingSubscriptionPlanId] = useState<string | null>(null);
   const [savingCheckin, setSavingCheckin] = useState(false);
   const [savingPasskey, setSavingPasskey] = useState(false);
-  const [savingSubscription, setSavingSubscription] = useState(false);
   const [testingMail, setTestingMail] = useState(false);
   const [testMailRecipient, setTestMailRecipient] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [response, mailResponse, mailConfigResponse, oauthStatusResponse, oauthConfigResponse, customOAuthProvidersResponse] = await Promise.all([
+      const [response, mailResponse, mailConfigResponse, oauthStatusResponse, oauthConfigResponse, customOAuthProvidersResponse, subscriptionPlansResponse] = await Promise.all([
         api.listOptions(),
         api.getMailStatus(),
         api.getMailConfig(),
         api.getOAuthStatus(),
         api.getOAuthConfig(),
         api.listCustomOAuthProviders(),
+        api.listAdminSubscriptionPlans(),
       ]);
       const optionMap = toMap(response.items ?? []);
       const legacyCheckinQuota = optionMap.checkin_reward_quota;
@@ -196,13 +226,13 @@ export default function SettingPage() {
         passkey_allow_insecure_origin: optionMap.passkey_allow_insecure_origin ?? 'false',
         passkey_user_verification: optionMap.passkey_user_verification ?? 'preferred',
         passkey_attachment_preference: optionMap.passkey_attachment_preference ?? '',
-        subscription_plans: optionMap.subscription_plans ?? '[]',
       });
       setMailStatus(mailResponse.item);
       setMailConfig(mailConfigResponse.item);
       setOAuthStatus(oauthStatusResponse.item);
       setOAuthConfig(oauthConfigResponse.item);
       setCustomOAuthProviders(customOAuthProvidersResponse.items ?? []);
+      setSubscriptionPlans(subscriptionPlansResponse.items ?? []);
       setTestMailRecipient((current) => current || user?.email || '');
     } catch (error) {
       Toast.error(error instanceof Error ? error.message : '加载设置失败');
@@ -254,16 +284,56 @@ export default function SettingPage() {
     }
   };
 
-  const saveSubscription = async () => {
-    setSavingSubscription(true);
+  const resetSubscriptionPlanForm = () => {
+    setEditingSubscriptionPlanId(null);
+    setSubscriptionPlanForm(emptySubscriptionPlanForm);
+  };
+
+  const editSubscriptionPlan = (plan: SubscriptionPlanItem) => {
+    setEditingSubscriptionPlanId(plan.id);
+    setSubscriptionPlanForm(toSubscriptionPlanForm(plan));
+  };
+
+  const saveSubscriptionPlan = async () => {
+    const plan = toSubscriptionPlanItem(subscriptionPlanForm);
+
+    if (!plan.id || !plan.title) {
+      Toast.error('套餐 ID 和标题不能为空');
+      return;
+    }
+
+    setSavingSubscriptionPlan(true);
     try {
-      await Promise.all(subscriptionOptionMeta.map((option) => api.updateOption(option.key, values[option.key] ?? '[]')));
-      Toast.success('订阅套餐设置已保存');
+      if (editingSubscriptionPlanId) {
+        await api.updateSubscriptionPlan(editingSubscriptionPlanId, plan);
+        Toast.success('订阅套餐已更新');
+      } else {
+        await api.createSubscriptionPlan(plan);
+        Toast.success('订阅套餐已创建');
+      }
+
+      resetSubscriptionPlanForm();
       await load();
     } catch (error) {
-      Toast.error(error instanceof Error ? error.message : '保存订阅套餐设置失败');
+      Toast.error(error instanceof Error ? error.message : '保存订阅套餐失败');
     } finally {
-      setSavingSubscription(false);
+      setSavingSubscriptionPlan(false);
+    }
+  };
+
+  const deleteSubscriptionPlan = async (planId: string) => {
+    setDeletingSubscriptionPlanId(planId);
+    try {
+      await api.deleteSubscriptionPlan(planId);
+      if (editingSubscriptionPlanId === planId) {
+        resetSubscriptionPlanForm();
+      }
+      Toast.success('订阅套餐已删除');
+      await load();
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : '删除订阅套餐失败');
+    } finally {
+      setDeletingSubscriptionPlanId(null);
     }
   };
 
@@ -585,31 +655,186 @@ export default function SettingPage() {
 
       <Card bordered={false} className="dashboard-card settings-card" style={{ marginTop: 16 }}>
         <Space vertical align="start" style={{ width: '100%' }}>
-          <div>
-            <Typography.Title heading={5} style={{ marginBottom: 4 }}>订阅套餐设置</Typography.Title>
-            <Typography.Paragraph type="tertiary">
-              先用 JSON 完成套餐列表配置，后面再补独立 CRUD、购买与回调。
-            </Typography.Paragraph>
-          </div>
+          <Space align="start" style={{ width: '100%', justifyContent: 'space-between' }} wrap>
+            <div>
+              <Typography.Title heading={5} style={{ marginBottom: 4 }}>订阅套餐管理</Typography.Title>
+              <Typography.Paragraph type="tertiary">
+                新建、编辑、停用或删除订阅套餐。停用套餐不会出现在用户购买页，但仍保留在管理列表中。
+              </Typography.Paragraph>
+            </div>
+            <Button icon={<IconPlus />} onClick={resetSubscriptionPlanForm}>新建套餐</Button>
+          </Space>
+
+          {subscriptionPlans.length > 0 ? (
+            <div className="settings-grid" style={{ width: '100%' }}>
+              {subscriptionPlans.map((plan) => (
+                <Card key={plan.id} bordered className="setting-field">
+                  <Space vertical align="start" style={{ width: '100%' }}>
+                    <Space wrap>
+                      <Typography.Text strong>{plan.title}</Typography.Text>
+                      <Tag color={plan.enabled ? 'green' : 'grey'}>{plan.enabled ? '已启用' : '已停用'}</Tag>
+                      {plan.badge ? <Tag color="blue">{plan.badge}</Tag> : null}
+                    </Space>
+                    <Typography.Text type="tertiary">{plan.id}</Typography.Text>
+                    <Typography.Text>
+                      {plan.priceAmount} {plan.currency} · {plan.duration || `${plan.durationDays} 天`} · {plan.quota || `${plan.quotaAmount} 额度`}
+                    </Typography.Text>
+                    <Space wrap>
+                      <Button icon={<IconEdit />} onClick={() => editSubscriptionPlan(plan)}>编辑</Button>
+                      <Popconfirm
+                        title={`确认删除套餐“${plan.title}”？`}
+                        content="删除后用户将无法继续购买该套餐。"
+                        onConfirm={() => void deleteSubscriptionPlan(plan.id)}
+                      >
+                        <Button
+                          type="danger"
+                          icon={<IconDelete />}
+                          loading={deletingSubscriptionPlanId === plan.id}
+                        >
+                          删除
+                        </Button>
+                      </Popconfirm>
+                    </Space>
+                  </Space>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Typography.Text type="tertiary">当前还没有订阅套餐。</Typography.Text>
+          )}
+
+          <Typography.Title heading={6} style={{ margin: '8px 0 0' }}>
+            {editingSubscriptionPlanId ? `编辑套餐：${editingSubscriptionPlanId}` : '新建套餐'}
+          </Typography.Title>
           <div className="settings-grid" style={{ width: '100%' }}>
-            {subscriptionOptionMeta.map((option) => (
-              <label className="setting-field" key={option.key}>
-                <span>
-                  <strong>{option.title}</strong>
-                  <em>{option.description}</em>
-                </span>
-                <TextArea
-                  rows={12}
-                  value={values[option.key] ?? '[]'}
-                  placeholder={`[\n  {\n    "id": "monthly-basic",\n    "title": "基础版",\n    "subtitle": "适合轻量使用",\n    "description": "按月提供固定额度与基础权益",\n    "badge": "热门",\n    "priceAmount": 29.9,\n    "currency": "CNY",\n    "quota": "每月 500,000 额度",\n    "quotaAmount": 500000,\n    "duration": "30 天",\n    "durationDays": 30,\n    "features": ["基础模型访问", "标准优先级"],\n    "enabled": true,\n    "sortOrder": 100\n  }\n]`}
-                  onChange={(value) => setValues((current) => ({ ...current, [option.key]: value }))}
-                />
-              </label>
-            ))}
+            <label className="setting-field">
+              <span><strong>套餐 ID</strong><em>创建后保持不变，用于支付和订阅记录关联。</em></span>
+              <Input
+                value={subscriptionPlanForm.id}
+                disabled={Boolean(editingSubscriptionPlanId)}
+                placeholder="monthly-basic"
+                onChange={(value) => setSubscriptionPlanForm((current) => ({ ...current, id: value.trim() }))}
+              />
+            </label>
+            <label className="setting-field">
+              <span><strong>套餐标题</strong><em>展示在购买页和用户订阅记录中。</em></span>
+              <Input
+                value={subscriptionPlanForm.title}
+                placeholder="基础版"
+                onChange={(value) => setSubscriptionPlanForm((current) => ({ ...current, title: value }))}
+              />
+            </label>
+            <label className="setting-field">
+              <span><strong>副标题</strong><em>用于补充适用场景。</em></span>
+              <Input
+                value={subscriptionPlanForm.subtitle}
+                placeholder="适合轻量使用"
+                onChange={(value) => setSubscriptionPlanForm((current) => ({ ...current, subtitle: value }))}
+              />
+            </label>
+            <label className="setting-field">
+              <span><strong>徽标</strong><em>例如热门、推荐或限时。</em></span>
+              <Input
+                value={subscriptionPlanForm.badge}
+                placeholder="热门"
+                onChange={(value) => setSubscriptionPlanForm((current) => ({ ...current, badge: value }))}
+              />
+            </label>
+            <label className="setting-field">
+              <span><strong>价格</strong><em>Stripe Checkout 使用的单次支付金额。</em></span>
+              <InputNumber
+                min={0}
+                value={subscriptionPlanForm.priceAmount}
+                onChange={(value) => setSubscriptionPlanForm((current) => ({ ...current, priceAmount: Number(value ?? 0) }))}
+              />
+            </label>
+            <label className="setting-field">
+              <span><strong>币种</strong><em>使用三位币种代码，例如 CNY 或 USD。</em></span>
+              <Input
+                value={subscriptionPlanForm.currency}
+                placeholder="CNY"
+                onChange={(value) => setSubscriptionPlanForm((current) => ({ ...current, currency: value.toUpperCase() }))}
+              />
+            </label>
+            <label className="setting-field">
+              <span><strong>额度说明</strong><em>面向用户展示的额度文案。</em></span>
+              <Input
+                value={subscriptionPlanForm.quota}
+                placeholder="每月 500,000 额度"
+                onChange={(value) => setSubscriptionPlanForm((current) => ({ ...current, quota: value }))}
+              />
+            </label>
+            <label className="setting-field">
+              <span><strong>入账额度</strong><em>订阅激活时实际增加到用户账户的额度。</em></span>
+              <InputNumber
+                min={0}
+                value={subscriptionPlanForm.quotaAmount}
+                onChange={(value) => setSubscriptionPlanForm((current) => ({ ...current, quotaAmount: Number(value ?? 0) }))}
+              />
+            </label>
+            <label className="setting-field">
+              <span><strong>周期说明</strong><em>面向用户展示，例如 30 天。</em></span>
+              <Input
+                value={subscriptionPlanForm.duration}
+                placeholder="30 天"
+                onChange={(value) => setSubscriptionPlanForm((current) => ({ ...current, duration: value }))}
+              />
+            </label>
+            <label className="setting-field">
+              <span><strong>有效天数</strong><em>用于计算订阅到期时间。</em></span>
+              <InputNumber
+                min={0}
+                max={3650}
+                value={subscriptionPlanForm.durationDays}
+                onChange={(value) => setSubscriptionPlanForm((current) => ({ ...current, durationDays: Number(value ?? 0) }))}
+              />
+            </label>
+            <label className="setting-field">
+              <span><strong>排序权重</strong><em>数字越大越靠前。</em></span>
+              <InputNumber
+                min={-9999}
+                max={9999}
+                value={subscriptionPlanForm.sortOrder}
+                onChange={(value) => setSubscriptionPlanForm((current) => ({ ...current, sortOrder: Number(value ?? 0) }))}
+              />
+            </label>
+            <label className="setting-field">
+              <span><strong>启用套餐</strong><em>关闭后从用户购买页隐藏。</em></span>
+              <Switch
+                checked={subscriptionPlanForm.enabled}
+                onChange={(checked) => setSubscriptionPlanForm((current) => ({ ...current, enabled: checked }))}
+              />
+            </label>
+            <label className="setting-field">
+              <span><strong>套餐说明</strong><em>详细描述套餐用途和限制。</em></span>
+              <TextArea
+                rows={4}
+                value={subscriptionPlanForm.description}
+                onChange={(value) => setSubscriptionPlanForm((current) => ({ ...current, description: value }))}
+              />
+            </label>
+            <label className="setting-field">
+              <span><strong>套餐特性</strong><em>每行一项，最多 20 项。</em></span>
+              <TextArea
+                rows={4}
+                value={subscriptionPlanForm.featuresText}
+                placeholder={'基础模型访问\n标准优先级'}
+                onChange={(value) => setSubscriptionPlanForm((current) => ({ ...current, featuresText: value }))}
+              />
+            </label>
           </div>
-          <Button theme="solid" type="primary" icon={<IconSave />} loading={savingSubscription} onClick={() => void saveSubscription()}>
-            保存订阅套餐设置
-          </Button>
+          <Space wrap>
+            <Button
+              theme="solid"
+              type="primary"
+              icon={<IconSave />}
+              loading={savingSubscriptionPlan}
+              onClick={() => void saveSubscriptionPlan()}
+            >
+              {editingSubscriptionPlanId ? '保存套餐修改' : '创建订阅套餐'}
+            </Button>
+            {editingSubscriptionPlanId ? <Button onClick={resetSubscriptionPlanForm}>取消编辑</Button> : null}
+          </Space>
         </Space>
       </Card>
 

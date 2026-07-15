@@ -14,6 +14,7 @@ Console and administration routes are exposed under `/api`.
 | Settings | Configure runtime and console-facing behavior. |
 | Check-in | Read personal check-in status and issue daily quota rewards. |
 | Top-up | Create wallet top-up sessions and settle paid orders. |
+| Subscriptions | Manage purchasable plans and inspect the current user's subscriptions. |
 
 ## Public site content
 
@@ -140,6 +141,18 @@ The web console uses the backend authentication APIs for login, registration, se
 `POST /api/user/topup/stripe/webhook` is called by Stripe. It verifies the `Stripe-Signature` header against the raw request body before processing events. Paid Checkout events credit quota exactly once; expired or failed events update the pending order status without crediting quota.
 
 `POST /api/user/topup/creem/webhook` is called by Creem. It verifies the `creem-signature` header against the raw request body before processing events. Paid `checkout.completed` events credit quota exactly once; non-paid or unsupported order types are acknowledged without crediting quota.
+
+### Subscription routes
+
+- `GET /api/subscription/plans` lists enabled subscription plans for signed-in users.
+- `POST /api/subscription/stripe/checkout` accepts `{ "planId": string }` and creates a Stripe Checkout Session for an enabled plan.
+- `GET /api/subscription/self` returns the current user's active and historical subscription records.
+- `GET /api/subscription/admin/plans` lists all plans, including disabled plans, for administrators.
+- `POST /api/subscription/admin/plans` creates a plan from `{ "plan": SubscriptionPlan }`.
+- `PUT /api/subscription/admin/plans/:id` updates a plan while preserving the path ID.
+- `DELETE /api/subscription/admin/plans/:id` deletes a plan.
+
+Subscription plans are stored in the `subscription_plans` system option. The admin settings page provides a structured editor for the plan ID, display text, price, currency, credited quota, duration, features, enabled state, and sort order. Disabled plans remain editable in the admin list but are hidden from the user purchase route.
 
 ## User security admin operations
 

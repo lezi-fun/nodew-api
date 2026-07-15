@@ -3,11 +3,26 @@ import { z } from 'zod';
 
 import { prisma } from '../../lib/prisma.js';
 import { getStripeTopUpConfig, createStripeCheckoutSession } from '../../lib/stripe.js';
-import { getSubscriptionPlanById, listSubscriptionPlans } from '../../lib/subscription-plans.js';
+import {
+  createSubscriptionPlan,
+  deleteSubscriptionPlan,
+  getSubscriptionPlanById,
+  listSubscriptionPlans,
+  subscriptionPlanSchema,
+  updateSubscriptionPlan,
+} from '../../lib/subscription-plans.js';
 import { readUserSubscriptions } from '../../lib/user-subscriptions.js';
 
 const subscriptionCheckoutBodySchema = z.object({
   planId: z.string().trim().min(1).max(64),
+});
+
+const subscriptionPlanParamsSchema = z.object({
+  id: z.string().trim().min(1).max(64),
+});
+
+const subscriptionPlanBodySchema = z.object({
+  plan: subscriptionPlanSchema,
 });
 
 const buildAppUrl = (path: string) => {
@@ -48,6 +63,73 @@ const serializeOrder = (order: {
 });
 
 const subscriptionRoutes: FastifyPluginAsync = async (app) => {
+  app.get('/subscription/admin/plans', {
+    preHandler: app.requireAdminUser,
+  }, async () => {
+    const items = await listSubscriptionPlans(true);
+
+    return {
+      success: true,
+      items,
+      total: items.length,
+    };
+  });
+
+  app.post('/subscription/admin/plans', {
+    preHandler: app.requireAdminUser,
+  }, async (request) => {
+    const body = subscriptionPlanBodySchema.parse(request.body);
+
+    try {
+      return {
+        success: true,
+        item: await createSubscriptionPlan(body.plan),
+      };
+    } catch (error) {
+      throw app.httpErrors.badRequest(error instanceof Error ? error.message : 'Failed to create subscription plan');
+    }
+  });
+
+  app.put('/subscription/admin/plans/:id', {
+    preHandler: app.requireAdminUser,
+  }, async (request) => {
+    const params = subscriptionPlanParamsSchema.parse(request.params);
+    const body = subscriptionPlanBodySchema.parse(request.body);
+
+    try {
+      return {
+        success: true,
+        item: await updateSubscriptionPlan(params.id, body.plan),
+      };
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Subscription plan not found') {
+        throw app.httpErrors.notFound(error.message);
+      }
+
+      throw app.httpErrors.badRequest(error instanceof Error ? error.message : 'Failed to update subscription plan');
+    }
+  });
+
+  app.delete('/subscription/admin/plans/:id', {
+    preHandler: app.requireAdminUser,
+  }, async (request) => {
+    const params = subscriptionPlanParamsSchema.parse(request.params);
+
+    try {
+      await deleteSubscriptionPlan(params.id);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Subscription plan not found') {
+        throw app.httpErrors.notFound(error.message);
+      }
+
+      throw error;
+    }
+
+    return {
+      success: true,
+    };
+  });
+
   app.get('/subscription/plans', {
     preHandler: app.requireUser,
   }, async () => {

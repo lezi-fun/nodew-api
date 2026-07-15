@@ -4,7 +4,7 @@ import { prisma } from './prisma.js';
 
 export const subscriptionPlanOptionKey = 'subscription_plans' as const;
 
-const subscriptionPlanSchema = z.object({
+export const subscriptionPlanSchema = z.object({
   id: z.string().trim().min(1).max(64),
   title: z.string().trim().min(1).max(64),
   subtitle: z.string().trim().max(160).default(''),
@@ -61,4 +61,59 @@ export const listSubscriptionPlans = async (includeDisabled = false) => {
 export const getSubscriptionPlanById = async (planId: string, includeDisabled = false) => {
   const plans = await listSubscriptionPlans(includeDisabled);
   return plans.find((plan) => plan.id === planId) ?? null;
+};
+
+const saveSubscriptionPlans = async (plans: SubscriptionPlan[]) => {
+  const normalizedPlans = subscriptionPlanListSchema.parse(plans).sort(comparePlans);
+
+  await prisma.systemOption.upsert({
+    where: { key: subscriptionPlanOptionKey },
+    update: { value: JSON.stringify(normalizedPlans) },
+    create: {
+      key: subscriptionPlanOptionKey,
+      value: JSON.stringify(normalizedPlans),
+    },
+  });
+
+  return normalizedPlans;
+};
+
+export const createSubscriptionPlan = async (input: SubscriptionPlan) => {
+  const plan = subscriptionPlanSchema.parse(input);
+  const plans = await listSubscriptionPlans(true);
+
+  if (plans.some((item) => item.id === plan.id)) {
+    throw new Error('Subscription plan already exists');
+  }
+
+  await saveSubscriptionPlans([...plans, plan]);
+  return plan;
+};
+
+export const updateSubscriptionPlan = async (planId: string, input: SubscriptionPlan) => {
+  const plans = await listSubscriptionPlans(true);
+  const index = plans.findIndex((item) => item.id === planId);
+
+  if (index < 0) {
+    throw new Error('Subscription plan not found');
+  }
+
+  const plan = subscriptionPlanSchema.parse({
+    ...input,
+    id: planId,
+  });
+  const nextPlans = [...plans];
+  nextPlans[index] = plan;
+  await saveSubscriptionPlans(nextPlans);
+  return plan;
+};
+
+export const deleteSubscriptionPlan = async (planId: string) => {
+  const plans = await listSubscriptionPlans(true);
+
+  if (!plans.some((item) => item.id === planId)) {
+    throw new Error('Subscription plan not found');
+  }
+
+  await saveSubscriptionPlans(plans.filter((item) => item.id !== planId));
 };
