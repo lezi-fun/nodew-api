@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import type { Prisma } from '@prisma/client';
 
 type StoredSubscription = {
@@ -115,4 +117,51 @@ export const appendUserSubscription = (
     ...current,
     subscriptions: [subscription, ...subscriptions].slice(0, 100),
   } satisfies Prisma.InputJsonValue;
+};
+
+export type CreateUserSubscriptionInput = {
+  planId: string;
+  title: string;
+  subtitle: string;
+  badge: string;
+  description: string;
+  quota: string;
+  quotaAmount: number;
+  duration: string;
+  durationDays: number;
+  features: string[];
+  provider: string;
+  amountCents: number;
+  currency: string;
+  status?: 'ACTIVE' | 'EXPIRED';
+  startAt?: Date;
+  endAt?: Date | null;
+};
+
+export const createUserSubscription = (input: CreateUserSubscriptionInput): UserSubscription => {
+  const now = input.startAt ?? new Date();
+  const endAt = input.endAt ?? (input.durationDays > 0
+    ? new Date(now.getTime() + input.durationDays * 86400_000)
+    : null);
+
+  return {
+    id: randomUUID(),
+    planId: input.planId,
+    title: input.title,
+    subtitle: input.subtitle,
+    badge: input.badge,
+    description: input.description,
+    quota: input.quota,
+    quotaAmount: String(input.quotaAmount),
+    duration: input.duration,
+    durationDays: input.durationDays,
+    features: input.features,
+    provider: input.provider,
+    amountCents: input.amountCents,
+    currency: input.currency,
+    status: input.status ?? 'ACTIVE',
+    startAt: now.toISOString(),
+    endAt: endAt?.toISOString() ?? null,
+    createdAt: now.toISOString(),
+  };
 };

@@ -147,10 +147,11 @@ The web console uses the backend authentication APIs for login, registration, se
 - `GET /api/subscription/plans` lists enabled subscription plans for signed-in users.
 - `POST /api/subscription/stripe/checkout` accepts `{ "planId": string }` and creates a Stripe Checkout Session for an enabled plan.
 - `GET /api/subscription/self` returns the current user's active and historical subscription records.
-- `GET /api/subscription/admin/plans` lists all plans, including disabled plans, for administrators.
-- `POST /api/subscription/admin/plans` creates a plan from `{ "plan": SubscriptionPlan }`.
-- `PUT /api/subscription/admin/plans/:id` updates a plan while preserving the path ID.
-- `DELETE /api/subscription/admin/plans/:id` deletes a plan.
+|- `GET /api/subscription/admin/plans` lists all plans, including disabled plans, for administrators.
+|- `POST /api/subscription/admin/plans` creates a plan from `{ "plan": SubscriptionPlan }`.
+|- `PUT /api/subscription/admin/plans/:id` updates a plan while preserving the path ID.
+|- `DELETE /api/subscription/admin/plans/:id` deletes a plan.
+|- `POST /api/subscription/admin/bind/:userId` binds a plan to a user. Accepts `{ "planId": string, "quotaOverride"?: number, "status"?: "ACTIVE"|"EXPIRED", "startAt"?: ISO date, "endAt"?: ISO date|null }`. Credits the user's quota and records the subscription in their settings with `provider: "ADMIN"`.
 
 Subscription plans are stored in the `subscription_plans` system option. The admin settings page provides a structured editor for the plan ID, display text, price, currency, credited quota, duration, features, enabled state, and sort order. Disabled plans remain editable in the admin list but are hidden from the user purchase route.
 

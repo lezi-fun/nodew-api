@@ -11,7 +11,7 @@ import {
   subscriptionPlanSchema,
   updateSubscriptionPlan,
 } from '../../lib/subscription-plans.js';
-import { readUserSubscriptions } from '../../lib/user-subscriptions.js';
+import { appendUserSubscription, createUserSubscription, readUserSubscriptions } from '../../lib/user-subscriptions.js';
 
 const subscriptionCheckoutBodySchema = z.object({
   planId: z.string().trim().min(1).max(64),
@@ -23,6 +23,18 @@ const subscriptionPlanParamsSchema = z.object({
 
 const subscriptionPlanBodySchema = z.object({
   plan: subscriptionPlanSchema,
+});
+
+const subscriptionBindParamsSchema = z.object({
+  userId: z.string().cuid(),
+});
+
+const subscriptionBindBodySchema = z.object({
+  planId: z.string().trim().min(1).max(64),
+  quotaOverride: z.coerce.number().int().min(0).optional(),
+  status: z.enum(['ACTIVE', 'EXPIRED']).optional(),
+  startAt: z.coerce.date().optional(),
+  endAt: z.coerce.date().nullable().optional(),
 });
 
 const buildAppUrl = (path: string) => {
@@ -127,6 +139,64 @@ const subscriptionRoutes: FastifyPluginAsync = async (app) => {
 
     return {
       success: true,
+    };
+  });
+
+  app.post('/subscription/admin/bind/:userId', {
+    preHandler: app.requireAdminUser,
+  }, async (request) => {
+    const params = subscriptionBindParamsSchema.parse(request.params);
+    const body = subscriptionBindBodySchema.parse(request.body);
+
+    const user = await prisma.user.findUnique({
+      where: { id: params.userId },
+      select: { id: true, settings: true },
+    });
+
+    if (!user) {
+      throw app.httpErrors.notFound('User not found');
+    }
+
+    const plan = await getSubscriptionPlanById(body.planId);
+
+    if (!plan) {
+      throw app.httpErrors.badRequest('Subscription plan not found');
+    }
+
+    const subscription = createUserSubscription({
+      planId: plan.id,
+      title: plan.title,
+      subtitle: plan.subtitle,
+      badge: plan.badge,
+      description: plan.description,
+      quota: plan.quota,
+      quotaAmount: body.quotaOverride ?? plan.quotaAmount,
+      duration: plan.duration,
+      durationDays: plan.durationDays,
+      features: plan.features,
+      provider: 'ADMIN',
+      amountCents: 0,
+      currency: plan.currency,
+      status: body.status,
+      startAt: body.startAt,
+      endAt: body.endAt,
+    });
+
+    const quotaToAdd = BigInt(subscription.quotaAmount);
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: user.id },
+        data: {
+          settings: appendUserSubscription(user.settings, subscription),
+          quotaRemaining: { increment: quotaToAdd },
+        },
+      }),
+    ]);
+
+    return {
+      success: true,
+      item: subscription,
     };
   });
 
