@@ -51,6 +51,7 @@ NodEW-api 使用 Fastify、Prisma、TypeScript、React、Vite 和 Semi UI 构建
 - 钱包页支持余额指标、充值套餐概览、Stripe Checkout 充值、支付方式状态和兑换码充值。
 - 使用日志和面向计费的请求统计。
 - 管理控制台，包含数据看板、渠道、令牌、用户、兑换码、日志、模型、部署、系统设置、钱包和操练场。
+- 系统设置按基础与运营、认证与邮件、OAuth 登录、订阅与计费四个业务域拆分，并支持通过 URL 直接定位。
 - 默认支持 PostgreSQL，并提供独立的 MySQL Prisma schema。
 
 ## 环境要求

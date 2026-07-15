@@ -52,6 +52,7 @@ Current capabilities include:
 - Wallet page with balance metrics, recharge plan overview, Stripe Checkout top-up, payment-method status, and redemption-code top-up.
 - Usage logs and billing-oriented request accounting.
 - Admin console for dashboard, channels, tokens, users, redemptions, logs, models, deployment, settings, wallet, and playground.
+- The settings console is split into linkable business domains: general/operations, authentication/mail, OAuth, and subscriptions/billing.
 - PostgreSQL by default, with a dedicated MySQL Prisma schema for MySQL deployments.
 
 ## Requirements
