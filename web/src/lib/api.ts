@@ -109,6 +109,7 @@ export type CurrentUser = {
   quotaUsed: string;
   lastLoginAt: string | null;
   settings: Record<string, unknown> | null;
+  language: 'zh-CN' | 'en' | null;
   createdAt: string;
 };
 
@@ -833,7 +834,7 @@ export const api = {
   logout: async () => (await client.post<{ success: boolean }>('/api/user/logout')).data,
   getCurrentUser: async () => (await client.get<{ user: CurrentUser }>('/api/user/self')).data,
   getStatus: async () => (await client.get<AppStatus>('/api/status')).data,
-  updateCurrentUser: async (payload: { displayName?: string; settings?: Record<string, unknown> }) =>
+  updateCurrentUser: async (payload: { displayName?: string; language?: 'zh-CN' | 'en'; settings?: Record<string, unknown> }) =>
     (await client.patch<{ user: CurrentUser }>('/api/user/self', payload)).data,
   changeCurrentUserPassword: async (payload: { currentPassword: string; newPassword: string }) =>
     (await client.post<{ success: boolean }>('/api/user/self/password', payload)).data,

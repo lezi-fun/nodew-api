@@ -19,6 +19,7 @@ import { updateUserPassword } from '../auth/password-reset.js';
 
 const updateSelfBodySchema = z.object({
   displayName: z.string().min(1).max(64).optional(),
+  language: z.enum(['zh-CN', 'en']).optional(),
   settings: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -47,6 +48,7 @@ const selfSelect = {
   quotaUsed: true,
   lastLoginAt: true,
   settings: true,
+  language: true,
   createdAt: true,
 } satisfies Prisma.UserSelect;
 
@@ -62,6 +64,7 @@ const serializeUser = (user: {
   quotaUsed: bigint;
   lastLoginAt: Date | null;
   settings: Prisma.JsonValue | null;
+  language: string | null;
   createdAt: Date;
 }) => ({
   ...user,
@@ -302,10 +305,16 @@ const selfRoutes: FastifyPluginAsync = async (app) => {
   app.patch('/user/self', {
     preHandler: app.requireUser,
   }, async (request) => {
-    const body = updateSelfBodySchema.parse(request.body);
+    const parsedBody = updateSelfBodySchema.safeParse(request.body);
 
+    if (!parsedBody.success) {
+      throw app.httpErrors.badRequest(parsedBody.error.issues[0]?.message ?? 'Invalid user settings');
+    }
+
+    const body = parsedBody.data;
     const updateData: Prisma.UserUpdateInput = {
       displayName: body.displayName,
+      language: body.language,
     };
 
     if (body.settings !== undefined) {

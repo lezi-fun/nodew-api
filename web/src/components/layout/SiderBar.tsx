@@ -86,8 +86,8 @@ export default function SiderBar({ onNavigate }: { onNavigate?: () => void }) {
       <div className="sidebar-status-card">
         <div className="sidebar-status-icon"><IconApps /></div>
         <div>
-          <strong>Gateway</strong>
-          <span>routing online</span>
+          <strong>{t('网关')}</strong>
+          <span>{t('路由服务在线')}</span>
         </div>
       </div>
       <Nav

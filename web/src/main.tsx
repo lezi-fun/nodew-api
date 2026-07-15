@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useContext, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import '@douyinfe/semi-ui/react19-adapter';
@@ -12,8 +12,32 @@ import './i18n/i18n';
 import './styles.css';
 import { StatusProvider } from './context/Status';
 import { ThemeProvider } from './context/Theme';
-import { UserProvider } from './context/User';
+import { UserContext, UserProvider } from './context/User';
 import PageLayout from './components/layout/PageLayout';
+import { getPreferredLanguage, readUserLanguage } from './i18n/language';
+
+function LanguagePreferenceSync() {
+  const { user } = useContext(UserContext);
+  const { i18n } = useTranslation();
+
+  useEffect(() => {
+    const nextLanguage = getPreferredLanguage({
+      userLanguage: readUserLanguage(user?.language, user?.settings),
+      storedLanguage: localStorage.getItem('i18nextLng'),
+      detectedLanguage: i18n.resolvedLanguage ?? i18n.language,
+    });
+
+    if (i18n.resolvedLanguage !== nextLanguage) {
+      void i18n.changeLanguage(nextLanguage);
+    }
+  }, [i18n, user?.language, user?.settings]);
+
+  useEffect(() => {
+    document.documentElement.lang = i18n.language.startsWith('zh') ? 'zh-CN' : 'en';
+  }, [i18n.language]);
+
+  return null;
+}
 
 function SemiLocaleWrapper({ children }: { children: React.ReactNode }) {
   const { i18n } = useTranslation();
@@ -27,6 +51,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <UserProvider>
         <BrowserRouter>
           <ThemeProvider>
+            <LanguagePreferenceSync />
             <SemiLocaleWrapper>
               <PageLayout />
             </SemiLocaleWrapper>

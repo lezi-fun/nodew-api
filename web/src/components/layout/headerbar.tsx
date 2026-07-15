@@ -1,11 +1,12 @@
-import { Avatar, Button, Dropdown, Space, Tag, Typography } from '@douyinfe/semi-ui';
+import { Avatar, Button, Dropdown, Space, Tag, Toast, Typography } from '@douyinfe/semi-ui';
 import { IconBell, IconChevronDown, IconMenu, IconMoon, IconSun } from '@douyinfe/semi-icons';
-import { useContext } from 'react';
+import { useContext, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 import { ThemeContext } from '../../context/Theme';
 import { UserContext } from '../../context/User';
+import { api } from '../../lib/api';
 
 export default function HeaderBar({
   onMobileMenuToggle,
@@ -15,10 +16,11 @@ export default function HeaderBar({
   drawerOpen: boolean;
 }) {
   const { theme, toggleTheme } = useContext(ThemeContext);
-  const { user, logout } = useContext(UserContext);
+  const { user, logout, setUser } = useContext(UserContext);
   const location = useLocation();
   const navigate = useNavigate();
   const { i18n, t } = useTranslation();
+  const [savingLanguage, setSavingLanguage] = useState(false);
   const isConsoleRoute = location.pathname.startsWith('/console');
   const navLinks = [
     { to: '/', label: '首页' },
@@ -28,9 +30,31 @@ export default function HeaderBar({
   ];
 
   const switchLanguage = async () => {
+    if (savingLanguage) {
+      return;
+    }
+
     const next = i18n.language.startsWith('zh') ? 'en' : 'zh-CN';
-    await i18n.changeLanguage(next);
-    localStorage.setItem('i18nextLng', next);
+
+    if (!user) {
+      await i18n.changeLanguage(next);
+      localStorage.setItem('i18nextLng', next);
+      return;
+    }
+
+    setSavingLanguage(true);
+    try {
+      const response = await api.updateCurrentUser({
+        language: next,
+      });
+      setUser(response.user);
+      await i18n.changeLanguage(next);
+      localStorage.setItem('i18nextLng', next);
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : t('保存语言偏好失败'));
+    } finally {
+      setSavingLanguage(false);
+    }
   };
 
   return (
@@ -41,7 +65,7 @@ export default function HeaderBar({
             <Button
               theme="borderless"
               icon={<IconMenu />}
-              aria-label={drawerOpen ? 'close menu' : 'open menu'}
+              aria-label={drawerOpen ? t('关闭菜单') : t('打开菜单')}
               onClick={onMobileMenuToggle}
               className="headerbar-mobile-toggle"
             />
@@ -54,7 +78,7 @@ export default function HeaderBar({
             </div>
           </Link>
         </div>
-        <nav className="headerbar-nav" aria-label="Primary">
+        <nav className="headerbar-nav" aria-label={t('主导航')}>
           {navLinks.map((link) => (
             <Link
               key={link.to}
@@ -69,19 +93,27 @@ export default function HeaderBar({
           </a>
         </nav>
         <Space className="headerbar-actions">
-          <Button theme="borderless" icon={<IconBell />} onClick={() => navigate('/console/log')} />
-          <Button theme="borderless" onClick={() => void switchLanguage()}>{i18n.language.startsWith('zh') ? '中' : 'EN'}</Button>
-          <Button theme="borderless" icon={theme === 'dark' ? <IconSun /> : <IconMoon />} onClick={toggleTheme} />
+          <Button theme="borderless" icon={<IconBell />} aria-label={t('查看日志')} onClick={() => navigate('/console/log')} />
+          <Button
+            theme="borderless"
+            aria-label={t('切换语言')}
+            loading={savingLanguage}
+            disabled={savingLanguage}
+            onClick={() => void switchLanguage()}
+          >
+            {i18n.language.startsWith('zh') ? '中' : 'EN'}
+          </Button>
+          <Button theme="borderless" icon={theme === 'dark' ? <IconSun /> : <IconMoon />} aria-label={t('切换主题')} onClick={toggleTheme} />
           {user ? (
             <Dropdown
               trigger="click"
               position="bottomRight"
               render={
                 <Dropdown.Menu>
-                  <Dropdown.Item onClick={() => navigate('/console')}>控制台</Dropdown.Item>
-                  <Dropdown.Item onClick={() => navigate('/console/personal')}>个人设置</Dropdown.Item>
-                  <Dropdown.Item onClick={() => navigate('/console/token')}>令牌管理</Dropdown.Item>
-                  <Dropdown.Item onClick={() => navigate('/console/topup')}>钱包管理</Dropdown.Item>
+                  <Dropdown.Item onClick={() => navigate('/console')}>{t('控制台')}</Dropdown.Item>
+                  <Dropdown.Item onClick={() => navigate('/console/personal')}>{t('个人设置')}</Dropdown.Item>
+                  <Dropdown.Item onClick={() => navigate('/console/token')}>{t('令牌管理')}</Dropdown.Item>
+                  <Dropdown.Item onClick={() => navigate('/console/topup')}>{t('钱包管理')}</Dropdown.Item>
                   <Dropdown.Divider />
                   <Dropdown.Item
                     type="danger"
@@ -90,7 +122,7 @@ export default function HeaderBar({
                       navigate('/login');
                     }}
                   >
-                    退出登录
+                    {t('退出登录')}
                   </Dropdown.Item>
                 </Dropdown.Menu>
               }

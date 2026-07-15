@@ -67,6 +67,7 @@ model User {
   passwordResetRequestedAt    DateTime?
   accessToken                 String?      @unique
   settings                    Json?
+  language                    String?
   role                        UserRole     @default(USER)
   status                      UserStatus   @default(ACTIVE)
   groupId                     String?

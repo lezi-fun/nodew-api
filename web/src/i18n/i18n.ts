@@ -11,7 +11,13 @@ void i18n.use(LanguageDetector).use(initReactI18next).init({
     zh: { translation: zhCN },
     'zh-CN': { translation: zhCN },
   },
+  supportedLngs: ['zh-CN', 'en'],
   fallbackLng: 'zh-CN',
+  detection: {
+    order: ['localStorage', 'navigator'],
+    caches: ['localStorage'],
+    lookupLocalStorage: 'i18nextLng',
+  },
   interpolation: {
     escapeValue: false,
   },

@@ -2,6 +2,7 @@ import { Button, Card, Form, Toast, Typography } from '@douyinfe/semi-ui';
 import { useContext, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { browserSupportsWebAuthn, startAuthentication } from '@simplewebauthn/browser';
+import { useTranslation } from 'react-i18next';
 
 import { StatusContext } from '../context/Status';
 import { UserContext } from '../context/User';
@@ -9,6 +10,7 @@ import { api, type OAuthProvider } from '../lib/api';
 import { getEnabledOAuthProviders, getOAuthProviderMeta } from '../lib/oauth';
 
 export default function LoginPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const { refresh } = useContext(UserContext);
@@ -63,7 +65,7 @@ export default function LoginPage() {
       const response = await api.getOAuthState({ provider, redirectTo });
       window.location.assign(response.data.authorizeUrl);
     } catch (error) {
-      Toast.error(error instanceof Error ? error.message : `${providerName} 登录失败`);
+      Toast.error(error instanceof Error ? error.message : t('{{provider}} 登录失败', { provider: providerName }));
     } finally {
       setOAuthLoadingProvider(null);
     }
@@ -79,10 +81,10 @@ export default function LoginPage() {
       await api.passkeyLoginFinish({ response });
       await refresh();
       setChallengeEmail(null);
-      Toast.success('Passkey 登录成功');
+      Toast.success(t('Passkey 登录成功'));
       navigate(redirectTo);
     } catch (error) {
-      Toast.error(error instanceof Error ? error.message : 'Passkey 登录失败');
+      Toast.error(error instanceof Error ? error.message : t('Passkey 登录失败'));
     } finally {
       setPasskeyLoading(false);
     }
@@ -91,23 +93,23 @@ export default function LoginPage() {
   return (
     <main className="auth-page">
       <Card className="auth-card" bordered={false}>
-        <Typography.Title heading={3}>登录</Typography.Title>
+        <Typography.Title heading={3}>{t('登录')}</Typography.Title>
         <Typography.Paragraph type="tertiary">
           {enabledOAuthProviders.length > 0
-            ? '使用本地账号或第三方账号进入 NodEW-api 控制台。'
-            : '使用本地账号进入 NodEW-api 控制台。'}
+            ? t('使用本地账号或第三方账号进入 NodEW-api 控制台。')
+            : t('使用本地账号进入 NodEW-api 控制台。')}
         </Typography.Paragraph>
         {!challengeEmail && passkeyEnabled && browserSupportsPasskey ? (
           <div style={{ marginBottom: 16 }}>
             <Button theme="solid" type="primary" loading={passkeyLoading} onClick={() => void loginWithPasskey()} block>
-              使用 Passkey 登录
+              {t('使用 Passkey 登录')}
             </Button>
           </div>
         ) : null}
         {challengeEmail ? (
           <>
             <Typography.Paragraph type="tertiary">
-              账号 <strong>{challengeEmail}</strong> 需要输入验证码或备用码完成登录。
+              {t('账号')} <strong>{challengeEmail}</strong> {t('需要输入验证码或备用码完成登录。')}
             </Typography.Paragraph>
             <Form<{ code: string }>
               onSubmit={async (values) => {
@@ -116,19 +118,19 @@ export default function LoginPage() {
                   await api.verifyTwoFactorLogin({ code: values.code });
                   await refresh();
                   setChallengeEmail(null);
-                  Toast.success('登录成功');
+                  Toast.success(t('登录成功'));
                   navigate(redirectTo);
                 } catch (error) {
-                  Toast.error(error instanceof Error ? error.message : '登录失败');
+                  Toast.error(error instanceof Error ? error.message : t('登录失败'));
                 } finally {
                   setLoading(false);
                 }
               }}
             >
-              <Form.Input field="code" label="验证码 / 备用码" placeholder="123456" rules={[{ required: true }]} />
+              <Form.Input field="code" label={t('验证码 / 备用码')} placeholder="123456" rules={[{ required: true }]} />
               <div className="auth-actions">
-                <Button theme="borderless" onClick={() => setChallengeEmail(null)} disabled={loading}>返回</Button>
-                <Button htmlType="submit" theme="solid" loading={loading} block>验证并登录</Button>
+                <Button theme="borderless" onClick={() => setChallengeEmail(null)} disabled={loading}>{t('返回')}</Button>
+                <Button htmlType="submit" theme="solid" loading={loading} block>{t('验证并登录')}</Button>
               </div>
             </Form>
           </>
@@ -142,22 +144,22 @@ export default function LoginPage() {
                 if ('requiresTwoFA' in response && response.requiresTwoFA) {
                   setChallengeEmail(values.email);
                   setPostLoginRedirectTo(redirectTo);
-                  Toast.info('请输入二次验证码完成登录');
+                  Toast.info(t('请输入二次验证码完成登录'));
                   return;
                 }
 
                 await refresh();
-                Toast.success('登录成功');
+                Toast.success(t('登录成功'));
                 navigate(redirectTo);
               } catch (error) {
-                Toast.error(error instanceof Error ? error.message : '登录失败');
+                Toast.error(error instanceof Error ? error.message : t('登录失败'));
               } finally {
                 setLoading(false);
               }
             }}
           >
-            <Form.Input field="email" label="邮箱" placeholder="test@test.com" rules={[{ required: true }]} />
-            <Form.Input field="password" label="密码" mode="password" rules={[{ required: true }]} />
+            <Form.Input field="email" label={t('邮箱')} placeholder="test@test.com" rules={[{ required: true }]} />
+            <Form.Input field="password" label={t('密码')} mode="password" rules={[{ required: true }]} />
             {enabledOAuthProviders.map((provider) => {
               const providerName = getOAuthProviderMeta(provider, status).label;
 
@@ -171,19 +173,19 @@ export default function LoginPage() {
                     onClick={() => void loginWithOAuthProvider(provider)}
                     block
                   >
-                    使用 {providerName} 登录
+                    {t('使用 {{provider}} 登录', { provider: providerName })}
                   </Button>
                 </div>
               );
             })}
             <div className="auth-actions">
-              <Button htmlType="submit" theme="solid" loading={loading} block>登录</Button>
+              <Button htmlType="submit" theme="solid" loading={loading} block>{t('登录')}</Button>
             </div>
           </Form>
         )}
         <div className="auth-links">
-          <Link to="/register">注册</Link>
-          <Link to="/reset">忘记密码</Link>
+          <Link to="/register">{t('注册')}</Link>
+          <Link to="/reset">{t('忘记密码')}</Link>
         </div>
       </Card>
     </main>

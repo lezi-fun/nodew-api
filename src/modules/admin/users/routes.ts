@@ -84,6 +84,7 @@ const userSelect = {
   quotaUsed: true,
   lastLoginAt: true,
   settings: true,
+  language: true,
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.UserSelect;
@@ -101,6 +102,7 @@ const serializeUser = (user: {
   quotaUsed: bigint;
   lastLoginAt: Date | null;
   settings: Prisma.JsonValue | null;
+  language: string | null;
   twoFA: {
     isEnabled: boolean;
     lastUsedAt: Date | null;
