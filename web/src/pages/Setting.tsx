@@ -16,9 +16,12 @@ import {
   type SystemOptionItem,
   type SystemOptionKey,
 } from '../lib/api';
+import { loadSettingsResources } from '../lib/settings-loader';
 import {
   getSettingSection,
-  getSettingSectionMeta,
+  getSettingSectionNavigationProps,
+  getSettingSectionPageDescription,
+  isSettingSectionActive,
   settingSections,
   type SettingSection,
   updateSettingSectionSearch,
@@ -184,7 +187,6 @@ export default function SettingPage() {
   const { user } = useContext(UserContext);
   const [searchParams, setSearchParams] = useSearchParams();
   const activeSection = getSettingSection(searchParams.get('section'));
-  const activeSectionMeta = getSettingSectionMeta(activeSection);
   const [values, setValues] = useState<Partial<Record<SystemOptionKey, string>>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -214,39 +216,45 @@ export default function SettingPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [response, mailResponse, mailConfigResponse, oauthStatusResponse, oauthConfigResponse, customOAuthProvidersResponse, subscriptionPlansResponse] = await Promise.all([
-        api.listOptions(),
-        api.getMailStatus(),
-        api.getMailConfig(),
-        api.getOAuthStatus(),
-        api.getOAuthConfig(),
-        api.listCustomOAuthProviders(),
-        api.listAdminSubscriptionPlans(),
-      ]);
-      const optionMap = toMap(response.items ?? []);
-      const legacyCheckinQuota = optionMap.checkin_reward_quota;
-      setValues({
-        ...optionMap,
-        checkin_enabled: optionMap.checkin_enabled ?? 'true',
-        checkin_min_quota: optionMap.checkin_min_quota ?? legacyCheckinQuota ?? '1000',
-        checkin_max_quota: optionMap.checkin_max_quota ?? legacyCheckinQuota ?? '10000',
-        passkey_enabled: optionMap.passkey_enabled ?? 'false',
-        passkey_rp_display_name: optionMap.passkey_rp_display_name ?? '',
-        passkey_rp_id: optionMap.passkey_rp_id ?? '',
-        passkey_origins: optionMap.passkey_origins ?? '',
-        passkey_allow_insecure_origin: optionMap.passkey_allow_insecure_origin ?? 'false',
-        passkey_user_verification: optionMap.passkey_user_verification ?? 'preferred',
-        passkey_attachment_preference: optionMap.passkey_attachment_preference ?? '',
+      const { resources, errors } = await loadSettingsResources({
+        options: api.listOptions,
+        mailStatus: api.getMailStatus,
+        mailConfig: api.getMailConfig,
+        oauthStatus: api.getOAuthStatus,
+        oauthConfig: api.getOAuthConfig,
+        customOAuthProviders: api.listCustomOAuthProviders,
+        subscriptionPlans: api.listAdminSubscriptionPlans,
       });
-      setMailStatus(mailResponse.item);
-      setMailConfig(mailConfigResponse.item);
-      setOAuthStatus(oauthStatusResponse.item);
-      setOAuthConfig(oauthConfigResponse.item);
-      setCustomOAuthProviders(customOAuthProvidersResponse.items ?? []);
-      setSubscriptionPlans(subscriptionPlansResponse.items ?? []);
+
+      if (resources.options) {
+        const optionMap = toMap(resources.options.items ?? []);
+        const legacyCheckinQuota = optionMap.checkin_reward_quota;
+        setValues({
+          ...optionMap,
+          checkin_enabled: optionMap.checkin_enabled ?? 'true',
+          checkin_min_quota: optionMap.checkin_min_quota ?? legacyCheckinQuota ?? '1000',
+          checkin_max_quota: optionMap.checkin_max_quota ?? legacyCheckinQuota ?? '10000',
+          passkey_enabled: optionMap.passkey_enabled ?? 'false',
+          passkey_rp_display_name: optionMap.passkey_rp_display_name ?? '',
+          passkey_rp_id: optionMap.passkey_rp_id ?? '',
+          passkey_origins: optionMap.passkey_origins ?? '',
+          passkey_allow_insecure_origin: optionMap.passkey_allow_insecure_origin ?? 'false',
+          passkey_user_verification: optionMap.passkey_user_verification ?? 'preferred',
+          passkey_attachment_preference: optionMap.passkey_attachment_preference ?? '',
+        });
+      }
+
+      if (resources.mailStatus) setMailStatus(resources.mailStatus.item);
+      if (resources.mailConfig) setMailConfig(resources.mailConfig.item);
+      if (resources.oauthStatus) setOAuthStatus(resources.oauthStatus.item);
+      if (resources.oauthConfig) setOAuthConfig(resources.oauthConfig.item);
+      if (resources.customOAuthProviders) setCustomOAuthProviders(resources.customOAuthProviders.items ?? []);
+      if (resources.subscriptionPlans) setSubscriptionPlans(resources.subscriptionPlans.items ?? []);
       setTestMailRecipient((current) => current || user?.email || '');
-    } catch (error) {
-      Toast.error(error instanceof Error ? error.message : '加载设置失败');
+
+      if (errors.length > 0) {
+        Toast.error(`部分设置加载失败：${errors.map((error) => error.message).join('；')}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -521,7 +529,7 @@ export default function SettingPage() {
           <div className="console-eyebrow">Settings</div>
           <Typography.Title heading={2} style={{ margin: '6px 0 8px' }}>系统设置</Typography.Title>
           <Typography.Paragraph className="console-description">
-            {activeSectionMeta.description} 配置会写入后端 system options。
+            {getSettingSectionPageDescription(activeSection)}
           </Typography.Paragraph>
         </div>
         <Space wrap>
@@ -532,22 +540,25 @@ export default function SettingPage() {
         </Space>
       </section>
 
-      <Card bordered={false} className="dashboard-card settings-section-nav">
-        <Space wrap>
-          {settingSections.map((section) => (
-            <Button
-              key={section.key}
-              theme={activeSection === section.key ? 'solid' : 'light'}
-              type={activeSection === section.key ? 'primary' : 'tertiary'}
-              onClick={() => selectSection(section.key)}
-            >
-              {section.label}
-            </Button>
-          ))}
-        </Space>
-      </Card>
+      <nav aria-label="设置业务域">
+        <Card bordered={false} className="dashboard-card settings-section-nav">
+          <Space wrap>
+            {settingSections.map((section) => (
+              <Button
+                key={section.key}
+                theme={activeSection === section.key ? 'solid' : 'light'}
+                type={activeSection === section.key ? 'primary' : 'tertiary'}
+                {...getSettingSectionNavigationProps(activeSection, section.key)}
+                onClick={() => selectSection(section.key)}
+              >
+                {section.label}
+              </Button>
+            ))}
+          </Space>
+        </Card>
+      </nav>
 
-      <Card bordered={false} className="dashboard-card settings-card" style={{ marginTop: 16, display: activeSection === 'general' ? undefined : 'none' }}>
+      <Card bordered={false} className="dashboard-card settings-card" style={{ marginTop: 16, display: isSettingSectionActive(activeSection, 'general') ? undefined : 'none' }}>
           <div className="settings-grid">
           {generalOptionMeta.map((option) => (
             <label className="setting-field" key={option.key}>
@@ -579,7 +590,7 @@ export default function SettingPage() {
         </div>
       </Card>
 
-      <Card bordered={false} className="dashboard-card settings-card" style={{ marginTop: 16, display: activeSection === 'general' ? undefined : 'none' }}>
+      <Card bordered={false} className="dashboard-card settings-card" style={{ marginTop: 16, display: isSettingSectionActive(activeSection, 'general') ? undefined : 'none' }}>
         <Space vertical align="start" style={{ width: '100%' }}>
           <div>
             <Typography.Title heading={5} style={{ marginBottom: 4 }}>签到设置</Typography.Title>
@@ -629,7 +640,7 @@ export default function SettingPage() {
         </Space>
       </Card>
 
-      <Card bordered={false} className="dashboard-card settings-card" style={{ marginTop: 16, display: activeSection === 'security' ? undefined : 'none' }}>
+      <Card bordered={false} className="dashboard-card settings-card" style={{ marginTop: 16, display: isSettingSectionActive(activeSection, 'security') ? undefined : 'none' }}>
         <Space vertical align="start" style={{ width: '100%' }}>
           <div>
             <Typography.Title heading={5} style={{ marginBottom: 4 }}>Passkey 设置</Typography.Title>
@@ -684,7 +695,7 @@ export default function SettingPage() {
         </Space>
       </Card>
 
-      <Card bordered={false} className="dashboard-card settings-card" style={{ marginTop: 16, display: activeSection === 'billing' ? undefined : 'none' }}>
+      <Card bordered={false} className="dashboard-card settings-card" style={{ marginTop: 16, display: isSettingSectionActive(activeSection, 'billing') ? undefined : 'none' }}>
         <Space vertical align="start" style={{ width: '100%' }}>
           <Space align="start" style={{ width: '100%', justifyContent: 'space-between' }} wrap>
             <div>
@@ -869,7 +880,7 @@ export default function SettingPage() {
         </Space>
       </Card>
 
-      <Card bordered={false} className="dashboard-card settings-card" style={{ marginTop: 16, display: activeSection === 'oauth' ? undefined : 'none' }}>
+      <Card bordered={false} className="dashboard-card settings-card" style={{ marginTop: 16, display: isSettingSectionActive(activeSection, 'oauth') ? undefined : 'none' }}>
         <Space vertical align="start" style={{ width: '100%' }}>
           <div>
             <Typography.Title heading={5} style={{ marginBottom: 4 }}>OIDC 登录设置</Typography.Title>
@@ -1011,7 +1022,7 @@ export default function SettingPage() {
         </Space>
       </Card>
 
-      <Card bordered={false} className="dashboard-card settings-card" style={{ marginTop: 16, display: activeSection === 'oauth' ? undefined : 'none' }}>
+      <Card bordered={false} className="dashboard-card settings-card" style={{ marginTop: 16, display: isSettingSectionActive(activeSection, 'oauth') ? undefined : 'none' }}>
         <Space vertical align="start" style={{ width: '100%' }}>
           <div>
             <Typography.Title heading={5} style={{ marginBottom: 4 }}>自定义 OAuth Provider</Typography.Title>
@@ -1272,7 +1283,7 @@ export default function SettingPage() {
         </Space>
       </Card>
 
-      <Card bordered={false} className="dashboard-card settings-card" style={{ marginTop: 16, display: activeSection === 'security' ? undefined : 'none' }}>
+      <Card bordered={false} className="dashboard-card settings-card" style={{ marginTop: 16, display: isSettingSectionActive(activeSection, 'security') ? undefined : 'none' }}>
         <Space vertical align="start" style={{ width: '100%' }}>
           <div>
             <Typography.Title heading={5} style={{ marginBottom: 4 }}>邮件配置</Typography.Title>

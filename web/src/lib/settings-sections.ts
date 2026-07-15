@@ -33,6 +33,22 @@ export const getSettingSection = (value: string | null | undefined): SettingSect
 export const getSettingSectionMeta = (section: SettingSection) =>
   settingSections.find((item) => item.key === section) ?? settingSections[0];
 
+export const getSettingSectionPageDescription = (section: SettingSection) =>
+  getSettingSectionMeta(section).description;
+
+export const getSettingSectionNavigationProps = (
+  activeSection: SettingSection,
+  section: SettingSection,
+) => ({
+  'aria-current': activeSection === section ? 'page' as const : undefined,
+  'aria-pressed': activeSection === section,
+});
+
+export const isSettingSectionActive = (
+  activeSection: SettingSection,
+  section: SettingSection,
+) => activeSection === section;
+
 export const updateSettingSectionSearch = (search: string, section: SettingSection) => {
   const params = new URLSearchParams(search);
   params.set('section', section);
