@@ -41,7 +41,24 @@ const readTranslationKeys = () => {
   return [...keys].sort();
 };
 
+const readDuplicateJsonKeys = (path: string) => {
+  const source = readFileSync(path, 'utf8');
+  const keys = [...source.matchAll(/^\s*"([^"]+)"\s*:/gm)].map((match) => match[1]!);
+  const seen = new Set<string>();
+
+  return keys.filter((key) => {
+    if (seen.has(key)) return true;
+    seen.add(key);
+    return false;
+  });
+};
+
 describe('i18n resources', () => {
+  it('does not contain duplicate JSON keys that would be silently overwritten', () => {
+    expect(readDuplicateJsonKeys('web/src/i18n/locales/en.json')).toEqual([]);
+    expect(readDuplicateJsonKeys('web/src/i18n/locales/zh-CN.json')).toEqual([]);
+  });
+
   it('keeps English and Chinese resource keys aligned', () => {
     expect(Object.keys(en).sort()).toEqual(Object.keys(zhCN).sort());
   });
