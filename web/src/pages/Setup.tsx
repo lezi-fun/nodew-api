@@ -1,12 +1,14 @@
 import { Button, Card, Form, Toast, Typography } from '@douyinfe/semi-ui';
 import { useContext, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 import { StatusContext } from '../context/Status';
 import { UserContext } from '../context/User';
 import { api } from '../lib/api';
 
 export default function SetupPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { refresh: refreshStatus } = useContext(StatusContext);
   const { refresh: refreshUser } = useContext(UserContext);
@@ -15,9 +17,9 @@ export default function SetupPage() {
   return (
     <main className="setup-page">
       <Card className="setup-card" bordered={false}>
-        <Typography.Title heading={2}>初始化</Typography.Title>
+        <Typography.Title heading={2}>{t('初始化')}</Typography.Title>
         <Typography.Paragraph type="tertiary">
-          创建首个管理员账号并完成系统初始化。
+          {t('创建首个管理员账号并完成系统初始化。')}
         </Typography.Paragraph>
         <Form<{ email: string; username: string; displayName?: string; password: string }>
           onSubmit={async (values) => {
@@ -31,20 +33,20 @@ export default function SetupPage() {
               });
               await refreshStatus();
               await refreshUser();
-              Toast.success('初始化成功');
+              Toast.success(t('初始化成功'));
               navigate('/console');
             } catch (error) {
-              Toast.error(error instanceof Error ? error.message : '初始化失败');
+              Toast.error(error instanceof Error ? error.message : t('初始化失败'));
             } finally {
               setLoading(false);
             }
           }}
         >
-          <Form.Input field="email" label="邮箱" rules={[{ required: true }]} />
-          <Form.Input field="username" label="用户名" rules={[{ required: true }]} />
-          <Form.Input field="displayName" label="显示名称" />
-          <Form.Input field="password" label="密码" mode="password" rules={[{ required: true }]} />
-          <Button htmlType="submit" theme="solid" loading={loading} block>完成初始化</Button>
+          <Form.Input field="email" label={t('邮箱')} rules={[{ required: true }]} />
+          <Form.Input field="username" label={t('用户名')} rules={[{ required: true }]} />
+          <Form.Input field="displayName" label={t('显示名称')} />
+          <Form.Input field="password" label={t('密码')} mode="password" rules={[{ required: true }]} />
+          <Button htmlType="submit" theme="solid" loading={loading} block>{t('完成初始化')}</Button>
         </Form>
       </Card>
     </main>

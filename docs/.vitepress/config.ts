@@ -1,4 +1,12 @@
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { defineConfig } from 'vitepress';
+
+import { getPageFileDates } from './file-dates.js';
+
+const docsRoot = fileURLToPath(new URL('..', import.meta.url));
+const repositoryRoot = resolve(docsRoot, '..');
 
 const sharedThemeConfig = {
   logo: '/logo.svg',
@@ -19,6 +27,7 @@ const enThemeConfig = {
   nav: [
     { text: 'Guide', link: '/guide/getting-started' },
     { text: 'API', link: '/reference/relay-api' },
+    { text: 'Development', link: '/development/architecture' },
     { text: 'Deployment', link: '/deployment/vercel' },
     {
       text: 'Language',
@@ -52,6 +61,19 @@ const enThemeConfig = {
         ],
       },
     ],
+    '/development/': [
+      {
+        text: 'Development',
+        items: [
+          { text: 'Architecture Overview', link: '/development/architecture' },
+          { text: 'Backend Structure', link: '/development/backend-structure' },
+          { text: 'Frontend Structure', link: '/development/frontend-structure' },
+          { text: 'Code Map', link: '/development/code-map' },
+          { text: 'Testing Guide', link: '/development/testing-guide' },
+          { text: 'i18n Guide', link: '/development/i18n-guide' },
+        ],
+      },
+    ],
     '/deployment/': [
       {
         text: 'Deployment',
@@ -70,6 +92,7 @@ const zhThemeConfig = {
   nav: [
     { text: '指南', link: '/zh/guide/getting-started' },
     { text: 'API', link: '/zh/reference/relay-api' },
+    { text: '开发', link: '/zh/development/architecture' },
     { text: '部署', link: '/zh/deployment/vercel' },
     {
       text: '语言',
@@ -103,6 +126,19 @@ const zhThemeConfig = {
         ],
       },
     ],
+    '/zh/development/': [
+      {
+        text: '开发',
+        items: [
+          { text: '架构总览', link: '/zh/development/architecture' },
+          { text: '后端结构', link: '/zh/development/backend-structure' },
+          { text: '前端结构', link: '/zh/development/frontend-structure' },
+          { text: '代码地图', link: '/zh/development/code-map' },
+          { text: '测试指南', link: '/zh/development/testing-guide' },
+          { text: 'i18n 指南', link: '/zh/development/i18n-guide' },
+        ],
+      },
+    ],
     '/zh/deployment/': [
       {
         text: '部署',
@@ -120,7 +156,14 @@ export default defineConfig({
   title: 'NodEW-api',
   description: 'Node.js and TypeScript edition of the One API gateway.',
   cleanUrls: true,
-  lastUpdated: true,
+  lastUpdated: false,
+  transformPageData(pageData) {
+    pageData.frontmatter.fileDates = getPageFileDates(
+      pageData.relativePath,
+      docsRoot,
+      repositoryRoot,
+    );
+  },
   head: [
     ['meta', { name: 'theme-color', content: '#2563eb' }],
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/logo.svg' }],

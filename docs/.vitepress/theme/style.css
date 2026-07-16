@@ -1,0 +1,24 @@
+.file-dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin: 24px 0 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--vp-c-divider);
+  color: var(--vp-c-text-2);
+  font-size: 13px;
+}
+
+.file-dates span {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.file-dates strong {
+  color: var(--vp-c-text-1);
+  font-weight: 600;
+}
+
+.file-dates time {
+  font-family: var(--vp-font-family-mono);
+}

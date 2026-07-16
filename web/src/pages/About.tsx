@@ -1,19 +1,20 @@
 import { Button, Card, Space, Toast, Typography } from '@douyinfe/semi-ui';
 import { IconGithubLogo, IconRefresh } from '@douyinfe/semi-icons';
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { api, type SiteInfo } from '../lib/api';
 
-const fallbackSite: SiteInfo = {
+const createFallbackSite = (description: string): SiteInfo => ({
   siteName: 'NodEW-api',
-  siteDescription: 'Node.js and TypeScript edition of the One API gateway.',
+  siteDescription: description,
   defaultModel: 'gpt-4o-mini',
   registrationEnabled: false,
   registrationEmailVerificationRequired: false,
   notice: '',
   userAgreement: '',
   privacyPolicy: '',
-  about: 'NodEW-api is a Node.js and TypeScript edition of the One API gateway.',
+  about: description,
   homePageContent: '',
   links: {
     github: 'https://github.com/lezi-fun/nodew-api',
@@ -26,10 +27,11 @@ const fallbackSite: SiteInfo = {
     channels: 0,
     activeChannels: 0,
   },
-};
+});
 
 export default function AboutPage() {
-  const [site, setSite] = useState<SiteInfo>(fallbackSite);
+  const { t } = useTranslation();
+  const [site, setSite] = useState<SiteInfo>(() => createFallbackSite(t('NodEW-api 是 One API 的 Node.js / TypeScript 版本。')));
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -38,11 +40,12 @@ export default function AboutPage() {
       const response = await api.getSiteInfo();
       setSite(response.data);
     } catch (error) {
-      Toast.error(error instanceof Error ? error.message : '加载关于信息失败');
+      setSite(createFallbackSite(t('NodEW-api 是 One API 的 Node.js / TypeScript 版本。')));
+      Toast.error(error instanceof Error ? error.message : t('加载关于信息失败'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -57,27 +60,27 @@ export default function AboutPage() {
           <Typography.Paragraph className="console-description">{site.siteDescription}</Typography.Paragraph>
         </div>
         <Space wrap>
-          <Button icon={<IconRefresh />} loading={loading} onClick={() => void load()}>刷新</Button>
+          <Button icon={<IconRefresh />} loading={loading} onClick={() => void load()}>{t('刷新')}</Button>
           <Button icon={<IconGithubLogo />} as="a" href={site.links.github} target="_blank" rel="noreferrer">GitHub</Button>
         </Space>
       </section>
 
       <section className="metric-grid">
-        <Card className="metric-card tone-blue" bordered={false}><span>用户</span><strong>{site.stats.users}</strong></Card>
-        <Card className="metric-card tone-green" bordered={false}><span>活跃令牌</span><strong>{site.stats.activeApiKeys}</strong></Card>
-        <Card className="metric-card tone-orange" bordered={false}><span>活跃渠道</span><strong>{site.stats.activeChannels}</strong></Card>
-        <Card className="metric-card tone-grey" bordered={false}><span>默认模型</span><strong>{site.defaultModel}</strong></Card>
+        <Card className="metric-card tone-blue" bordered={false}><span>{t('用户')}</span><strong>{site.stats.users}</strong></Card>
+        <Card className="metric-card tone-green" bordered={false}><span>{t('活跃令牌')}</span><strong>{site.stats.activeApiKeys}</strong></Card>
+        <Card className="metric-card tone-orange" bordered={false}><span>{t('活跃渠道')}</span><strong>{site.stats.activeChannels}</strong></Card>
+        <Card className="metric-card tone-grey" bordered={false}><span>{t('默认模型')}</span><strong>{site.defaultModel}</strong></Card>
       </section>
 
       <Card bordered={false} className="dashboard-card content-card">
-        <Typography.Title heading={4}>项目说明</Typography.Title>
-        <Typography.Paragraph>{site.about || fallbackSite.about}</Typography.Paragraph>
+        <Typography.Title heading={4}>{t('项目说明')}</Typography.Title>
+        <Typography.Paragraph>{site.about || t('NodEW-api 是 One API 的 Node.js / TypeScript 版本。')}</Typography.Paragraph>
         <Typography.Paragraph type="tertiary">
-          NodEW-api 是 One API 的 Node.js / TypeScript 版本，当前仍处于初步开发阶段，不建议直接用于生产环境。
+          {t('NodEW-api 是 One API 的 Node.js / TypeScript 版本，当前仍处于初步开发阶段，不建议直接用于生产环境。')}
         </Typography.Paragraph>
         <Space wrap>
           <Button as="a" href={site.links.upstream} target="_blank" rel="noreferrer">One API</Button>
-          <Button as="a" href={site.links.preview} target="_blank" rel="noreferrer">测试预览</Button>
+          <Button as="a" href={site.links.preview} target="_blank" rel="noreferrer">{t('测试预览')}</Button>
         </Space>
       </Card>
     </main>

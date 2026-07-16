@@ -8,11 +8,19 @@ const sourceFiles = [
   'web/src/components/layout/headerbar.tsx',
   'web/src/components/layout/SiderBar.tsx',
   'web/src/components/layout/Footer.tsx',
+  'web/src/components/billing/PricingOverview.tsx',
   'web/src/pages/Home.tsx',
   'web/src/pages/Login.tsx',
   'web/src/pages/Register.tsx',
   'web/src/pages/NotFound.tsx',
   'web/src/pages/Personal.tsx',
+  'web/src/pages/About.tsx',
+  'web/src/pages/Pricing.tsx',
+  'web/src/pages/Reset.tsx',
+  'web/src/pages/ResetConfirm.tsx',
+  'web/src/pages/Setup.tsx',
+  'web/src/pages/VerifyEmail.tsx',
+  'web/src/pages/OAuthCallback.tsx',
 ];
 
 const readTranslationKeys = () => {
@@ -43,6 +51,15 @@ describe('i18n resources', () => {
     const resourceKeys = new Set(Object.keys(en));
 
     expect(usedKeys.filter((key) => !resourceKeys.has(key))).toEqual([]);
+  });
+
+  it('connects every covered page to react-i18next', () => {
+    const missingHook = sourceFiles.filter((path) => {
+      const source = readFileSync(path, 'utf8');
+      return !source.includes('useTranslation');
+    });
+
+    expect(missingHook).toEqual([]);
   });
 
   it('provides meaningful English values instead of falling back to Chinese keys', () => {
