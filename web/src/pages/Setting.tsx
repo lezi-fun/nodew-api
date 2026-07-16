@@ -6,15 +6,18 @@ import { useSearchParams } from 'react-router-dom';
 import { UserContext } from '../context/User';
 import {
   api,
+  type CreemTopUpConfig,
   type CustomOAuthProvider,
   type CustomOAuthProviderPayload,
   type MailConfig,
   type MailStatus,
   type OAuthConfig,
   type OAuthStatus,
+  type StripeTopUpConfig,
   type SubscriptionPlanItem,
   type SystemOptionItem,
   type SystemOptionKey,
+  type WaffoTopUpConfig,
 } from '../lib/api';
 import { loadSettingsResources } from '../lib/settings-loader';
 import {
@@ -166,6 +169,31 @@ const emptySubscriptionPlanForm: SubscriptionPlanForm = {
   sortOrder: 0,
 };
 
+const fallbackStripeConfig: StripeTopUpConfig = {
+  enabled: false,
+  configured: false,
+  currency: 'usd',
+  quotaPerUnit: 100000,
+  unitAmountCents: 100,
+  minUnits: 1,
+};
+
+const fallbackCreemConfig: CreemTopUpConfig = {
+  enabled: false,
+  configured: false,
+  webhookConfigured: false,
+  testMode: false,
+  products: [],
+};
+
+const fallbackWaffoConfig: WaffoTopUpConfig = {
+  enabled: false,
+  configured: false,
+  webhookConfigured: false,
+  testMode: false,
+  products: [],
+};
+
 const toSubscriptionPlanForm = (plan: SubscriptionPlanItem): SubscriptionPlanForm => ({
   ...plan,
   featuresText: plan.features.join('\n'),
@@ -182,6 +210,9 @@ const toSubscriptionPlanItem = (form: SubscriptionPlanForm): SubscriptionPlanIte
       .filter(Boolean),
   };
 };
+
+const formatPaymentAmount = (amountCents: number, currency: string) =>
+  `${(amountCents / 100).toFixed(2)} ${currency.toUpperCase()}`;
 
 export default function SettingPage() {
   const { user } = useContext(UserContext);
@@ -200,6 +231,9 @@ export default function SettingPage() {
   const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlanItem[]>([]);
   const [subscriptionPlanForm, setSubscriptionPlanForm] = useState<SubscriptionPlanForm>(emptySubscriptionPlanForm);
   const [editingSubscriptionPlanId, setEditingSubscriptionPlanId] = useState<string | null>(null);
+  const [stripeConfig, setStripeConfig] = useState<StripeTopUpConfig>(fallbackStripeConfig);
+  const [creemConfig, setCreemConfig] = useState<CreemTopUpConfig>(fallbackCreemConfig);
+  const [waffoConfig, setWaffoConfig] = useState<WaffoTopUpConfig>(fallbackWaffoConfig);
   const [savingMail, setSavingMail] = useState(false);
   const [savingOAuth, setSavingOAuth] = useState(false);
   const [discoveringOIDC, setDiscoveringOIDC] = useState(false);
@@ -224,6 +258,9 @@ export default function SettingPage() {
         oauthConfig: api.getOAuthConfig,
         customOAuthProviders: api.listCustomOAuthProviders,
         subscriptionPlans: api.listAdminSubscriptionPlans,
+        stripeTopUpConfig: api.getStripeTopUpConfig,
+        creemTopUpConfig: api.getCreemTopUpConfig,
+        waffoTopUpConfig: api.getWaffoTopUpConfig,
       });
 
       if (resources.options) {
@@ -250,6 +287,9 @@ export default function SettingPage() {
       if (resources.oauthConfig) setOAuthConfig(resources.oauthConfig.item);
       if (resources.customOAuthProviders) setCustomOAuthProviders(resources.customOAuthProviders.items ?? []);
       if (resources.subscriptionPlans) setSubscriptionPlans(resources.subscriptionPlans.items ?? []);
+      if (resources.stripeTopUpConfig) setStripeConfig(resources.stripeTopUpConfig.item);
+      if (resources.creemTopUpConfig) setCreemConfig(resources.creemTopUpConfig.item);
+      if (resources.waffoTopUpConfig) setWaffoConfig(resources.waffoTopUpConfig.item);
       setTestMailRecipient((current) => current || user?.email || '');
 
       if (errors.length > 0) {
@@ -697,6 +737,79 @@ export default function SettingPage() {
 
       <Card bordered={false} className="dashboard-card settings-card" style={{ marginTop: 16, display: isSettingSectionActive(activeSection, 'billing') ? undefined : 'none' }}>
         <Space vertical align="start" style={{ width: '100%' }}>
+          <div>
+            <Typography.Title heading={5} style={{ marginBottom: 4 }}>支付通道状态</Typography.Title>
+            <Typography.Paragraph type="tertiary">
+              聚合 Stripe、Creem 和 Waffo 的启用与配置状态，便于先确认环境变量和 webhook 是否生效。
+            </Typography.Paragraph>
+          </div>
+
+          <div className="settings-grid" style={{ width: '100%' }}>
+            <Card bordered>
+              <Space vertical align="start" style={{ width: '100%' }}>
+                <Space wrap>
+                  <Typography.Text strong>Stripe</Typography.Text>
+                  <Tag color={stripeConfig.enabled ? 'green' : 'grey'}>{stripeConfig.enabled ? '已启用' : '未启用'}</Tag>
+                  <Tag color={stripeConfig.configured ? 'blue' : 'orange'}>{stripeConfig.configured ? '配置完整' : '待配置'}</Tag>
+                </Space>
+                <Typography.Text type="tertiary">国际卡与 Stripe Checkout 单次充值。</Typography.Text>
+                <Typography.Text>单价：{formatPaymentAmount(stripeConfig.unitAmountCents, stripeConfig.currency)}</Typography.Text>
+                <Typography.Text>最少购买份数：{stripeConfig.minUnits}</Typography.Text>
+                <Typography.Text>每份入账额度：{stripeConfig.quotaPerUnit.toLocaleString('zh-CN')}</Typography.Text>
+              </Space>
+            </Card>
+
+            <Card bordered>
+              <Space vertical align="start" style={{ width: '100%' }}>
+                <Space wrap>
+                  <Typography.Text strong>Creem</Typography.Text>
+                  <Tag color={creemConfig.enabled ? 'green' : 'grey'}>{creemConfig.enabled ? '已启用' : '未启用'}</Tag>
+                  <Tag color={creemConfig.configured ? 'blue' : 'orange'}>{creemConfig.configured ? '配置完整' : '待配置'}</Tag>
+                  <Tag color={creemConfig.webhookConfigured ? 'cyan' : 'red'}>{creemConfig.webhookConfigured ? 'Webhook 就绪' : 'Webhook 缺失'}</Tag>
+                  {creemConfig.testMode ? <Tag color="purple">测试模式</Tag> : null}
+                </Space>
+                <Typography.Text type="tertiary">托管支付产品目录，适合预设档位充值。</Typography.Text>
+                <Typography.Text>可售产品数：{creemConfig.products.length}</Typography.Text>
+                {creemConfig.products.length > 0 ? (
+                  <Space vertical align="start" spacing="tight" style={{ width: '100%' }}>
+                    {creemConfig.products.slice(0, 3).map((product) => (
+                      <Typography.Text key={product.productId}>
+                        {product.name} · {formatPaymentAmount(product.amountCents, product.currency)} · {product.quotaAmount.toLocaleString('zh-CN')} 额度
+                      </Typography.Text>
+                    ))}
+                  </Space>
+                ) : (
+                  <Typography.Text type="tertiary">当前还没有可售产品。</Typography.Text>
+                )}
+              </Space>
+            </Card>
+
+            <Card bordered>
+              <Space vertical align="start" style={{ width: '100%' }}>
+                <Space wrap>
+                  <Typography.Text strong>Waffo</Typography.Text>
+                  <Tag color={waffoConfig.enabled ? 'green' : 'grey'}>{waffoConfig.enabled ? '已启用' : '未启用'}</Tag>
+                  <Tag color={waffoConfig.configured ? 'blue' : 'orange'}>{waffoConfig.configured ? '配置完整' : '待配置'}</Tag>
+                  <Tag color={waffoConfig.webhookConfigured ? 'cyan' : 'red'}>{waffoConfig.webhookConfigured ? 'Webhook 就绪' : 'Webhook 缺失'}</Tag>
+                  {waffoConfig.testMode ? <Tag color="purple">测试模式</Tag> : null}
+                </Space>
+                <Typography.Text type="tertiary">本地化支付方式目录，按后台产品配置跳转支付。</Typography.Text>
+                <Typography.Text>可售产品数：{waffoConfig.products.length}</Typography.Text>
+                {waffoConfig.products.length > 0 ? (
+                  <Space vertical align="start" spacing="tight" style={{ width: '100%' }}>
+                    {waffoConfig.products.slice(0, 3).map((product) => (
+                      <Typography.Text key={product.productId}>
+                        {product.name} · {formatPaymentAmount(product.amountCents, product.currency)} · {product.quotaAmount.toLocaleString('zh-CN')} 额度
+                      </Typography.Text>
+                    ))}
+                  </Space>
+                ) : (
+                  <Typography.Text type="tertiary">当前还没有可售产品。</Typography.Text>
+                )}
+              </Space>
+            </Card>
+          </div>
+
           <Space align="start" style={{ width: '100%', justifyContent: 'space-between' }} wrap>
             <div>
               <Typography.Title heading={5} style={{ marginBottom: 4 }}>订阅套餐管理</Typography.Title>

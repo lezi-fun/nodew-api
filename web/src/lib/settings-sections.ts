@@ -17,7 +17,7 @@ export const settingSections = [
   {
     key: 'billing',
     label: '订阅与计费',
-    description: '订阅套餐的展示、价格、额度和有效期。',
+    description: '支付网关状态、订阅套餐的展示、价格、额度和有效期。',
   },
 ] as const;
 
