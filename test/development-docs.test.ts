@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 const slugs = [
@@ -50,6 +50,28 @@ describe('development documentation', () => {
         expect(content).toMatch(/`(?:src|web\/src|test|prisma|docs)\//);
         expect(content).toMatch(/npm (?:run|test)|bun run/);
       }
+    }
+  });
+
+  it('uses repository-root paths in both code maps', () => {
+    for (const path of ['docs/development/code-map.md', 'docs/zh/development/code-map.md']) {
+      const content = readFileSync(path, 'utf8');
+      const codeReferences = [...content.matchAll(/`([^`]+\.(?:ts|tsx)|[^`]+\/(?:\*\*\/)?\*)`/g)]
+        .map((match) => match[1]!);
+      const shortened = codeReferences.filter((reference) =>
+        !reference.startsWith('src/') &&
+        !reference.startsWith('web/src/') &&
+        !reference.startsWith('test/') &&
+        !reference.startsWith('docs/') &&
+        !reference.startsWith('prisma/'));
+      const missing = codeReferences.filter((reference) => {
+        if (reference.includes('*')) return false;
+        if (!existsSync(reference)) return true;
+        return reference.endsWith('/') && !statSync(reference).isDirectory();
+      });
+
+      expect(shortened, path).toEqual([]);
+      expect(missing, path).toEqual([]);
     }
   });
 

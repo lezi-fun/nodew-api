@@ -40,7 +40,7 @@ export default function PricingPage() {
 
   return (
     <PricingOverview
-      eyebrow="Pricing"
+      eyebrow={t('价格')}
       title={t('价格与额度')}
       description={t('当前实例使用 quota 额度计费模型，价格页从后端公开配置读取，避免前端静态漂移。')}
       actionText={t('前往充值')}

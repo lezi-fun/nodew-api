@@ -35,7 +35,7 @@ Browser / SDK
 
 1. A client calls `/v1/chat/completions`, `/v1/responses`, `/v1/messages`, or `/v1beta/*`.
 2. `src/modules/relay/routes.ts` authenticates the key and starts routing.
-3. `model-routing.ts`, `channel-selector.ts`, and `balancer.ts` select a channel.
+3. `src/modules/relay/model-routing.ts`, `src/modules/relay/channel-selector.ts`, and `src/modules/relay/balancer.ts` select a channel.
 4. Provider adapters and services translate and forward the request.
 5. `src/modules/relay/billing.ts` records tokens, quota, and usage logs.
 
@@ -68,7 +68,7 @@ Browser / SDK
 4. Apply data changes to both Prisma schemas and migration trees.
 5. Add request and response types to `web/src/lib/api.ts`.
 6. Build the UI in `web/src/pages/` or `web/src/components/`.
-7. Register routes and navigation in `web/src/App.tsx` and `SiderBar.tsx`.
+7. Register routes and navigation in `web/src/App.tsx` and `web/src/components/layout/SiderBar.tsx`.
 8. Add English/Chinese resources and tests.
 
 ## Verification

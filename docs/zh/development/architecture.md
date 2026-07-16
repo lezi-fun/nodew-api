@@ -35,7 +35,7 @@
 
 1. 客户端请求 `/v1/chat/completions`、`/v1/responses`、`/v1/messages` 或 `/v1beta/*`。
 2. `src/modules/relay/routes.ts` 校验 API Key，并调用模型路由与渠道选择。
-3. `src/modules/relay/model-routing.ts`、`channel-selector.ts`、`balancer.ts` 选择可用渠道。
+3. `src/modules/relay/model-routing.ts`、`src/modules/relay/channel-selector.ts`、`src/modules/relay/balancer.ts` 选择可用渠道。
 4. provider adapter/service 转换请求并转发上游。
 5. `src/modules/relay/billing.ts` 和用量日志记录 token 与额度。
 
@@ -70,7 +70,7 @@
 4. 数据结构变化同时修改两个 Prisma schema 和两个 migrations 目录。
 5. 在 `web/src/lib/api.ts` 增加类型与请求方法。
 6. 在 `web/src/pages/` 或 `web/src/components/` 增加 UI。
-7. 在 `web/src/App.tsx` 和 `SiderBar.tsx` 注册页面入口。
+7. 在 `web/src/App.tsx` 和 `web/src/components/layout/SiderBar.tsx` 注册页面入口。
 8. 增加中英文翻译与测试。
 
 ## 验证命令

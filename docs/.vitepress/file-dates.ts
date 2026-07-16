@@ -10,7 +10,7 @@ export type FileDates = {
 export const getFilesystemCreatedAt = (birthtime: Date, mtime: Date) =>
   birthtime.getTime() > 0 ? birthtime.toISOString() : mtime.toISOString();
 
-const gitDate = (root: string, file: string, args: string[]) => {
+const gitDate = (root: string, file: string, args: string[], position: 'first' | 'last' = 'first') => {
   try {
     const output = execFileSync(
       'git',
@@ -18,7 +18,8 @@ const gitDate = (root: string, file: string, args: string[]) => {
       { cwd: root, encoding: 'utf8', timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] },
     );
 
-    return output.split('\n').find(Boolean)?.trim() ?? '';
+    const dates = output.split('\n').map((value) => value.trim()).filter(Boolean);
+    return (position === 'last' ? dates.at(-1) : dates[0]) ?? '';
   } catch {
     return '';
   }
@@ -42,7 +43,7 @@ export const getFileDates = (file: string, repositoryRoot: string): FileDates =>
   const stats = statSync(file);
   const filesystemCreated = getFilesystemCreatedAt(stats.birthtime, stats.mtime);
   const filesystemUpdated = stats.mtime.toISOString();
-  const created = gitDate(repositoryRoot, file, ['--follow', '--diff-filter=A', '--reverse']);
+  const created = gitDate(repositoryRoot, file, ['--follow'], 'last');
   const gitUpdated = gitDate(repositoryRoot, file, ['-1']);
   const updated = hasWorkingTreeChanges(repositoryRoot, file)
     ? filesystemUpdated

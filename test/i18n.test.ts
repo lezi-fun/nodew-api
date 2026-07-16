@@ -62,6 +62,16 @@ describe('i18n resources', () => {
     expect(missingHook).toEqual([]);
   });
 
+  it('localizes public page eyebrow labels', () => {
+    const about = readFileSync('web/src/pages/About.tsx', 'utf8');
+    const pricing = readFileSync('web/src/pages/Pricing.tsx', 'utf8');
+
+    expect(about).toContain("t('关于')");
+    expect(about).not.toContain('>About</div>');
+    expect(pricing).toContain("t('价格')");
+    expect(pricing).not.toContain('eyebrow="Pricing"');
+  });
+
   it('provides meaningful English values instead of falling back to Chinese keys', () => {
     const unchanged = Object.entries(en)
       .filter(([key, value]) => key === value && /[\u3400-\u9fff]/.test(key))

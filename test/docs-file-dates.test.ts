@@ -55,6 +55,26 @@ describe('documentation file dates', () => {
     expect(new Date(dates.updated).toISOString()).toBe('2025-03-04T05:06:07.000Z');
   });
 
+  it('keeps the original creation date after a document is renamed', () => {
+    const root = mkdtempSync(join(tmpdir(), 'nodew-doc-dates-'));
+    mkdirSync(join(root, 'docs'), { recursive: true });
+    const original = join(root, 'docs', 'original.md');
+    const renamed = join(root, 'docs', 'renamed.md');
+
+    git(root, 'init');
+    git(root, 'config', 'user.email', 'test@example.com');
+    git(root, 'config', 'user.name', 'Test User');
+    writeFileSync(original, '# Original\n');
+    git(root, 'add', '.');
+    commitAt(root, 'create original doc', '2025-01-02T03:04:05Z');
+    git(root, 'mv', 'docs/original.md', 'docs/renamed.md');
+    commitAt(root, 'rename doc', '2025-02-03T04:05:06Z');
+
+    const dates = getFileDates(renamed, root);
+    expect(new Date(dates.created).toISOString()).toBe('2025-01-02T03:04:05.000Z');
+    expect(new Date(dates.updated).toISOString()).toBe('2025-02-03T04:05:06.000Z');
+  });
+
   it('falls back to filesystem dates for an untracked article', () => {
     const root = mkdtempSync(join(tmpdir(), 'nodew-doc-dates-'));
     mkdirSync(join(root, 'docs', 'development'), { recursive: true });

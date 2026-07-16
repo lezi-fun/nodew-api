@@ -55,7 +55,7 @@ export default function AboutPage() {
     <main className="page-shell about-page">
       <section className="console-hero">
         <div>
-          <div className="console-eyebrow">About</div>
+          <div className="console-eyebrow">{t('关于')}</div>
           <Typography.Title heading={2} style={{ margin: '6px 0 8px' }}>{site.siteName}</Typography.Title>
           <Typography.Paragraph className="console-description">{site.siteDescription}</Typography.Paragraph>
         </div>
