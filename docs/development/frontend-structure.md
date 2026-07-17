@@ -88,6 +88,8 @@ Email verification and OAuth callbacks consume one-time values. They use `web/sr
 | `web/src/context/Theme.tsx` | Theme persistence and switching. |
 | `web/src/context/User.tsx` | Current-user state, refresh, and logout. |
 | `web/src/features/settings/components/SettingsPageHeader.tsx` | Settings page heading, actions, and business-domain navigation. |
+| `web/src/features/settings/components/SettingsOptionGrid.tsx` | Shared renderer for typed system-option fields. |
+| `web/src/features/settings/option-metadata.ts` | General, check-in, and Passkey option definitions. |
 | `web/src/features/settings/sections.ts` | Settings domains, URL sections, descriptions, and navigation attributes. |
 | `web/src/i18n/i18n.ts` | i18next resources and detector initialization. |
 | `web/src/i18n/language.ts` | Supported-language normalization and preference priority. |

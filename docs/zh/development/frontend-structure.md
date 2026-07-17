@@ -88,6 +88,8 @@
 | `web/src/context/Theme.tsx` | 主题持久化和切换。 |
 | `web/src/context/User.tsx` | 当前用户状态、刷新、登出。 |
 | `web/src/features/settings/components/SettingsPageHeader.tsx` | 设置页标题、操作区和业务域导航。 |
+| `web/src/features/settings/components/SettingsOptionGrid.tsx` | 类型化系统设置字段的通用渲染器。 |
+| `web/src/features/settings/option-metadata.ts` | 基础、签到和 Passkey 设置项定义。 |
 | `web/src/features/settings/sections.ts` | 设置业务域、URL section、描述和导航属性。 |
 | `web/src/i18n/i18n.ts` | i18next 资源和 detector 初始化。 |
 | `web/src/i18n/language.ts` | 支持语言规范化和偏好优先级。 |

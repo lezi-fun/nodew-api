@@ -7,6 +7,11 @@ import {
   settingSections,
   updateSettingSectionSearch,
 } from '../web/src/features/settings/sections.js';
+import {
+  checkinOptionMeta,
+  generalOptionMeta,
+  passkeyOptionMeta,
+} from '../web/src/features/settings/option-metadata.js';
 import { readFileSync } from 'node:fs';
 
 describe('settings section navigation', () => {
@@ -81,5 +86,18 @@ describe('settings section navigation', () => {
     expect(settingPage).toContain('<SettingsPageHeader');
     expect(header).toContain('aria-label="设置业务域"');
     expect(header).toContain('getSettingSectionNavigationProps');
+  });
+
+  it('keeps option metadata typed and grouped by settings domain', () => {
+    expect(generalOptionMeta.some((option) => option.key === 'registration_email_verification_required')).toBe(true);
+    expect(checkinOptionMeta.map((option) => option.key)).toEqual([
+      'checkin_enabled',
+      'checkin_min_quota',
+      'checkin_max_quota',
+    ]);
+    expect(passkeyOptionMeta.find((option) => option.key === 'passkey_origins')).toMatchObject({
+      type: 'textarea',
+      rows: 4,
+    });
   });
 });
