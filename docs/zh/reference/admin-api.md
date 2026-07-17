@@ -33,6 +33,13 @@
 
 `GET /api/site` 会返回公开站点元信息、链接、内容配置和简要运行状态。
 
+## 支付设置
+
+- `GET /api/options/payment/config` 返回 Stripe、Creem 和 Waffo 的可编辑配置。
+- `PUT /api/options/payment/config` 保存支付通道开关、`APP_BASE_URL`、价格、测试模式、产品目录和凭据。
+
+接口不会回传凭据明文，只返回 `hasSecretKey`、`hasWebhookSecret`、`hasApiKey`、`hasPrivateKey` 和 `hasPublicKey` 状态；提交空凭据会保留原数据库或环境变量中的值。数据库设置优先，环境变量继续作为兜底。
+
 ## Session 鉴权
 
 Web 控制台使用后端认证接口完成登录、注册、初始化和用户信息读取。

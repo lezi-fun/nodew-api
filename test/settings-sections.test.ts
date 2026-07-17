@@ -7,6 +7,7 @@ import {
   settingSections,
   updateSettingSectionSearch,
 } from '../web/src/lib/settings-sections.js';
+import { readFileSync } from 'node:fs';
 
 describe('settings section navigation', () => {
   it('defines the four business domains in their display order', () => {
@@ -58,5 +59,17 @@ describe('settings section navigation', () => {
       expect(section.label.trim()).not.toBe('');
       expect(section.description.trim()).not.toBe('');
     }
+  });
+
+  it('connects the billing section to editable payment configuration', () => {
+    const settingPage = readFileSync('web/src/pages/Setting.tsx', 'utf8');
+    const apiSource = readFileSync('web/src/lib/api.ts', 'utf8');
+
+    expect(apiSource).toContain("'/api/options/payment/config'");
+    expect(settingPage).toContain('api.getPaymentConfig');
+    expect(settingPage).toContain('api.updatePaymentConfig');
+    expect(settingPage).toContain('保存支付设置');
+    expect(settingPage).toContain('Creem 设置');
+    expect(settingPage).toContain('Waffo 设置');
   });
 });

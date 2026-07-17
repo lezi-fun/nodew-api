@@ -3,19 +3,17 @@ import { z } from 'zod';
 
 import {
   createCreemCheckoutSession,
-  getCreemTopUpConfig,
   verifyCreemWebhookSignature,
 } from '../../lib/creem.js';
 import { prisma } from '../../lib/prisma.js';
+import { getPaymentConfiguration } from '../../lib/payment-config.js';
 import { appendUserSubscription } from '../../lib/user-subscriptions.js';
 import {
   createStripeCheckoutSession,
-  getStripeTopUpConfig,
   verifyStripeWebhookSignature,
 } from '../../lib/stripe.js';
 import {
   createWaffoCheckoutSession,
-  getWaffoTopUpConfig,
   verifyWaffoWebhookSignature,
 } from '../../lib/waffo.js';
 
@@ -80,8 +78,8 @@ const waffoCheckoutBodySchema = z.object({
   productId: z.string().trim().min(1).max(255),
 });
 
-const buildAppUrl = (path: string) => {
-  const appBaseUrl = process.env.APP_BASE_URL?.trim();
+const buildAppUrl = (path: string, configuredAppBaseUrl?: string) => {
+  const appBaseUrl = configuredAppBaseUrl?.trim() || process.env.APP_BASE_URL?.trim();
 
   if (!appBaseUrl) {
     throw new Error('APP_BASE_URL is required for Stripe top-up');
@@ -519,28 +517,55 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
 
   app.get('/user/topup/stripe/config', {
     preHandler: app.requireUser,
-  }, async () => ({
-    item: getStripeTopUpConfig(),
-  }));
+  }, async () => {
+    const configuration = await getPaymentConfiguration();
+    const stripe = configuration.runtime.stripe;
+
+    return {
+      item: {
+        enabled: stripe.enabled,
+        configured: stripe.configured,
+        currency: stripe.currency,
+        quotaPerUnit: stripe.quotaPerUnit,
+        unitAmountCents: stripe.unitAmountCents,
+        minUnits: stripe.minUnits,
+      },
+    };
+  });
 
   app.get('/user/topup/creem/config', {
     preHandler: app.requireUser,
-  }, async () => ({
-    item: getCreemTopUpConfig(),
-  }));
+  }, async () => {
+    const { creem } = (await getPaymentConfiguration()).runtime;
+    return { item: {
+      enabled: creem.enabled,
+      configured: creem.configured,
+      webhookConfigured: creem.webhookConfigured,
+      testMode: creem.testMode,
+      products: creem.products,
+    } };
+  });
 
   app.get('/user/topup/waffo/config', {
     preHandler: app.requireUser,
-  }, async () => ({
-    item: getWaffoTopUpConfig(),
-  }));
+  }, async () => {
+    const { waffo } = (await getPaymentConfiguration()).runtime;
+    return { item: {
+      enabled: waffo.enabled,
+      configured: waffo.configured,
+      webhookConfigured: waffo.webhookConfigured,
+      testMode: waffo.testMode,
+      products: waffo.products,
+    } };
+  });
 
   app.post('/user/topup/creem/checkout', {
     preHandler: app.requireUser,
   }, async (request) => {
     const body = creemCheckoutBodySchema.parse(request.body);
-    const config = getCreemTopUpConfig();
-    const apiKey = process.env.CREEM_API_KEY?.trim();
+    const paymentConfiguration = await getPaymentConfiguration();
+    const config = paymentConfiguration.runtime.creem;
+    const apiKey = config.apiKey;
 
     if (!config.enabled || !apiKey) {
       throw app.httpErrors.badRequest('Creem top-up is not configured');
@@ -570,7 +595,7 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
       },
       select: topUpOrderSelect,
     });
-    const successUrl = buildAppUrl(`/console/topup?creem=success&order=${order.id}`);
+    const successUrl = buildAppUrl(`/console/topup?creem=success&order=${order.id}`, paymentConfiguration.runtime.appBaseUrl);
     const session = await createCreemCheckoutSession({
       apiKey,
       product,
@@ -601,9 +626,10 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
     preHandler: app.requireUser,
   }, async (request) => {
     const body = waffoCheckoutBodySchema.parse(request.body);
-    const config = getWaffoTopUpConfig();
-    const apiKey = process.env.WAFFO_API_KEY?.trim();
-    const privateKey = process.env.WAFFO_PRIVATE_KEY?.trim();
+    const paymentConfiguration = await getPaymentConfiguration();
+    const config = paymentConfiguration.runtime.waffo;
+    const apiKey = config.apiKey;
+    const privateKey = config.privateKey;
 
     if (!config.enabled || !apiKey || !privateKey) {
       throw app.httpErrors.badRequest('Waffo top-up is not configured');
@@ -633,8 +659,8 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
       },
       select: topUpOrderSelect,
     });
-    const successUrl = buildAppUrl(`/console/topup?waffo=success&order=${order.id}`);
-    const notifyUrl = buildAppUrl('/api/user/topup/waffo/webhook');
+    const successUrl = buildAppUrl(`/console/topup?waffo=success&order=${order.id}`, paymentConfiguration.runtime.appBaseUrl);
+    const notifyUrl = buildAppUrl('/api/user/topup/waffo/webhook', paymentConfiguration.runtime.appBaseUrl);
     const session = await createWaffoCheckoutSession({
       apiKey,
       privateKey,
@@ -666,8 +692,9 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
     preHandler: app.requireUser,
   }, async (request) => {
     const body = stripeCheckoutBodySchema.parse(request.body);
-    const config = getStripeTopUpConfig();
-    const secretKey = process.env.STRIPE_SECRET_KEY?.trim();
+    const paymentConfiguration = await getPaymentConfiguration();
+    const config = paymentConfiguration.runtime.stripe;
+    const secretKey = config.secretKey;
 
     if (!config.enabled || !secretKey) {
       throw app.httpErrors.badRequest('Stripe top-up is not configured');
@@ -695,8 +722,8 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
       },
       select: topUpOrderSelect,
     });
-    const successUrl = buildAppUrl(`/console/topup?stripe=success&order=${order.id}`);
-    const cancelUrl = buildAppUrl(`/console/topup?stripe=cancel&order=${order.id}`);
+    const successUrl = buildAppUrl(`/console/topup?stripe=success&order=${order.id}`, paymentConfiguration.runtime.appBaseUrl);
+    const cancelUrl = buildAppUrl(`/console/topup?stripe=cancel&order=${order.id}`, paymentConfiguration.runtime.appBaseUrl);
     const session = await createStripeCheckoutSession({
       secretKey,
       orderId: order.id,
@@ -732,7 +759,7 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
       throw app.httpErrors.badRequest('Creem webhook body is missing');
     }
 
-    const webhookSecret = process.env.CREEM_WEBHOOK_SECRET?.trim();
+    const webhookSecret = (await getPaymentConfiguration()).runtime.creem.webhookSecret;
 
     if (!webhookSecret) {
       throw app.httpErrors.badRequest('Creem webhook secret is not configured');
@@ -810,7 +837,7 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
       throw app.httpErrors.badRequest('Waffo webhook body is missing');
     }
 
-    const publicKey = process.env.WAFFO_PUBLIC_KEY?.trim();
+    const publicKey = (await getPaymentConfiguration()).runtime.waffo.publicKey;
 
     if (!publicKey) {
       throw app.httpErrors.badRequest('Waffo webhook public key is not configured');
@@ -887,7 +914,7 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
       throw app.httpErrors.badRequest('Stripe webhook body is missing');
     }
 
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
+    const webhookSecret = (await getPaymentConfiguration()).runtime.stripe.webhookSecret;
 
     if (!webhookSecret) {
       throw app.httpErrors.badRequest('Stripe webhook secret is not configured');

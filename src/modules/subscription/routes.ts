@@ -2,7 +2,8 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 
 import { prisma } from '../../lib/prisma.js';
-import { getStripeTopUpConfig, createStripeCheckoutSession } from '../../lib/stripe.js';
+import { getPaymentConfiguration } from '../../lib/payment-config.js';
+import { createStripeCheckoutSession } from '../../lib/stripe.js';
 import {
   createSubscriptionPlan,
   deleteSubscriptionPlan,
@@ -37,8 +38,8 @@ const subscriptionBindBodySchema = z.object({
   endAt: z.coerce.date().nullable().optional(),
 });
 
-const buildAppUrl = (path: string) => {
-  const appBaseUrl = process.env.APP_BASE_URL?.trim();
+const buildAppUrl = (path: string, configuredAppBaseUrl?: string) => {
+  const appBaseUrl = configuredAppBaseUrl?.trim() || process.env.APP_BASE_URL?.trim();
 
   if (!appBaseUrl) {
     throw new Error('APP_BASE_URL is required for subscription checkout');
@@ -234,8 +235,9 @@ const subscriptionRoutes: FastifyPluginAsync = async (app) => {
     preHandler: app.requireUser,
   }, async (request) => {
     const body = subscriptionCheckoutBodySchema.parse(request.body);
-    const config = getStripeTopUpConfig();
-    const secretKey = process.env.STRIPE_SECRET_KEY?.trim();
+    const paymentConfiguration = await getPaymentConfiguration();
+    const config = paymentConfiguration.runtime.stripe;
+    const secretKey = config.secretKey;
 
     if (!config.enabled || !secretKey) {
       throw app.httpErrors.badRequest('Stripe subscription checkout is not configured');
@@ -277,8 +279,8 @@ const subscriptionRoutes: FastifyPluginAsync = async (app) => {
       },
       select: orderSelect,
     });
-    const successUrl = buildAppUrl(`/console/subscription?stripe=success&order=${order.id}`);
-    const cancelUrl = buildAppUrl(`/console/subscription?stripe=cancel&order=${order.id}`);
+    const successUrl = buildAppUrl(`/console/subscription?stripe=success&order=${order.id}`, paymentConfiguration.runtime.appBaseUrl);
+    const cancelUrl = buildAppUrl(`/console/subscription?stripe=cancel&order=${order.id}`, paymentConfiguration.runtime.appBaseUrl);
     const session = await createStripeCheckoutSession({
       secretKey,
       orderId: order.id,

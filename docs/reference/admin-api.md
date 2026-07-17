@@ -56,6 +56,13 @@ Relevant account and check-in keys include:
 | `passkey_user_verification` | WebAuthn user verification requirement. |
 | `passkey_attachment_preference` | Preferred authenticator attachment type. |
 
+## Payment settings
+
+- `GET /api/options/payment/config` returns editable Stripe, Creem, and Waffo configuration.
+- `PUT /api/options/payment/config` saves gateway enablement, `APP_BASE_URL`, pricing, test mode, product catalogs, and credentials.
+
+Credential values are never returned. Responses expose `hasSecretKey`, `hasWebhookSecret`, `hasApiKey`, `hasPrivateKey`, and `hasPublicKey`; sending an empty credential keeps the existing stored or environment value. Database settings override environment values while environment variables remain a fallback.
+
 ## Session authentication
 
 The web console uses the backend authentication APIs for login, registration, setup, email verification, password reset, and user profile retrieval.

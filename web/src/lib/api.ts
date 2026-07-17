@@ -419,6 +419,41 @@ export type WaffoTopUpConfig = {
   products: WaffoTopUpProduct[];
 };
 
+export type PaymentConfig = {
+  appBaseUrl: string;
+  stripe: {
+    enabled: boolean;
+    secretKey: string;
+    webhookSecret: string;
+    hasSecretKey: boolean;
+    hasWebhookSecret: boolean;
+    currency: string;
+    quotaPerUnit: number;
+    unitAmountCents: number;
+    minUnits: number;
+  };
+  creem: {
+    enabled: boolean;
+    testMode: boolean;
+    apiKey: string;
+    webhookSecret: string;
+    hasApiKey: boolean;
+    hasWebhookSecret: boolean;
+    products: CreemTopUpProduct[];
+  };
+  waffo: {
+    enabled: boolean;
+    testMode: boolean;
+    apiKey: string;
+    privateKey: string;
+    publicKey: string;
+    hasApiKey: boolean;
+    hasPrivateKey: boolean;
+    hasPublicKey: boolean;
+    products: WaffoTopUpProduct[];
+  };
+};
+
 export type TopUpOrder = {
   id: string;
   status: 'PENDING' | 'PAID' | 'CANCELED' | 'EXPIRED' | 'FAILED';
@@ -954,6 +989,10 @@ export const api = {
   listOptions: async () => (await client.get<ListResponse<SystemOptionItem>>('/api/options')).data,
   updateOption: async (key: SystemOptionKey, value: string | boolean | number) =>
     (await client.put<{ item: SystemOptionItem }>(`/api/options/${key}`, { value })).data,
+  getPaymentConfig: async () =>
+    (await client.get<{ item: PaymentConfig }>('/api/options/payment/config')).data,
+  updatePaymentConfig: async (payload: PaymentConfig) =>
+    (await client.put<{ item: PaymentConfig }>('/api/options/payment/config', payload)).data,
   getMailStatus: async () => (await client.get<{ item: MailStatus }>('/api/options/mail/status')).data,
   getMailConfig: async () => (await client.get<{ item: MailConfig }>('/api/options/mail/config')).data,
   updateMailConfig: async (payload: MailConfig) =>

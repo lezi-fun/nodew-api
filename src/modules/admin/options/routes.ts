@@ -23,6 +23,11 @@ import {
   updateCustomOAuthProvider,
 } from '../../../lib/oauth-config.js';
 import { prisma } from '../../../lib/prisma.js';
+import {
+  getPaymentConfiguration,
+  paymentConfigBodySchema,
+  savePaymentConfig,
+} from '../../../lib/payment-config.js';
 import { parseSubscriptionPlans, subscriptionPlanOptionKey } from '../../../lib/subscription-plans.js';
 
 const optionKeySchema = z.enum([
@@ -249,6 +254,31 @@ const optionsRoutes: FastifyPluginAsync = async (app) => {
       success: true,
       email,
     });
+  });
+
+  app.get('/options/payment/config', {
+    preHandler: app.requireAdminUser,
+  }, async () => ({
+    item: (await getPaymentConfiguration()).draft,
+  }));
+
+  app.put('/options/payment/config', {
+    preHandler: app.requireAdminUser,
+  }, async (request) => {
+    const parsed = paymentConfigBodySchema.safeParse(request.body);
+
+    if (!parsed.success) {
+      throw app.httpErrors.badRequest(parsed.error.issues[0]?.message ?? 'Payment configuration is invalid');
+    }
+
+    try {
+      const configuration = await savePaymentConfig(parsed.data);
+      return {
+        item: configuration.draft,
+      };
+    } catch (error) {
+      throw app.httpErrors.badRequest(error instanceof Error ? error.message : 'Payment configuration is invalid');
+    }
   });
 
   app.get('/options/oauth/status', {

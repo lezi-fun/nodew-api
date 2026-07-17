@@ -82,6 +82,7 @@ Tests: `relay.test.ts`, `relay-responses.test.ts`, `relay-claude.test.ts`, `rela
 | `src/lib/oauth.ts` | OAuth state cookies, built-in provider primitives, and types. |
 | `src/lib/object-storage.ts` | S3-compatible signing, upload, deletion, and public URLs. |
 | `src/lib/passkey.ts` | Passkey settings, secure-verification cookies, and WebAuthn helpers. |
+| `src/lib/payment-config.ts` | Merges stored and environment payment settings, redacts secrets, and exposes runtime gateway configuration. |
 | `src/lib/prisma.ts` | Prisma Client singleton with development hot-reload reuse. |
 | `src/lib/stripe.ts` | Stripe checkout configuration, session creation, and webhook signatures. |
 | `src/lib/subscription-plans.ts` | Reads, sorts, and manages subscription plans stored in system options. |

@@ -13,6 +13,7 @@ import {
   type MailStatus,
   type OAuthConfig,
   type OAuthStatus,
+  type PaymentConfig,
   type StripeTopUpConfig,
   type SubscriptionPlanItem,
   type SystemOptionItem,
@@ -194,6 +195,41 @@ const fallbackWaffoConfig: WaffoTopUpConfig = {
   products: [],
 };
 
+const emptyPaymentConfig: PaymentConfig = {
+  appBaseUrl: '',
+  stripe: {
+    enabled: false,
+    secretKey: '',
+    webhookSecret: '',
+    hasSecretKey: false,
+    hasWebhookSecret: false,
+    currency: 'usd',
+    quotaPerUnit: 100000,
+    unitAmountCents: 100,
+    minUnits: 1,
+  },
+  creem: {
+    enabled: false,
+    testMode: false,
+    apiKey: '',
+    webhookSecret: '',
+    hasApiKey: false,
+    hasWebhookSecret: false,
+    products: [],
+  },
+  waffo: {
+    enabled: false,
+    testMode: false,
+    apiKey: '',
+    privateKey: '',
+    publicKey: '',
+    hasApiKey: false,
+    hasPrivateKey: false,
+    hasPublicKey: false,
+    products: [],
+  },
+};
+
 const toSubscriptionPlanForm = (plan: SubscriptionPlanItem): SubscriptionPlanForm => ({
   ...plan,
   featuresText: plan.features.join('\n'),
@@ -234,6 +270,9 @@ export default function SettingPage() {
   const [stripeConfig, setStripeConfig] = useState<StripeTopUpConfig>(fallbackStripeConfig);
   const [creemConfig, setCreemConfig] = useState<CreemTopUpConfig>(fallbackCreemConfig);
   const [waffoConfig, setWaffoConfig] = useState<WaffoTopUpConfig>(fallbackWaffoConfig);
+  const [paymentConfig, setPaymentConfig] = useState<PaymentConfig>(emptyPaymentConfig);
+  const [creemProductsText, setCreemProductsText] = useState('[]');
+  const [waffoProductsText, setWaffoProductsText] = useState('[]');
   const [savingMail, setSavingMail] = useState(false);
   const [savingOAuth, setSavingOAuth] = useState(false);
   const [discoveringOIDC, setDiscoveringOIDC] = useState(false);
@@ -241,6 +280,7 @@ export default function SettingPage() {
   const [discoveringCustomOAuthProvider, setDiscoveringCustomOAuthProvider] = useState(false);
   const [deletingCustomOAuthProviderId, setDeletingCustomOAuthProviderId] = useState<string | null>(null);
   const [savingSubscriptionPlan, setSavingSubscriptionPlan] = useState(false);
+  const [savingPayment, setSavingPayment] = useState(false);
   const [deletingSubscriptionPlanId, setDeletingSubscriptionPlanId] = useState<string | null>(null);
   const [savingCheckin, setSavingCheckin] = useState(false);
   const [savingPasskey, setSavingPasskey] = useState(false);
@@ -258,6 +298,7 @@ export default function SettingPage() {
         oauthConfig: api.getOAuthConfig,
         customOAuthProviders: api.listCustomOAuthProviders,
         subscriptionPlans: api.listAdminSubscriptionPlans,
+        paymentConfig: api.getPaymentConfig,
         stripeTopUpConfig: api.getStripeTopUpConfig,
         creemTopUpConfig: api.getCreemTopUpConfig,
         waffoTopUpConfig: api.getWaffoTopUpConfig,
@@ -287,6 +328,11 @@ export default function SettingPage() {
       if (resources.oauthConfig) setOAuthConfig(resources.oauthConfig.item);
       if (resources.customOAuthProviders) setCustomOAuthProviders(resources.customOAuthProviders.items ?? []);
       if (resources.subscriptionPlans) setSubscriptionPlans(resources.subscriptionPlans.items ?? []);
+      if (resources.paymentConfig) {
+        setPaymentConfig(resources.paymentConfig.item);
+        setCreemProductsText(JSON.stringify(resources.paymentConfig.item.creem.products, null, 2));
+        setWaffoProductsText(JSON.stringify(resources.paymentConfig.item.waffo.products, null, 2));
+      }
       if (resources.stripeTopUpConfig) setStripeConfig(resources.stripeTopUpConfig.item);
       if (resources.creemTopUpConfig) setCreemConfig(resources.creemTopUpConfig.item);
       if (resources.waffoTopUpConfig) setWaffoConfig(resources.waffoTopUpConfig.item);
@@ -393,6 +439,31 @@ export default function SettingPage() {
       Toast.error(error instanceof Error ? error.message : '删除订阅套餐失败');
     } finally {
       setDeletingSubscriptionPlanId(null);
+    }
+  };
+
+  const savePaymentConfig = async () => {
+    setSavingPayment(true);
+    try {
+      const creemProducts = JSON.parse(creemProductsText) as PaymentConfig['creem']['products'];
+      const waffoProducts = JSON.parse(waffoProductsText) as PaymentConfig['waffo']['products'];
+
+      if (!Array.isArray(creemProducts) || !Array.isArray(waffoProducts)) {
+        throw new Error('产品目录必须是 JSON 数组');
+      }
+
+      const response = await api.updatePaymentConfig({
+        ...paymentConfig,
+        creem: { ...paymentConfig.creem, products: creemProducts },
+        waffo: { ...paymentConfig.waffo, products: waffoProducts },
+      });
+      setPaymentConfig(response.item);
+      Toast.success('支付设置已保存');
+      await load();
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : '保存支付设置失败');
+    } finally {
+      setSavingPayment(false);
     }
   };
 
@@ -737,6 +808,50 @@ export default function SettingPage() {
 
       <Card bordered={false} className="dashboard-card settings-card" style={{ marginTop: 16, display: isSettingSectionActive(activeSection, 'billing') ? undefined : 'none' }}>
         <Space vertical align="start" style={{ width: '100%' }}>
+          <Card bordered style={{ width: '100%' }}>
+            <Space vertical align="start" style={{ width: '100%' }}>
+              <Typography.Title heading={5} style={{ marginBottom: 4 }}>支付基础与 Stripe</Typography.Title>
+              <label className="setting-field">
+                <span><strong>应用回调地址</strong><em>支付成功、取消和 webhook 回调使用的公开站点地址。</em></span>
+                <Input
+                  value={paymentConfig.appBaseUrl}
+                  placeholder="https://example.com"
+                  onChange={(value) => setPaymentConfig((current) => ({ ...current, appBaseUrl: value }))}
+                />
+              </label>
+              <div className="settings-grid" style={{ width: '100%' }}>
+                <label className="setting-field">
+                  <span><strong>启用 Stripe</strong><em>密钥和回调地址完整时才会对用户开放。</em></span>
+                  <Switch checked={paymentConfig.stripe.enabled} onChange={(enabled) => setPaymentConfig((current) => ({ ...current, stripe: { ...current.stripe, enabled } }))} />
+                </label>
+                <label className="setting-field">
+                  <span><strong>Stripe Secret Key</strong><em>{paymentConfig.stripe.hasSecretKey ? '已配置，留空保持不变。' : '尚未配置。'}</em></span>
+                  <Input value={paymentConfig.stripe.secretKey} placeholder="留空保持原密钥" onChange={(secretKey) => setPaymentConfig((current) => ({ ...current, stripe: { ...current.stripe, secretKey } }))} />
+                </label>
+                <label className="setting-field">
+                  <span><strong>Stripe Webhook Secret</strong><em>{paymentConfig.stripe.hasWebhookSecret ? '已配置，留空保持不变。' : '尚未配置。'}</em></span>
+                  <Input value={paymentConfig.stripe.webhookSecret} placeholder="留空保持原密钥" onChange={(webhookSecret) => setPaymentConfig((current) => ({ ...current, stripe: { ...current.stripe, webhookSecret } }))} />
+                </label>
+                <label className="setting-field">
+                  <span><strong>币种</strong><em>三位币种代码。</em></span>
+                  <Input value={paymentConfig.stripe.currency} onChange={(currency) => setPaymentConfig((current) => ({ ...current, stripe: { ...current.stripe, currency } }))} />
+                </label>
+                <label className="setting-field">
+                  <span><strong>每份额度</strong><em>每购买一份增加的额度。</em></span>
+                  <InputNumber min={1} value={paymentConfig.stripe.quotaPerUnit} onChange={(value) => setPaymentConfig((current) => ({ ...current, stripe: { ...current.stripe, quotaPerUnit: Number(value ?? 1) } }))} />
+                </label>
+                <label className="setting-field">
+                  <span><strong>每份价格（分）</strong><em>Stripe Checkout 的最小计价单位。</em></span>
+                  <InputNumber min={1} value={paymentConfig.stripe.unitAmountCents} onChange={(value) => setPaymentConfig((current) => ({ ...current, stripe: { ...current.stripe, unitAmountCents: Number(value ?? 1) } }))} />
+                </label>
+                <label className="setting-field">
+                  <span><strong>最少份数</strong><em>单次充值允许购买的最小份数。</em></span>
+                  <InputNumber min={1} value={paymentConfig.stripe.minUnits} onChange={(value) => setPaymentConfig((current) => ({ ...current, stripe: { ...current.stripe, minUnits: Number(value ?? 1) } }))} />
+                </label>
+              </div>
+            </Space>
+          </Card>
+
           <div>
             <Typography.Title heading={5} style={{ marginBottom: 4 }}>支付通道状态</Typography.Title>
             <Typography.Paragraph type="tertiary">
@@ -809,6 +924,43 @@ export default function SettingPage() {
               </Space>
             </Card>
           </div>
+
+          <div className="settings-grid" style={{ width: '100%' }}>
+            <Card bordered>
+              <Space vertical align="start" style={{ width: '100%' }}>
+                <Typography.Title heading={5} style={{ marginBottom: 4 }}>Creem 设置</Typography.Title>
+                <Space wrap>
+                  <Switch checked={paymentConfig.creem.enabled} onChange={(enabled) => setPaymentConfig((current) => ({ ...current, creem: { ...current.creem, enabled } }))} />
+                  <span>启用 Creem</span>
+                  <Switch checked={paymentConfig.creem.testMode} onChange={(testMode) => setPaymentConfig((current) => ({ ...current, creem: { ...current.creem, testMode } }))} />
+                  <span>测试模式</span>
+                </Space>
+                <Input value={paymentConfig.creem.apiKey} placeholder={paymentConfig.creem.hasApiKey ? 'API Key 已配置，留空保持不变' : 'Creem API Key'} onChange={(apiKey) => setPaymentConfig((current) => ({ ...current, creem: { ...current.creem, apiKey } }))} />
+                <Input value={paymentConfig.creem.webhookSecret} placeholder={paymentConfig.creem.hasWebhookSecret ? 'Webhook Secret 已配置，留空保持不变' : 'Creem Webhook Secret'} onChange={(webhookSecret) => setPaymentConfig((current) => ({ ...current, creem: { ...current.creem, webhookSecret } }))} />
+                <TextArea rows={10} value={creemProductsText} onChange={setCreemProductsText} placeholder="Creem 产品 JSON 数组" />
+              </Space>
+            </Card>
+
+            <Card bordered>
+              <Space vertical align="start" style={{ width: '100%' }}>
+                <Typography.Title heading={5} style={{ marginBottom: 4 }}>Waffo 设置</Typography.Title>
+                <Space wrap>
+                  <Switch checked={paymentConfig.waffo.enabled} onChange={(enabled) => setPaymentConfig((current) => ({ ...current, waffo: { ...current.waffo, enabled } }))} />
+                  <span>启用 Waffo</span>
+                  <Switch checked={paymentConfig.waffo.testMode} onChange={(testMode) => setPaymentConfig((current) => ({ ...current, waffo: { ...current.waffo, testMode } }))} />
+                  <span>测试模式</span>
+                </Space>
+                <Input value={paymentConfig.waffo.apiKey} placeholder={paymentConfig.waffo.hasApiKey ? 'API Key 已配置，留空保持不变' : 'Waffo API Key'} onChange={(apiKey) => setPaymentConfig((current) => ({ ...current, waffo: { ...current.waffo, apiKey } }))} />
+                <TextArea rows={4} value={paymentConfig.waffo.privateKey} placeholder={paymentConfig.waffo.hasPrivateKey ? '私钥已配置，留空保持不变' : 'Waffo Private Key'} onChange={(privateKey) => setPaymentConfig((current) => ({ ...current, waffo: { ...current.waffo, privateKey } }))} />
+                <TextArea rows={4} value={paymentConfig.waffo.publicKey} placeholder={paymentConfig.waffo.hasPublicKey ? '公钥已配置，留空保持不变' : 'Waffo Public Key'} onChange={(publicKey) => setPaymentConfig((current) => ({ ...current, waffo: { ...current.waffo, publicKey } }))} />
+                <TextArea rows={10} value={waffoProductsText} onChange={setWaffoProductsText} placeholder="Waffo 产品 JSON 数组" />
+              </Space>
+            </Card>
+          </div>
+
+          <Button theme="solid" type="primary" icon={<IconSave />} loading={savingPayment} onClick={() => void savePaymentConfig()}>
+            保存支付设置
+          </Button>
 
           <Space align="start" style={{ width: '100%', justifyContent: 'space-between' }} wrap>
             <div>

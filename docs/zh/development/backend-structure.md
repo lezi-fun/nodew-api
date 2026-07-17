@@ -82,6 +82,7 @@
 | `src/lib/oauth.ts` | OAuth state cookie、内置 provider 基础配置和类型。 |
 | `src/lib/object-storage.ts` | S3 兼容签名、上传、删除和公共 URL。 |
 | `src/lib/passkey.ts` | Passkey 配置、secure-verification cookie 和 WebAuthn 辅助逻辑。 |
+| `src/lib/payment-config.ts` | 合并数据库与环境变量支付设置、脱敏密钥，并提供运行时支付网关配置。 |
 | `src/lib/prisma.ts` | Prisma Client 单例和开发热重载复用。 |
 | `src/lib/stripe.ts` | Stripe checkout 配置、创建会话和 webhook 签名。 |
 | `src/lib/subscription-plans.ts` | 数据库系统选项中的订阅套餐读取、排序和 CRUD。 |

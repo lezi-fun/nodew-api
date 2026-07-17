@@ -79,6 +79,7 @@ If a full run occasionally reports a 401 or foreign-key failure but the focused 
 | `test/integration/dashboard-routes.test.ts` | Fastify/Prisma integration behavior for dashboard-routes. |
 | `test/integration/oauth.test.ts` | Fastify/Prisma integration behavior for oauth. |
 | `test/integration/passkey.test.ts` | Fastify/Prisma integration behavior for passkey. |
+| `test/integration/payment-settings.test.ts` | Payment-setting persistence, secret redaction, and runtime checkout behavior. |
 | `test/integration/relay-claude.test.ts` | Fastify/Prisma integration behavior for relay-claude. |
 | `test/integration/relay-embeddings.test.ts` | Fastify/Prisma integration behavior for relay-embeddings. |
 | `test/integration/relay-gemini.test.ts` | Fastify/Prisma integration behavior for relay-gemini. |
