@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client';
 
+import { getEffectiveModelRatio, getGroupRatio } from '../../lib/ratio-config.js';
 import { prisma } from '../../lib/prisma.js';
 import type { RelayAttempt, RelayChannel, RelayResult } from './types.js';
 
@@ -61,18 +62,33 @@ export const estimateCostCents = (usage: BillingUsage, channel: RelayChannel | n
   return rawCost > 0 ? Math.ceil(rawCost) : 0;
 };
 
-export const calculateQuotaCharge = (usage: BillingUsage, channel: RelayChannel | null) => {
+export const calculateQuotaCharge = async (usage: BillingUsage, channel: RelayChannel | null, model?: string, userId?: string) => {
   const metadata = readMetadata(channel?.metadata);
   const multiplier = metadata.quotaMultiplier ?? 1;
   const flatCharge = metadata.quotaPerRequest ?? 0;
-  const rawCharge = (usage.totalTokens * multiplier) + flatCharge;
+  let rawCharge = (usage.totalTokens * multiplier) + flatCharge;
 
-  return BigInt(Math.max(0, Math.ceil(rawCharge)));
+  if (model && model !== '*') {
+    let groupRatio = 1;
+    if (userId) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { groupId: true },
+      });
+      if (user?.groupId) {
+        groupRatio = await getGroupRatio(user.groupId);
+      }
+    }
+    const modelRatio = await getEffectiveModelRatio(model, groupRatio);
+    rawCharge = Math.round(rawCharge * modelRatio);
+  }
+
+  return BigInt(Math.max(1, Math.ceil(rawCharge)));
 };
 
 export const writeRelayUsageLog = async (input: RelayLogInput) => {
   const estimatedCostCents = estimateCostCents(input.result, input.channel);
-  const quotaCharge = input.success ? calculateQuotaCharge(input.result, input.channel) : 0n;
+  const quotaCharge = input.success ? await calculateQuotaCharge(input.result, input.channel, input.model, input.userId) : 0n;
   const logData: Prisma.UsageLogCreateInput = {
     user: { connect: { id: input.userId } },
     apiKey: { connect: { id: input.apiKeyId } },

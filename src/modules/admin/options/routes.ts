@@ -60,6 +60,8 @@ const optionKeySchema = z.enum([
   operationOptionKeys.maxUserApiKeys,
   operationOptionKeys.relayRetryTimes,
   operationOptionKeys.usageLogEnabled,
+  'model_ratios',
+  'group_ratios',
 ]);
 
 const updateOptionBodySchema = z.object({
@@ -143,6 +145,14 @@ const optionsRoutes: FastifyPluginAsync = async (app) => {
 
       if (params.key === operationOptionKeys.usageLogEnabled) {
         return z.coerce.boolean().parse(body.value).toString();
+      }
+
+      if (params.key === 'model_ratios' || params.key === 'group_ratios') {
+        const parsed = JSON.parse(typeof body.value === 'string' ? body.value : String(body.value));
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          throw app.httpErrors.badRequest('Ratio configuration must be a JSON object');
+        }
+        return JSON.stringify(parsed);
       }
 
       if (params.key === 'passkey_user_verification') {

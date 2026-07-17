@@ -966,6 +966,34 @@ export default function SettingPage() {
             保存支付设置
           </Button>
 
+          <Card bordered style={{ width: '100%' }}>
+            <Space vertical align="start" style={{ width: '100%' }}>
+              <Typography.Title heading={5} style={{ marginBottom: 4 }}>模型与分组倍率</Typography.Title>
+              <Typography.Paragraph type="tertiary">配置实际扣费倍率，格式为 JSON 对象。model_ratios 按模型名设置倍率，group_ratios 按用户组名设置倍率，最终扣费 = 原始额度 × group_ratio × model_ratio。</Typography.Paragraph>
+              <label className="setting-field">
+                <span><strong>模型倍率 (model_ratios)</strong><em>JSON 格式，键为模型名，值为倍率。</em></span>
+                <TextArea
+                  rows={6}
+                  value={values.model_ratios ?? ''}
+                  placeholder='{"gpt-4": 1.5}'
+                  onChange={(value) => setValues((current) => ({ ...current, model_ratios: value }))}
+                />
+              </label>
+              <label className="setting-field">
+                <span><strong>分组倍率 (group_ratios)</strong><em>JSON 格式，键为用户组名，值为倍率。</em></span>
+                <TextArea
+                  rows={6}
+                  value={values.group_ratios ?? ''}
+                  placeholder='{"default": 1}'
+                  onChange={(value) => setValues((current) => ({ ...current, group_ratios: value }))}
+                />
+              </label>
+              <Button theme="solid" type="primary" icon={<IconSave />} onClick={() => void save()}>
+                保存设置
+              </Button>
+            </Space>
+          </Card>
+
           <Space align="start" style={{ width: '100%', justifyContent: 'space-between' }} wrap>
             <div>
               <Typography.Title heading={5} style={{ marginBottom: 4 }}>订阅套餐管理</Typography.Title>

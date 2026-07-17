@@ -280,7 +280,9 @@ export type SystemOptionKey =
   | 'operation_new_user_quota'
   | 'operation_max_user_api_keys'
   | 'operation_relay_retry_times'
-  | 'operation_usage_log_enabled';
+  | 'operation_usage_log_enabled'
+  | 'model_ratios'
+  | 'group_ratios';
 
 export type SystemOptionItem = {
   key: SystemOptionKey;
