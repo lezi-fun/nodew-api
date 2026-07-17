@@ -81,6 +81,7 @@ Tests: `relay.test.ts`, `relay-responses.test.ts`, `relay-claude.test.ts`, `rela
 | `src/lib/oauth-config.ts` | Loads runtime configuration for built-in and custom OAuth providers. |
 | `src/lib/oauth.ts` | OAuth state cookies, built-in provider primitives, and types. |
 | `src/lib/object-storage.ts` | S3-compatible signing, upload, deletion, and public URLs. |
+| `src/lib/operation-settings.ts` | Reads and evaluates operation configuration values from system options. |
 | `src/lib/passkey.ts` | Passkey settings, secure-verification cookies, and WebAuthn helpers. |
 | `src/lib/payment-config.ts` | Merges stored and environment payment settings, redacts secrets, and exposes runtime gateway configuration. |
 | `src/lib/monitoring-settings.ts` | Global channel-auto-disable thresholds, retry codes, and disable keywords. |

@@ -81,6 +81,7 @@
 | `src/lib/oauth-config.ts` | 读取内置与自定义 OAuth provider 的运行配置。 |
 | `src/lib/oauth.ts` | OAuth state cookie、内置 provider 基础配置和类型。 |
 | `src/lib/object-storage.ts` | S3 兼容签名、上传、删除和公共 URL。 |
+| `src/lib/operation-settings.ts` | 从系统选项读取并计算运营配置值。 |
 | `src/lib/passkey.ts` | Passkey 配置、secure-verification cookie 和 WebAuthn 辅助逻辑。 |
 | `src/lib/payment-config.ts` | 合并数据库与环境变量支付设置、脱敏密钥，并提供运行时支付网关配置。 |
 | `src/lib/monitoring-settings.ts` | 全局渠道自动禁用阈值、重试状态码和禁用关键词。 |

@@ -88,7 +88,9 @@ npm run prisma:migrate:deploy
 | `test/integration/dashboard-routes.test.ts` | dashboard-routes 功能的 Fastify/Prisma 集成行为。 |
 | `test/integration/oauth.test.ts` | oauth 功能的 Fastify/Prisma 集成行为。 |
 | `test/integration/passkey.test.ts` | passkey 功能的 Fastify/Prisma 集成行为。 |
+| `test/integration/operation-settings.test.ts` | 运营配置持久化和行为验证。 |
 | `test/integration/payment-settings.test.ts` | 支付设置持久化、密钥脱敏和运行时 checkout 行为。 |
+| `test/integration/ratio-settings.test.ts` | 模型/分组倍率存储与计费集成。 |
 | `test/integration/relay-claude.test.ts` | relay-claude 功能的 Fastify/Prisma 集成行为。 |
 | `test/integration/relay-embeddings.test.ts` | relay-embeddings 功能的 Fastify/Prisma 集成行为。 |
 | `test/integration/relay-gemini.test.ts` | relay-gemini 功能的 Fastify/Prisma 集成行为。 |
