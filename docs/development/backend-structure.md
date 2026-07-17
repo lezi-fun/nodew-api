@@ -83,6 +83,8 @@ Tests: `relay.test.ts`, `relay-responses.test.ts`, `relay-claude.test.ts`, `rela
 | `src/lib/object-storage.ts` | S3-compatible signing, upload, deletion, and public URLs. |
 | `src/lib/passkey.ts` | Passkey settings, secure-verification cookies, and WebAuthn helpers. |
 | `src/lib/payment-config.ts` | Merges stored and environment payment settings, redacts secrets, and exposes runtime gateway configuration. |
+| `src/lib/monitoring-settings.ts` | Global channel-auto-disable thresholds, retry codes, and disable keywords. |
+| `src/lib/ratio-config.ts` | Reads and evaluates model/group billing ratios from system options. |
 | `src/lib/prisma.ts` | Prisma Client singleton with development hot-reload reuse. |
 | `src/lib/stripe.ts` | Stripe checkout configuration, session creation, and webhook signatures. |
 | `src/lib/subscription-plans.ts` | Reads, sorts, and manages subscription plans stored in system options. |
