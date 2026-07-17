@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 
+import { getMonitoringSettings, matchesAutoDisableKeyword, shouldCountAsChannelFailure } from '../../lib/monitoring-settings.js';
 import { prisma } from '../../lib/prisma.js';
 import type { RelayChannel } from './types.js';
 
@@ -36,12 +37,6 @@ const getFailureThreshold = (channel: RelayChannel) => {
   return Math.max(1, Math.floor(metadata.autoDisableFailureThreshold ?? defaultFailureThreshold));
 };
 
-const shouldCountAsChannelFailure = (statusCode: number) =>
-  statusCode === 401 ||
-  statusCode === 403 ||
-  statusCode === 408 ||
-  statusCode >= 500;
-
 export const recordRelayChannelSuccess = async (channel: RelayChannel) => {
   const metadata = readMetadata(channel.metadata);
 
@@ -49,9 +44,13 @@ export const recordRelayChannelSuccess = async (channel: RelayChannel) => {
     return;
   }
 
+  const settings = await getMonitoringSettings();
+  const shouldReEnable = settings.autoEnableChannelEnabled && channel.status === 'DISABLED';
+
   await prisma.channel.update({
     where: { id: channel.id },
     data: {
+      ...(shouldReEnable ? { status: 'ACTIVE' as const } : {}),
       metadata: {
         ...metadata,
         relayHealth: {
@@ -68,7 +67,7 @@ export const recordRelayChannelFailure = async (
   statusCode: number,
   errorMessage: string | null,
 ) => {
-  if (!shouldCountAsChannelFailure(statusCode)) {
+  if (!await shouldCountAsChannelFailure(statusCode)) {
     return;
   }
 
@@ -78,11 +77,12 @@ export const recordRelayChannelFailure = async (
     return;
   }
 
+  const keywordMatch = await matchesAutoDisableKeyword(errorMessage);
   const metadata = readMetadata(channel.metadata);
   const existingHealth = isRecord(metadata.relayHealth) ? metadata.relayHealth : {};
   const previousFailureCount = typeof existingHealth.failureCount === 'number' ? existingHealth.failureCount : 0;
   const failureCount = previousFailureCount + 1;
-  const shouldDisable = failureCount >= threshold;
+  const shouldDisable = keywordMatch || failureCount >= threshold;
   const now = new Date().toISOString();
 
   await prisma.channel.update({

@@ -53,6 +53,12 @@ const generalOptionMeta: Array<{
   { key: 'operation_max_user_api_keys', title: '用户最大令牌数', description: '每个用户最多可创建的令牌数。', type: 'text' },
   { key: 'operation_relay_retry_times', title: 'Relay 重试次数', description: '上游失败后最多重试次数。', type: 'text' },
   { key: 'operation_usage_log_enabled', title: '启用额度消费日志', description: '关闭后不再记录用量日志。', type: 'boolean' },
+  { key: 'monitor_auto_disable_channel', title: '失败自动禁用渠道', description: '开启后连续失败达到阈值时自动禁用渠道。', type: 'boolean' },
+  { key: 'monitor_channel_disable_threshold', title: '渠道禁用失败阈值', description: '连续失败多少次后自动禁用。', type: 'text' },
+  { key: 'monitor_auto_disable_status_codes', title: '计入失败的状态码', description: '逗号分隔或范围，如 401,403,500-599。', type: 'text' },
+  { key: 'monitor_auto_disable_keywords', title: '禁用关键词', description: '错误消息包含这些关键词时禁用渠道，每行一个。', type: 'textarea' },
+  { key: 'monitor_auto_retry_status_codes', title: '可重试的状态码', description: '上游返回这些码时自动重试，逗号分隔或范围。', type: 'text' },
+  { key: 'monitor_auto_enable_channel', title: '成功后自动启用', description: '开启后渠道成功后自动恢复启用状态。', type: 'boolean' },
 ];
 
 const checkinOptionMeta: Array<{

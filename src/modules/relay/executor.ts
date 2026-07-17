@@ -2,13 +2,13 @@ import {
   extractRelayErrorMessage,
   formatRelayAttempt,
   selectRelayChannels,
-  shouldRetryRelay,
   summarizeRelayAttempts,
 } from './balancer.js';
 import { writeRelayUsageLog } from './billing.js';
 import { recordRelayChannelFailure, recordRelayChannelSuccess } from './channel-health.js';
 import { reserveRelayChannelSlot } from './rate-limit.js';
 import { getOperationSettings } from '../../lib/operation-settings.js';
+import { shouldRetryStatusCode } from '../../lib/monitoring-settings.js';
 import type { RelayChannel, RelayExecutionResult, RelayResult } from './types.js';
 
 type ExecuteRelayParams = {
@@ -152,7 +152,7 @@ export const executeRelay = async (params: ExecuteRelayParams): Promise<RelayExe
 
     await recordRelayChannelFailure(channel, result.statusCode, errorMessage);
 
-    if (!shouldRetryRelay(result.statusCode)) {
+    if (!await shouldRetryStatusCode(result.statusCode)) {
       break;
     }
   }

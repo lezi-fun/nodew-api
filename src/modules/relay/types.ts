@@ -120,6 +120,7 @@ export type RelayChannel = {
   weight: number;
   rateLimitPerMin: number | null;
   metadata: unknown;
+  status?: string;
 };
 
 export type RelayResult = {

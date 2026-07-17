@@ -24,6 +24,7 @@ import {
 } from '../../../lib/oauth-config.js';
 import { prisma } from '../../../lib/prisma.js';
 import { operationOptionKeys } from '../../../lib/operation-settings.js';
+import { monitoringOptionKeys } from '../../../lib/monitoring-settings.js';
 import {
   getPaymentConfiguration,
   paymentConfigBodySchema,
@@ -60,6 +61,13 @@ const optionKeySchema = z.enum([
   operationOptionKeys.maxUserApiKeys,
   operationOptionKeys.relayRetryTimes,
   operationOptionKeys.usageLogEnabled,
+  monitoringOptionKeys.autoDisableChannelEnabled,
+  monitoringOptionKeys.autoEnableChannelEnabled,
+  monitoringOptionKeys.autoDisableStatusCodes,
+  monitoringOptionKeys.autoRetryStatusCodes,
+  monitoringOptionKeys.autoDisableKeywords,
+  monitoringOptionKeys.failureThreshold,
+  monitoringOptionKeys.autoTestMinutes,
   'model_ratios',
   'group_ratios',
 ]);

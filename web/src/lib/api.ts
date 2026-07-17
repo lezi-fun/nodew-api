@@ -282,7 +282,14 @@ export type SystemOptionKey =
   | 'operation_relay_retry_times'
   | 'operation_usage_log_enabled'
   | 'model_ratios'
-  | 'group_ratios';
+  | 'group_ratios'
+  | 'monitor_auto_disable_channel'
+  | 'monitor_auto_enable_channel'
+  | 'monitor_auto_disable_status_codes'
+  | 'monitor_auto_retry_status_codes'
+  | 'monitor_auto_disable_keywords'
+  | 'monitor_channel_disable_threshold'
+  | 'monitor_auto_test_channel_minutes';
 
 export type SystemOptionItem = {
   key: SystemOptionKey;
