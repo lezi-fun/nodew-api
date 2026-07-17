@@ -66,15 +66,17 @@ export default function HeaderBar({
               theme="borderless"
               icon={<IconMenu />}
               aria-label={drawerOpen ? t('关闭菜单') : t('打开菜单')}
+              aria-expanded={drawerOpen}
+              aria-controls="console-sidebar"
               onClick={onMobileMenuToggle}
               className="headerbar-mobile-toggle"
             />
           ) : null}
           <Link to={user ? '/console' : '/'} className="headerbar-brand">
             <span className="headerbar-brand-mark">N</span>
-            <div>
+            <div className="headerbar-brand-copy">
               <Typography.Title heading={6} style={{ margin: 0 }}>NodEW-api</Typography.Title>
-              <Typography.Text type="tertiary">LLM Gateway Console</Typography.Text>
+              <Typography.Text className="headerbar-brand-subtitle" type="tertiary">LLM Gateway Console</Typography.Text>
             </div>
           </Link>
         </div>
@@ -93,7 +95,9 @@ export default function HeaderBar({
           </a>
         </nav>
         <Space className="headerbar-actions">
-          <Button theme="borderless" icon={<IconBell />} aria-label={t('查看日志')} onClick={() => navigate('/console/log')} />
+          {user ? (
+            <Button className="headerbar-notification-action" theme="borderless" icon={<IconBell />} aria-label={t('查看日志')} onClick={() => navigate('/console/log')} />
+          ) : null}
           <Button
             theme="borderless"
             aria-label={t('切换语言')}

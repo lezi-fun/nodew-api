@@ -197,5 +197,13 @@
   "项目说明": "Project information",
   "价格信息暂不可用。": "Pricing information is currently unavailable.",
   "NodEW-api 是 One API 的 Node.js / TypeScript 版本。": "NodEW-api is a Node.js / TypeScript edition of the One API gateway.",
-  "价格": "Pricing"
+  "价格": "Pricing",
+  "展开侧边栏": "Expand sidebar",
+  "工作台": "Workspace",
+  "控制台导航": "Console navigation",
+  "服务运行正常": "Services are operational",
+  "用量与资产": "Usage & assets",
+  "网关工作区": "Gateway workspace",
+  "账户": "Account",
+  "跳到主要内容": "Skip to main content"
 }

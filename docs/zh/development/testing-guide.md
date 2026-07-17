@@ -74,6 +74,7 @@ npm run prisma:migrate:deploy
 | `test/helpers/db.ts` | 按外键顺序清空测试数据库。 |
 | `test/helpers/factories.ts` | 用户、渠道、API Key 等测试数据工厂。 |
 | `test/helpers/fetch.ts` | fetch.ts 功能的 Fastify/Prisma 集成行为。 |
+| `test/app-shell.test.ts` | 控制台外壳设计 token、响应式抽屉、无障碍和角色导航。 |
 | `test/i18n.test.ts` | 全局翻译资源键、页面接线和语言偏好。 |
 | `test/integration/admin-bind-subscription.test.ts` | admin-bind-subscription 功能的 Fastify/Prisma 集成行为。 |
 | `test/integration/admin-groups.test.ts` | admin-groups 功能的 Fastify/Prisma 集成行为。 |
@@ -99,6 +100,7 @@ npm run prisma:migrate:deploy
 | `test/integration/relay.test.ts` | relay 功能的 Fastify/Prisma 集成行为。 |
 | `test/integration/storage-config.test.ts` | storage-config 功能的 Fastify/Prisma 集成行为。 |
 | `test/integration/subscription-stripe.test.ts` | subscription-stripe 功能的 Fastify/Prisma 集成行为。 |
+| `test/integration/task-routes.test.ts` | 任务列表、视频任务、筛选和权限路由行为。 |
 | `test/integration/token-usage.test.ts` | token-usage 功能的 Fastify/Prisma 集成行为。 |
 | `test/integration/topup-creem-config.test.ts` | topup-creem-config 功能的 Fastify/Prisma 集成行为。 |
 | `test/integration/topup-stripe.test.ts` | topup-stripe 功能的 Fastify/Prisma 集成行为。 |

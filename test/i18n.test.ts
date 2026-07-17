@@ -5,6 +5,7 @@ import zhCN from '../web/src/i18n/locales/zh-CN.json';
 import { getPreferredLanguage, normalizeLanguage, readUserLanguage } from '../web/src/i18n/language.js';
 
 const sourceFiles = [
+  'web/src/components/layout/PageLayout.tsx',
   'web/src/components/layout/headerbar.tsx',
   'web/src/components/layout/SiderBar.tsx',
   'web/src/components/layout/Footer.tsx',

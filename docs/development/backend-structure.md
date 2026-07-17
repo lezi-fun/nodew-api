@@ -64,6 +64,7 @@ Tests: `relay.test.ts`, `relay-responses.test.ts`, `relay-claude.test.ts`, `rela
 - Check-in: `src/modules/checkin/routes.ts`.
 - Top-up: `src/modules/billing/routes.ts`; providers are in `src/lib/stripe.ts`, `creem.ts`, and `waffo.ts`.
 - Subscription: `src/modules/subscription/routes.ts`, `subscription-plans.ts`, and `user-subscriptions.ts`.
+- Tasks: `src/modules/tasks/routes.ts` for generic task logs and video-task queries.
 - Admin APIs: `src/modules/admin/*/routes.ts`.
 - Object storage: `src/modules/admin/storage/routes.ts` and `src/lib/object-storage.ts`.
 
@@ -137,6 +138,7 @@ Tests: `relay.test.ts`, `relay-responses.test.ts`, `relay-claude.test.ts`, `rela
 | `src/modules/setup/routes.ts` | Setup status and first-administrator API. |
 | `src/modules/status/routes.ts` | Public site status, authentication capabilities, and frontend bootstrap data. |
 | `src/modules/subscription/routes.ts` | Plan listing/purchase, admin plan CRUD, and manual assignment. |
+| `src/modules/tasks/routes.ts` | Generic task-log and video-task query APIs. |
 | `src/modules/usage/routes.ts` | Usage-log pagination, summaries, and token-level statistics. |
 | `src/plugins/auth.ts` | Session/API-key authentication and user/admin/relay pre-handlers. |
 | `src/server.ts` | Process entry that parses environment and starts listening. |

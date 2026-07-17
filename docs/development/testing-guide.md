@@ -65,6 +65,7 @@ If a full run occasionally reports a 401 or foreign-key failure but the focused 
 | `test/helpers/db.ts` | Clears the test database in foreign-key order. |
 | `test/helpers/factories.ts` | Factories for users, channels, API keys, and related records. |
 | `test/helpers/fetch.ts` | Fastify/Prisma integration behavior for fetch.ts. |
+| `test/app-shell.test.ts` | Console shell tokens, responsive drawer, accessibility, and role-aware navigation. |
 | `test/i18n.test.ts` | Global translation keys, page wiring, and language preference. |
 | `test/integration/admin-bind-subscription.test.ts` | Fastify/Prisma integration behavior for admin-bind-subscription. |
 | `test/integration/admin-groups.test.ts` | Fastify/Prisma integration behavior for admin-groups. |
@@ -90,6 +91,7 @@ If a full run occasionally reports a 401 or foreign-key failure but the focused 
 | `test/integration/relay.test.ts` | Fastify/Prisma integration behavior for relay. |
 | `test/integration/storage-config.test.ts` | Fastify/Prisma integration behavior for storage-config. |
 | `test/integration/subscription-stripe.test.ts` | Fastify/Prisma integration behavior for subscription-stripe. |
+| `test/integration/task-routes.test.ts` | Task-list, video-task, filtering, and authorization route behavior. |
 | `test/integration/token-usage.test.ts` | Fastify/Prisma integration behavior for token-usage. |
 | `test/integration/topup-creem-config.test.ts` | Fastify/Prisma integration behavior for topup-creem-config. |
 | `test/integration/topup-stripe.test.ts` | Fastify/Prisma integration behavior for topup-stripe. |

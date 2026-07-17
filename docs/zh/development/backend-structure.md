@@ -64,6 +64,7 @@
 - 签到：`src/modules/checkin/routes.ts`。
 - 充值：`src/modules/billing/routes.ts`，provider 在 `src/lib/stripe.ts`、`creem.ts`、`waffo.ts`。
 - 订阅：`src/modules/subscription/routes.ts`、`src/lib/subscription-plans.ts`、`user-subscriptions.ts`。
+- 任务：`src/modules/tasks/routes.ts`，提供通用任务日志和视频任务查询。
 - 管理员：`src/modules/admin/*/routes.ts`。
 - 对象存储：`src/modules/admin/storage/routes.ts` 和 `src/lib/object-storage.ts`。
 
@@ -137,6 +138,7 @@
 | `src/modules/setup/routes.ts` | 初始化状态和首个管理员创建 API。 |
 | `src/modules/status/routes.ts` | 公开站点状态、认证能力和前端启动配置。 |
 | `src/modules/subscription/routes.ts` | 套餐展示、购买、管理员套餐 CRUD 和手动绑定。 |
+| `src/modules/tasks/routes.ts` | 通用任务日志和视频任务查询 API。 |
 | `src/modules/usage/routes.ts` | 用量日志分页、摘要和 token 维度统计。 |
 | `src/plugins/auth.ts` | session/API Key 认证和用户/管理员/relay preHandler。 |
 | `src/server.ts` | 进程入口，读取环境并启动监听。 |
