@@ -6,7 +6,7 @@ import {
   isSettingSectionActive,
   settingSections,
   updateSettingSectionSearch,
-} from '../web/src/lib/settings-sections.js';
+} from '../web/src/features/settings/sections.js';
 import { readFileSync } from 'node:fs';
 
 describe('settings section navigation', () => {
@@ -71,5 +71,15 @@ describe('settings section navigation', () => {
     expect(settingPage).toContain('保存支付设置');
     expect(settingPage).toContain('Creem 设置');
     expect(settingPage).toContain('Waffo 设置');
+  });
+
+  it('keeps the settings page shell inside the settings feature', () => {
+    const settingPage = readFileSync('web/src/pages/Setting.tsx', 'utf8');
+    const header = readFileSync('web/src/features/settings/components/SettingsPageHeader.tsx', 'utf8');
+
+    expect(settingPage).toContain("from '../features/settings/components/SettingsPageHeader'");
+    expect(settingPage).toContain('<SettingsPageHeader');
+    expect(header).toContain('aria-label="设置业务域"');
+    expect(header).toContain('getSettingSectionNavigationProps');
   });
 });

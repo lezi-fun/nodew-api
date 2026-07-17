@@ -1042,7 +1042,55 @@ body[theme-mode='dark'] .dashboard-timeline-item {
 }
 
 .settings-section-nav {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
   margin-bottom: 16px;
+  padding: 6px;
+  border: 1px solid var(--console-border);
+  border-radius: 8px;
+  background: var(--console-card);
+  box-shadow: var(--console-shadow);
+}
+
+.settings-section-link {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--semi-color-text-1);
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.settings-section-link:hover {
+  background: var(--semi-color-fill-0);
+}
+
+.settings-section-link.is-active {
+  color: var(--brand-blue);
+  background: color-mix(in srgb, var(--brand-blue) 12%, transparent);
+}
+
+.settings-section-link strong,
+.settings-section-link span {
+  min-width: 0;
+}
+
+.settings-section-link span {
+  color: var(--semi-color-text-2);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.settings-section-link:focus-visible {
+  outline: 2px solid var(--brand-blue);
+  outline-offset: 2px;
 }
 
 .setting-field {
@@ -1458,6 +1506,10 @@ body[theme-mode='dark'] .dashboard-timeline-item {
 
   .metric-grid {
     grid-template-columns: 1fr;
+  }
+
+  .settings-section-nav {
+    grid-template-columns: 1fr 1fr;
   }
 
   .dashboard-grid,

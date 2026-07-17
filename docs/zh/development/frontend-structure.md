@@ -42,7 +42,7 @@
 
 `Channel.tsx`、`User.tsx`、`Redemption.tsx`、`Models.tsx`、`Deployment.tsx`、`Setting.tsx`。
 
-`Setting.tsx` 通过 `web/src/lib/settings-sections.ts` 分成 general/security/oauth/billing 四个业务域；数据加载由 `settings-loader.ts` 隔离单个接口失败。
+`Setting.tsx` 通过 `web/src/features/settings/sections.ts` 分成 general/security/oauth/billing 四个业务域，并由 `SettingsPageHeader.tsx` 负责页面标题与业务域导航；数据加载由 `settings-loader.ts` 隔离单个接口失败。
 
 ## 组件目录
 
@@ -51,6 +51,7 @@
 - `components/models/`：模型覆盖与上游模型选择。
 - `components/common/`：表格页、错误边界、加载和路由错误。
 - `components/setup/`：初始化向导步骤。
+- `features/settings/`：设置页专用导航、业务域元数据和页面壳组件。
 
 ## 完整前端文件索引
 | 文件 | 职责 |
@@ -86,13 +87,14 @@
 | `web/src/context/Status.tsx` | 公开状态和启动能力。 |
 | `web/src/context/Theme.tsx` | 主题持久化和切换。 |
 | `web/src/context/User.tsx` | 当前用户状态、刷新、登出。 |
+| `web/src/features/settings/components/SettingsPageHeader.tsx` | 设置页标题、操作区和业务域导航。 |
+| `web/src/features/settings/sections.ts` | 设置业务域、URL section、描述和导航属性。 |
 | `web/src/i18n/i18n.ts` | i18next 资源和 detector 初始化。 |
 | `web/src/i18n/language.ts` | 支持语言规范化和偏好优先级。 |
 | `web/src/lib/api.ts` | 全部前端 API 类型、Axios client 和请求方法。 |
 | `web/src/lib/format.ts` | 日期、额度和延迟格式化。 |
 | `web/src/lib/oauth.tsx` | OAuth provider 元数据、图标、启用判断。 |
 | `web/src/lib/settings-loader.ts` | 设置资源并行加载和错误隔离。 |
-| `web/src/lib/settings-sections.ts` | 设置业务域、URL section 和导航属性。 |
 | `web/src/lib/shared-request.ts` | 一次性异步请求的 in-flight 去重和重试清理。 |
 | `web/src/main.tsx` | React 挂载、Provider 组合、语言和 Semi UI locale 同步。 |
 | `web/src/pages/About.tsx` | 关于页与站点统计。 |

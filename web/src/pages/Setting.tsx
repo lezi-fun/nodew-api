@@ -1,9 +1,16 @@
 import { Button, Card, Input, InputNumber, Popconfirm, Select, Space, Switch, Tag, TextArea, Toast, Typography } from '@douyinfe/semi-ui';
-import { IconDelete, IconEdit, IconPlus, IconRefresh, IconSave } from '@douyinfe/semi-icons';
+import { IconDelete, IconEdit, IconPlus, IconSave } from '@douyinfe/semi-icons';
 import { useCallback, useContext, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { UserContext } from '../context/User';
+import SettingsPageHeader from '../features/settings/components/SettingsPageHeader';
+import {
+  getSettingSection,
+  isSettingSectionActive,
+  type SettingSection,
+  updateSettingSectionSearch,
+} from '../features/settings/sections';
 import {
   api,
   type CreemTopUpConfig,
@@ -21,15 +28,6 @@ import {
   type WaffoTopUpConfig,
 } from '../lib/api';
 import { loadSettingsResources } from '../lib/settings-loader';
-import {
-  getSettingSection,
-  getSettingSectionNavigationProps,
-  getSettingSectionPageDescription,
-  isSettingSectionActive,
-  settingSections,
-  type SettingSection,
-  updateSettingSectionSearch,
-} from '../lib/settings-sections';
 
 const generalOptionMeta: Array<{
   key: SystemOptionKey;
@@ -645,39 +643,14 @@ export default function SettingPage() {
 
   return (
     <main className="console-page settings-page">
-      <section className="console-hero">
-        <div>
-          <div className="console-eyebrow">Settings</div>
-          <Typography.Title heading={2} style={{ margin: '6px 0 8px' }}>系统设置</Typography.Title>
-          <Typography.Paragraph className="console-description">
-            {getSettingSectionPageDescription(activeSection)}
-          </Typography.Paragraph>
-        </div>
-        <Space wrap>
-          <Button icon={<IconRefresh />} loading={loading} onClick={() => void load()}>刷新</Button>
-          {activeSection === 'general' ? (
-            <Button theme="solid" type="primary" icon={<IconSave />} loading={saving} onClick={() => void save()}>保存基础设置</Button>
-          ) : null}
-        </Space>
-      </section>
-
-      <nav aria-label="设置业务域">
-        <Card bordered={false} className="dashboard-card settings-section-nav">
-          <Space wrap>
-            {settingSections.map((section) => (
-              <Button
-                key={section.key}
-                theme={activeSection === section.key ? 'solid' : 'light'}
-                type={activeSection === section.key ? 'primary' : 'tertiary'}
-                {...getSettingSectionNavigationProps(activeSection, section.key)}
-                onClick={() => selectSection(section.key)}
-              >
-                {section.label}
-              </Button>
-            ))}
-          </Space>
-        </Card>
-      </nav>
+      <SettingsPageHeader
+        activeSection={activeSection}
+        loading={loading}
+        saving={saving}
+        onRefresh={() => void load()}
+        onSaveGeneral={() => void save()}
+        onSectionChange={selectSection}
+      />
 
       <Card bordered={false} className="dashboard-card settings-card" style={{ marginTop: 16, display: isSettingSectionActive(activeSection, 'general') ? undefined : 'none' }}>
           <div className="settings-grid">

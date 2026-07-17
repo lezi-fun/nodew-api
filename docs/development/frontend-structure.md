@@ -42,7 +42,7 @@ Email verification and OAuth callbacks consume one-time values. They use `web/sr
 
 `Channel.tsx`, `User.tsx`, `Redemption.tsx`, `Models.tsx`, `Deployment.tsx`, and `Setting.tsx`.
 
-`Setting.tsx` uses `web/src/lib/settings-sections.ts` for general/security/oauth/billing sections, while `settings-loader.ts` isolates failed resources.
+`Setting.tsx` uses `web/src/features/settings/sections.ts` for general/security/oauth/billing sections and `SettingsPageHeader.tsx` for the page header and domain navigation, while `settings-loader.ts` isolates failed resources.
 
 ## Component directories
 
@@ -51,6 +51,7 @@ Email verification and OAuth callbacks consume one-time values. They use `web/sr
 - `components/models/`: model coverage and upstream selection.
 - `components/common/`: table pages, error boundaries, loading, route errors.
 - `components/setup/`: setup-wizard steps.
+- `features/settings/`: settings-specific navigation, section metadata, and page-shell components.
 
 ## Complete frontend file index
 | File | Responsibility |
@@ -86,13 +87,14 @@ Email verification and OAuth callbacks consume one-time values. They use `web/sr
 | `web/src/context/Status.tsx` | Public status and bootstrap capabilities. |
 | `web/src/context/Theme.tsx` | Theme persistence and switching. |
 | `web/src/context/User.tsx` | Current-user state, refresh, and logout. |
+| `web/src/features/settings/components/SettingsPageHeader.tsx` | Settings page heading, actions, and business-domain navigation. |
+| `web/src/features/settings/sections.ts` | Settings domains, URL sections, descriptions, and navigation attributes. |
 | `web/src/i18n/i18n.ts` | i18next resources and detector initialization. |
 | `web/src/i18n/language.ts` | Supported-language normalization and preference priority. |
 | `web/src/lib/api.ts` | All frontend API types, Axios client, and request methods. |
 | `web/src/lib/format.ts` | Date, quota, and latency formatting. |
 | `web/src/lib/oauth.tsx` | OAuth provider metadata, icons, and enablement checks. |
 | `web/src/lib/settings-loader.ts` | Parallel settings resource loading and error isolation. |
-| `web/src/lib/settings-sections.ts` | Settings domains, URL sections, and navigation attributes. |
 | `web/src/lib/shared-request.ts` | In-flight deduplication and retry cleanup for one-time requests. |
 | `web/src/main.tsx` | React mount, provider composition, language, and Semi UI locale sync. |
 | `web/src/pages/About.tsx` | About page and site statistics. |
