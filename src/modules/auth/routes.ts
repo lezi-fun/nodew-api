@@ -30,6 +30,7 @@ import {
   sendMailMessage,
 } from '../../lib/mailer.js';
 import { isMailDeliveryEnabled } from '../../lib/mail-config.js';
+import { getNewUserQuota } from '../../lib/operation-settings.js';
 import {
   buildPasskeyCredentialCreateData,
   buildPasskeyCredentialUpdateData,
@@ -269,6 +270,7 @@ const authRoutes: FastifyPluginAsync = async (app) => {
           displayName: pendingRegistration.displayName,
           emailVerifiedAt: new Date(),
           role: 'USER',
+          quotaRemaining: await getNewUserQuota(),
         },
         select: authUserSelect,
       });
@@ -287,6 +289,7 @@ const authRoutes: FastifyPluginAsync = async (app) => {
         passwordHash: hashPassword(body.password),
         displayName: body.displayName ?? body.username,
         role: 'USER',
+        quotaRemaining: await getNewUserQuota(),
       },
       select: authUserSelect,
     });

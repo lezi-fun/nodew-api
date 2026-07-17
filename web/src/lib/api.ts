@@ -276,7 +276,11 @@ export type SystemOptionKey =
   | 'privacy_policy'
   | 'about'
   | 'home_page_content'
-  | 'subscription_plans';
+  | 'subscription_plans'
+  | 'operation_new_user_quota'
+  | 'operation_max_user_api_keys'
+  | 'operation_relay_retry_times'
+  | 'operation_usage_log_enabled';
 
 export type SystemOptionItem = {
   key: SystemOptionKey;

@@ -1,7 +1,6 @@
 import {
   extractRelayErrorMessage,
   formatRelayAttempt,
-  relayRetryLimit,
   selectRelayChannels,
   shouldRetryRelay,
   summarizeRelayAttempts,
@@ -9,6 +8,7 @@ import {
 import { writeRelayUsageLog } from './billing.js';
 import { recordRelayChannelFailure, recordRelayChannelSuccess } from './channel-health.js';
 import { reserveRelayChannelSlot } from './rate-limit.js';
+import { getOperationSettings } from '../../lib/operation-settings.js';
 import type { RelayChannel, RelayExecutionResult, RelayResult } from './types.js';
 
 type ExecuteRelayParams = {
@@ -112,7 +112,7 @@ export const executeRelay = async (params: ExecuteRelayParams): Promise<RelayExe
       continue;
     }
 
-    if (upstreamAttempts >= relayRetryLimit + 1) {
+    if (upstreamAttempts >= (await getOperationSettings()).relayRetryTimes + 1) {
       break;
     }
 

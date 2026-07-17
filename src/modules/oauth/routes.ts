@@ -6,6 +6,7 @@ import type { FastifyInstance, FastifyPluginAsync, FastifyReply } from 'fastify'
 import { z } from 'zod';
 
 import { generateAccessToken, hashPassword } from '../../lib/crypto.js';
+import { getNewUserQuota } from '../../lib/operation-settings.js';
 import {
   getEffectiveOAuthProviderConfig,
   getEnabledCustomOAuthProviderBySlug,
@@ -897,6 +898,7 @@ const findOrCreateOAuthLoginUser = async (app: FastifyInstance, args: {
         email: args.oauthUser.email!,
         username,
         passwordHash: hashPassword(generateAccessToken()),
+        quotaRemaining: await getNewUserQuota(),
         displayName: args.oauthUser.displayName,
         emailVerifiedAt: args.oauthUser.emailVerified ? new Date() : null,
         role: 'USER',
@@ -1274,6 +1276,7 @@ const oauthRoutes: FastifyPluginAsync = async (app) => {
               email: oauthUser.email!,
               username,
               passwordHash: hashPassword(generateAccessToken()),
+              quotaRemaining: await getNewUserQuota(),
               displayName: oauthUser.displayName,
               emailVerifiedAt: oauthUser.emailVerified ? new Date() : null,
               role: 'USER',
@@ -1482,6 +1485,7 @@ const oauthRoutes: FastifyPluginAsync = async (app) => {
               email: oauthUser.email!,
               username,
               passwordHash: hashPassword(generateAccessToken()),
+              quotaRemaining: await getNewUserQuota(),
               displayName: oauthUser.displayName,
               emailVerifiedAt: oauthUser.emailVerified ? new Date() : null,
               role: 'USER',
@@ -1695,6 +1699,7 @@ const oauthRoutes: FastifyPluginAsync = async (app) => {
               email: oauthUser.email!,
               username,
               passwordHash: hashPassword(generateAccessToken()),
+              quotaRemaining: await getNewUserQuota(),
               displayName: oauthUser.displayName,
               emailVerifiedAt: oauthUser.emailVerified ? new Date() : null,
               role: 'USER',

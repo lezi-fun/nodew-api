@@ -3,6 +3,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 
 import { generateApiKey, getApiKeyPrefix, hashApiKey, maskApiKey } from '../../lib/crypto.js';
+import { getOperationSettings } from '../../lib/operation-settings.js';
 import { prisma } from '../../lib/prisma.js';
 
 const createApiKeyBodySchema = z.object({
@@ -55,6 +56,13 @@ const apiKeyRoutes: FastifyPluginAsync = async (app) => {
     preHandler: app.requireUser,
   }, async (request, reply) => {
     const body = createApiKeyBodySchema.parse(request.body);
+    const { maxUserApiKeys } = await getOperationSettings();
+    const apiKeyCount = await prisma.aPIKey.count({ where: { userId: request.currentUser!.id } });
+
+    if (apiKeyCount >= maxUserApiKeys) {
+      throw app.httpErrors.badRequest('API key limit reached');
+    }
+
     const plaintextKey = generateApiKey();
 
     const apiKey = await prisma.aPIKey.create({

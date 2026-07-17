@@ -49,6 +49,10 @@ const generalOptionMeta: Array<{
   { key: 'registration_email_verification_required', title: '注册前验证邮箱', description: '开启后，用户必须先点击验证邮件或输入验证码，才能完成注册。', type: 'boolean' },
   { key: 'self_use_mode_enabled', title: '自用模式', description: '隐藏注册和部分公开入口。', type: 'boolean' },
   { key: 'demo_site_enabled', title: '演示站点', description: '用于标记演示环境。', type: 'boolean' },
+  { key: 'operation_new_user_quota', title: '新用户初始额度', description: '注册时默认分配给新用户的额度，0 表示不赠送。', type: 'text' },
+  { key: 'operation_max_user_api_keys', title: '用户最大令牌数', description: '每个用户最多可创建的令牌数。', type: 'text' },
+  { key: 'operation_relay_retry_times', title: 'Relay 重试次数', description: '上游失败后最多重试次数。', type: 'text' },
+  { key: 'operation_usage_log_enabled', title: '启用额度消费日志', description: '关闭后不再记录用量日志。', type: 'boolean' },
 ];
 
 const checkinOptionMeta: Array<{

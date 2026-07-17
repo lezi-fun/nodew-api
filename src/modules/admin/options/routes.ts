@@ -23,6 +23,7 @@ import {
   updateCustomOAuthProvider,
 } from '../../../lib/oauth-config.js';
 import { prisma } from '../../../lib/prisma.js';
+import { operationOptionKeys } from '../../../lib/operation-settings.js';
 import {
   getPaymentConfiguration,
   paymentConfigBodySchema,
@@ -55,6 +56,10 @@ const optionKeySchema = z.enum([
   'about',
   'home_page_content',
   subscriptionPlanOptionKey,
+  operationOptionKeys.newUserQuota,
+  operationOptionKeys.maxUserApiKeys,
+  operationOptionKeys.relayRetryTimes,
+  operationOptionKeys.usageLogEnabled,
 ]);
 
 const updateOptionBodySchema = z.object({
@@ -126,6 +131,18 @@ const optionsRoutes: FastifyPluginAsync = async (app) => {
     const value = (() => {
       if (params.key === 'checkin_reward_quota' || params.key === 'checkin_min_quota' || params.key === 'checkin_max_quota') {
         return z.coerce.bigint().positive().parse(body.value).toString();
+      }
+
+      if (params.key === operationOptionKeys.newUserQuota || params.key === operationOptionKeys.relayRetryTimes) {
+        return z.coerce.number().int().min(0).max(params.key === operationOptionKeys.relayRetryTimes ? 10 : Number.MAX_SAFE_INTEGER).parse(body.value).toString();
+      }
+
+      if (params.key === operationOptionKeys.maxUserApiKeys) {
+        return z.coerce.number().int().min(1).max(10000).parse(body.value).toString();
+      }
+
+      if (params.key === operationOptionKeys.usageLogEnabled) {
+        return z.coerce.boolean().parse(body.value).toString();
       }
 
       if (params.key === 'passkey_user_verification') {
