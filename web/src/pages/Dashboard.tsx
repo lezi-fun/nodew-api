@@ -1,6 +1,6 @@
 import { Button, Card, Input, Modal, Space, Tag, Toast, Typography } from '@douyinfe/semi-ui';
 import { IconActivity, IconBell, IconCreditCard, IconHistogram, IconRefresh, IconSearch, IconServer, IconUser } from '@douyinfe/semi-icons';
-import { useContext, useEffect, useState } from 'react';
+import { useCallback, useContext, useEffect, useState } from 'react';
 
 import { UserContext } from '../context/User';
 import { StatusContext } from '../context/Status';
@@ -17,7 +17,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
   const [searchVisible, setSearchVisible] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const [channelResult, tokenResult, logResult] = await Promise.allSettled([
@@ -50,13 +50,11 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.role]);
 
   useEffect(() => {
     void load();
-    // Dashboard refreshes when role changes; manual refresh handles later changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.role]);
+  }, [load]);
 
   const activeChannels = channels.filter((channel) => channel.status === 'ACTIVE').length;
   const activeTokens = tokens.filter((token) => token.status === 'ACTIVE').length;
