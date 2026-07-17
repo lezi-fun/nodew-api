@@ -29,6 +29,7 @@ import selfRoutes from './modules/self/routes.js';
 import setupRoutes from './modules/setup/routes.js';
 import statusRoutes from './modules/status/routes.js';
 import subscriptionRoutes from './modules/subscription/routes.js';
+import taskRoutes from './modules/tasks/routes.js';
 import usageRoutes from './modules/usage/routes.js';
 import authPlugin from './plugins/auth.js';
 
@@ -131,6 +132,7 @@ export const createApp = async (appEnv: AppEnv = parseEnv()) => {
     await api.register(channelRoutes);
     await api.register(usageRoutes);
     await api.register(compatibilityRoutes);
+    await api.register(taskRoutes);
   }, { prefix: '/api' });
 
   await app.register(relayRoutes, { prefix: '/v1' });

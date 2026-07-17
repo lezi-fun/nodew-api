@@ -88,6 +88,7 @@ model User {
   redeemedRedemptions         Redemption[] @relation("RedeemedByUser")
   checkinRecords              UserCheckinRecord[]
   topUpOrders                 TopUpOrder[]
+  tasks                       RelayTask[]
 
   @@index([role])
   @@index([status])
@@ -285,6 +286,7 @@ model APIKey {
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdBy      User?        @relation("APIKeyCreator", fields: [createdById], references: [id], onDelete: SetNull)
   usageLogs      UsageLog[]
+  tasks          RelayTask[]
 
   @@index([userId])
   @@index([createdById])
@@ -362,4 +364,28 @@ model UsageLog {
   @@index([channelId, createdAt])
   @@index([provider, model])
   @@index([success, createdAt])
+}
+
+model RelayTask {
+  id         String   @id @default(cuid())
+  userId     String
+  apiKeyId   String?
+  requestId  String   @unique
+  type       String   @default("video")
+  model      String?
+  status     String   @default("PENDING")
+  progress   Float    @default(0)
+  input      Json?
+  output     Json?
+  errorCode  String?
+  errorMessage String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  completedAt DateTime?
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiKey     APIKey?  @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([status])
+  @@index([requestId])
 }

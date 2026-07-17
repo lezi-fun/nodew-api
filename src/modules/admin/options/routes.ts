@@ -68,6 +68,7 @@ const optionKeySchema = z.enum([
   monitoringOptionKeys.autoDisableKeywords,
   monitoringOptionKeys.failureThreshold,
   monitoringOptionKeys.autoTestMinutes,
+  'deployment_config',
   'model_ratios',
   'group_ratios',
 ]);
