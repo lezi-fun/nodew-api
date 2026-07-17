@@ -1407,11 +1407,6 @@ body[theme-mode='dark'] .dashboard-timeline-item {
   margin: 0;
 }
 
-@media (max-width: 1024px) {
-  .headerbar-nav {
-    display: none;
-  }
-}
 
 @media (max-width: 767px) {
   body.mobile-nav-open {

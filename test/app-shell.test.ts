@@ -64,4 +64,9 @@ describe('console app shell', () => {
   it('respects reduced-motion preferences', () => {
     expect(styles).toContain('@media (prefers-reduced-motion: reduce)');
   });
+
+  it('keeps navigation visible on tablets for public pages', () => {
+    expect(styles).not.toContain('@media (max-width: 1024px)');
+    expect(styles).toContain('@media (max-width: 767px)');
+  });
 });
