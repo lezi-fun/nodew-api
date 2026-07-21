@@ -66,6 +66,7 @@ If a full run occasionally reports a 401 or foreign-key failure but the focused 
 | `test/helpers/factories.ts` | Factories for users, channels, API keys, and related records. |
 | `test/helpers/fetch.ts` | Fastify/Prisma integration behavior for fetch.ts. |
 | `test/app-shell.test.ts` | Console shell tokens, responsive drawer, accessibility, and role-aware navigation. |
+| `test/dashboard-page.test.ts` | Dashboard load callback and effect dependency regression coverage. |
 | `test/i18n.test.ts` | Global translation keys, page wiring, and language preference. |
 | `test/integration/admin-bind-subscription.test.ts` | Fastify/Prisma integration behavior for admin-bind-subscription. |
 | `test/integration/admin-groups.test.ts` | Fastify/Prisma integration behavior for admin-groups. |

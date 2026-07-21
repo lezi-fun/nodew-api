@@ -75,6 +75,7 @@ npm run prisma:migrate:deploy
 | `test/helpers/factories.ts` | 用户、渠道、API Key 等测试数据工厂。 |
 | `test/helpers/fetch.ts` | fetch.ts 功能的 Fastify/Prisma 集成行为。 |
 | `test/app-shell.test.ts` | 控制台外壳设计 token、响应式抽屉、无障碍和角色导航。 |
+| `test/dashboard-page.test.ts` | Dashboard 加载回调和 effect 依赖关系的回归覆盖。 |
 | `test/i18n.test.ts` | 全局翻译资源键、页面接线和语言偏好。 |
 | `test/integration/admin-bind-subscription.test.ts` | admin-bind-subscription 功能的 Fastify/Prisma 集成行为。 |
 | `test/integration/admin-groups.test.ts` | admin-groups 功能的 Fastify/Prisma 集成行为。 |
