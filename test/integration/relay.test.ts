@@ -1,6 +1,6 @@
 import { prisma } from '../../src/lib/prisma.js';
 import { closeTestApp, createTestApp } from '../helpers/app.js';
-import { createApiKey, createChannel, createUser } from '../helpers/factories.js';
+import { createAdminUser, createApiKey, createChannel, createSessionForUser, createUser } from '../helpers/factories.js';
 import { createMockResponse, mockFetchOnce, mockFetchSequence } from '../helpers/fetch.js';
 
 const buildMultipartBody = (boundary: string, fields: Record<string, string>) => Buffer.from([
@@ -1325,6 +1325,67 @@ describe('relay integration', () => {
           lastFailureMessage: 'second upstream failure',
           disabledReason: 'relay_failure_threshold',
         },
+      });
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
+  it('uses the configured global failure threshold when a channel has no override', async () => {
+    const user = await createUser();
+    const admin = await createAdminUser();
+    const { apiKey } = await createApiKey(user.id);
+    const channel = await createChannel({ name: 'Globally Monitored Channel' });
+    const adminToken = await createSessionForUser(admin.id);
+    mockFetchSequence([
+      {
+        status: 500,
+        headers: { 'content-type': 'application/json' },
+        body: { error: { message: 'first upstream failure' } },
+      },
+      {
+        status: 500,
+        headers: { 'content-type': 'application/json' },
+        body: { error: { message: 'second upstream failure' } },
+      },
+    ]);
+    const app = await createTestApp();
+
+    try {
+      const optionResponse = await app.inject({
+        method: 'PUT',
+        url: '/api/options/monitor_channel_disable_threshold',
+        cookies: { nodew_session: app.signCookie(adminToken) },
+        payload: { value: 2 },
+      });
+      const firstResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/chat/completions',
+        headers: { authorization: `Bearer ${apiKey}`, 'x-request-id': 'relay-global-threshold-first' },
+        payload: { model: 'gpt-4o-mini', messages: [{ role: 'user', content: 'hello' }] },
+      });
+      const afterFirstFailure = await prisma.channel.findUnique({
+        where: { id: channel.id },
+        select: { status: true },
+      });
+      const secondResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/chat/completions',
+        headers: { authorization: `Bearer ${apiKey}`, 'x-request-id': 'relay-global-threshold-second' },
+        payload: { model: 'gpt-4o-mini', messages: [{ role: 'user', content: 'hello again' }] },
+      });
+      const afterSecondFailure = await prisma.channel.findUnique({
+        where: { id: channel.id },
+        select: { status: true, metadata: true },
+      });
+
+      expect(optionResponse.statusCode).toBe(200);
+      expect(firstResponse.statusCode).toBe(500);
+      expect(afterFirstFailure?.status).toBe('ACTIVE');
+      expect(secondResponse.statusCode).toBe(500);
+      expect(afterSecondFailure?.status).toBe('DISABLED');
+      expect(afterSecondFailure?.metadata).toMatchObject({
+        relayHealth: { failureCount: 2, disabledReason: 'relay_failure_threshold' },
       });
     } finally {
       await closeTestApp(app);

@@ -9,8 +9,6 @@ type HealthMetadata = {
   autoDisableFailureThreshold?: number;
 };
 
-const defaultFailureThreshold = 3;
-
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value && typeof value === 'object' && !Array.isArray(value));
 
@@ -27,14 +25,15 @@ const readHealthMetadata = (metadata: unknown): HealthMetadata => {
   };
 };
 
-const getFailureThreshold = (channel: RelayChannel) => {
+const getFailureThreshold = async (channel: RelayChannel) => {
   const metadata = readHealthMetadata(channel.metadata);
 
   if (metadata.autoDisable === false) {
     return null;
   }
 
-  return Math.max(1, Math.floor(metadata.autoDisableFailureThreshold ?? defaultFailureThreshold));
+  const settings = await getMonitoringSettings();
+  return Math.max(1, Math.floor(metadata.autoDisableFailureThreshold ?? settings.failureThreshold));
 };
 
 export const recordRelayChannelSuccess = async (channel: RelayChannel) => {
@@ -71,7 +70,7 @@ export const recordRelayChannelFailure = async (
     return;
   }
 
-  const threshold = getFailureThreshold(channel);
+  const threshold = await getFailureThreshold(channel);
 
   if (!threshold) {
     return;
