@@ -152,6 +152,14 @@ const optionsRoutes: FastifyPluginAsync = async (app) => {
         return z.coerce.number().int().min(1).max(10000).parse(body.value).toString();
       }
 
+      if (params.key === monitoringOptionKeys.failureThreshold) {
+        const parsed = z.coerce.number().int().positive().safeParse(body.value);
+        if (!parsed.success) {
+          throw app.httpErrors.badRequest('Monitoring failure threshold must be a positive integer');
+        }
+        return parsed.data.toString();
+      }
+
       if (params.key === operationOptionKeys.usageLogEnabled) {
         return z.coerce.boolean().parse(body.value).toString();
       }

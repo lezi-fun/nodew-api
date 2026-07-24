@@ -136,6 +136,37 @@ describe('admin options integration', () => {
     }
   });
 
+  it('requires a positive monitoring failure threshold', async () => {
+    const admin = await createAdminUser();
+    const token = await createSessionForUser(admin.id);
+    const app = await createTestApp();
+
+    try {
+      const cookies = {
+        nodew_session: app.signCookie(token),
+      };
+      const invalidResponse = await app.inject({
+        method: 'PUT',
+        url: '/api/options/monitor_channel_disable_threshold',
+        cookies,
+        payload: { value: 0 },
+      });
+      const validResponse = await app.inject({
+        method: 'PUT',
+        url: '/api/options/monitor_channel_disable_threshold',
+        cookies,
+        payload: { value: 2 },
+      });
+
+      expect(invalidResponse.statusCode).toBe(400);
+      expect(invalidResponse.json().message).toBe('Monitoring failure threshold must be a positive integer');
+      expect(validResponse.statusCode).toBe(200);
+      expect(validResponse.json().item.value).toBe('2');
+    } finally {
+      await closeTestApp(app);
+    }
+  });
+
   it('stores subscription plans through admin options', async () => {
     const admin = await createAdminUser();
     const token = await createSessionForUser(admin.id);
