@@ -151,6 +151,12 @@ describe('admin options integration', () => {
         cookies,
         payload: { value: 0 },
       });
+      const fractionalResponse = await app.inject({
+        method: 'PUT',
+        url: '/api/options/monitor_channel_disable_threshold',
+        cookies,
+        payload: { value: 1.5 },
+      });
       const validResponse = await app.inject({
         method: 'PUT',
         url: '/api/options/monitor_channel_disable_threshold',
@@ -160,6 +166,8 @@ describe('admin options integration', () => {
 
       expect(invalidResponse.statusCode).toBe(400);
       expect(invalidResponse.json().message).toBe('Monitoring failure threshold must be a positive integer');
+      expect(fractionalResponse.statusCode).toBe(400);
+      expect(fractionalResponse.json().message).toBe('Monitoring failure threshold must be a positive integer');
       expect(validResponse.statusCode).toBe(200);
       expect(validResponse.json().item.value).toBe('2');
     } finally {
