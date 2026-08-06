@@ -4,6 +4,7 @@ import { useCallback, useContext, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { UserContext } from '../context/User';
+import SettingsOptionCard from '../features/settings/components/SettingsOptionCard';
 import SettingsPageHeader from '../features/settings/components/SettingsPageHeader';
 import SettingsOptionGrid from '../features/settings/components/SettingsOptionGrid';
 import { checkinOptionMeta, generalOptionMeta, passkeyOptionMeta } from '../features/settings/option-metadata';
@@ -585,45 +586,31 @@ export default function SettingPage() {
         />
       </Card>
 
-      <Card bordered={false} className="dashboard-card settings-card" style={{ marginTop: 16, display: isSettingSectionActive(activeSection, 'general') ? undefined : 'none' }}>
-        <Space vertical align="start" style={{ width: '100%' }}>
-          <div>
-            <Typography.Title heading={5} style={{ marginBottom: 4 }}>签到设置</Typography.Title>
-            <Typography.Paragraph type="tertiary">
-              控制个人页签到入口和每日签到随机奖励范围。
-            </Typography.Paragraph>
-          </div>
-          <SettingsOptionGrid
-            options={checkinOptionMeta}
-            values={values}
-            onChange={(key, value) => setValues((current) => ({ ...current, [key]: value }))}
-            isNonBooleanDisabled={(option) => !checkinEnabled && option.key !== 'checkin_enabled'}
-          />
-          <Button theme="solid" type="primary" icon={<IconSave />} loading={savingCheckin} onClick={() => void saveCheckin()}>
-            保存签到设置
-          </Button>
-        </Space>
-      </Card>
+      <SettingsOptionCard
+        visible={isSettingSectionActive(activeSection, 'general')}
+        title="签到设置"
+        description="控制个人页签到入口和每日签到随机奖励范围。"
+        options={checkinOptionMeta}
+        values={values}
+        saving={savingCheckin}
+        saveLabel="保存签到设置"
+        onChange={(key, value) => setValues((current) => ({ ...current, [key]: value }))}
+        onSave={() => void saveCheckin()}
+        isNonBooleanDisabled={(option) => !checkinEnabled && option.key !== 'checkin_enabled'}
+      />
 
-      <Card bordered={false} className="dashboard-card settings-card" style={{ marginTop: 16, display: isSettingSectionActive(activeSection, 'security') ? undefined : 'none' }}>
-        <Space vertical align="start" style={{ width: '100%' }}>
-          <div>
-            <Typography.Title heading={5} style={{ marginBottom: 4 }}>Passkey 设置</Typography.Title>
-            <Typography.Paragraph type="tertiary">
-              配置 Passkey 登录的站点标识、允许来源和验证策略。
-            </Typography.Paragraph>
-          </div>
-          <SettingsOptionGrid
-            options={passkeyOptionMeta}
-            values={values}
-            onChange={(key, value) => setValues((current) => ({ ...current, [key]: value }))}
-            isNonBooleanDisabled={(option) => !passkeyEnabled && option.key !== 'passkey_enabled'}
-          />
-          <Button theme="solid" type="primary" icon={<IconSave />} loading={savingPasskey} onClick={() => void savePasskey()}>
-            保存 Passkey 设置
-          </Button>
-        </Space>
-      </Card>
+      <SettingsOptionCard
+        visible={isSettingSectionActive(activeSection, 'security')}
+        title="Passkey 设置"
+        description="配置 Passkey 登录的站点标识、允许来源和验证策略。"
+        options={passkeyOptionMeta}
+        values={values}
+        saving={savingPasskey}
+        saveLabel="保存 Passkey 设置"
+        onChange={(key, value) => setValues((current) => ({ ...current, [key]: value }))}
+        onSave={() => void savePasskey()}
+        isNonBooleanDisabled={(option) => !passkeyEnabled && option.key !== 'passkey_enabled'}
+      />
 
       <Card bordered={false} className="dashboard-card settings-card" style={{ marginTop: 16, display: isSettingSectionActive(activeSection, 'billing') ? undefined : 'none' }}>
         <Space vertical align="start" style={{ width: '100%' }}>

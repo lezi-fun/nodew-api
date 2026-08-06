@@ -100,4 +100,14 @@ describe('settings section navigation', () => {
       rows: 4,
     });
   });
+
+  it('shares the complete option card between check-in and Passkey settings', () => {
+    const settingPage = readFileSync('web/src/pages/Setting.tsx', 'utf8');
+    const optionCard = readFileSync('web/src/features/settings/components/SettingsOptionCard.tsx', 'utf8');
+
+    expect(settingPage.match(/<SettingsOptionCard/g)).toHaveLength(2);
+    expect(optionCard).toContain('<SettingsOptionGrid');
+    expect(optionCard).toContain('isNonBooleanDisabled');
+    expect(optionCard).toContain('display: visible ? undefined');
+  });
 });
