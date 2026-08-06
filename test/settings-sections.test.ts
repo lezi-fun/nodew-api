@@ -120,4 +120,14 @@ describe('settings section navigation', () => {
     expect(mailCard).toContain('value="resend"');
     expect(mailCard).toContain('发送测试邮件');
   });
+
+  it('keeps OIDC discovery and status controls inside the settings feature', () => {
+    const settingPage = readFileSync('web/src/pages/Setting.tsx', 'utf8');
+    const oidcCard = readFileSync('web/src/features/settings/components/OidcSettingsCard.tsx', 'utf8');
+
+    expect(settingPage).toContain('<OidcSettingsCard');
+    expect(oidcCard).toContain('onDiscover');
+    expect(oidcCard).toContain('获取 OIDC 端点');
+    expect(oidcCard).toContain('配置校验');
+  });
 });

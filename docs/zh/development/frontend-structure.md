@@ -91,6 +91,7 @@
 | `web/src/features/settings/components/SettingsOptionCard.tsx` | 带标题、可见状态和保存操作的通用设置卡片。 |
 | `web/src/features/settings/components/SettingsOptionGrid.tsx` | 类型化系统设置字段的通用渲染器。 |
 | `web/src/features/settings/components/MailSettingsCard.tsx` | SMTP/Resend 配置、状态反馈和测试邮件控制。 |
+| `web/src/features/settings/components/OidcSettingsCard.tsx` | OIDC 字段、端点发现、状态反馈和保存控制。 |
 | `web/src/features/settings/option-metadata.ts` | 基础、签到和 Passkey 设置项定义。 |
 | `web/src/features/settings/sections.ts` | 设置业务域、URL section、描述和导航属性。 |
 | `web/src/i18n/i18n.ts` | i18next 资源和 detector 初始化。 |
