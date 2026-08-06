@@ -4,6 +4,7 @@ import { useCallback, useContext, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { UserContext } from '../context/User';
+import CustomOAuthProviderCard from '../features/settings/components/CustomOAuthProviderCard';
 import MailSettingsCard from '../features/settings/components/MailSettingsCard';
 import OidcSettingsCard from '../features/settings/components/OidcSettingsCard';
 import SettingsOptionCard from '../features/settings/components/SettingsOptionCard';
@@ -992,266 +993,21 @@ export default function SettingPage() {
         onSave={() => void saveOAuthConfig()}
       />
 
-      <Card bordered={false} className="dashboard-card settings-card" style={{ marginTop: 16, display: isSettingSectionActive(activeSection, 'oauth') ? undefined : 'none' }}>
-        <Space vertical align="start" style={{ width: '100%' }}>
-          <div>
-            <Typography.Title heading={5} style={{ marginBottom: 4 }}>自定义 OAuth Provider</Typography.Title>
-            <Typography.Paragraph type="tertiary">
-              管理自定义 provider 配置。启用后会出现在登录页和个人页绑定入口，并按字段映射与访问策略执行回调。
-            </Typography.Paragraph>
-          </div>
-
-          <div className="settings-grid" style={{ width: '100%' }}>
-            <label className="setting-field">
-              <span>
-                <strong>启用</strong>
-                <em>开启后 provider 会进入登录与绑定入口。</em>
-              </span>
-              <Switch
-                checked={customOAuthProviderForm.enabled}
-                onChange={(checked) => setCustomOAuthProviderForm((current) => ({ ...current, enabled: checked }))}
-              />
-            </label>
-            <label className="setting-field">
-              <span>
-                <strong>名称</strong>
-                <em>展示给用户的 provider 名称。</em>
-              </span>
-              <Input
-                value={customOAuthProviderForm.name}
-                placeholder="GitLab"
-                onChange={(value) => setCustomOAuthProviderForm((current) => ({ ...current, name: value }))}
-              />
-            </label>
-            <label className="setting-field">
-              <span>
-                <strong>Slug</strong>
-                <em>只允许小写字母、数字和连字符。</em>
-              </span>
-              <Input
-                value={customOAuthProviderForm.slug}
-                placeholder="gitlab"
-                onChange={(value) => setCustomOAuthProviderForm((current) => ({ ...current, slug: value }))}
-              />
-            </label>
-            <label className="setting-field">
-              <span>
-                <strong>图标名</strong>
-                <em>可选，用于后续登录入口展示。</em>
-              </span>
-              <Input
-                value={customOAuthProviderForm.icon}
-                placeholder="gitlab"
-                onChange={(value) => setCustomOAuthProviderForm((current) => ({ ...current, icon: value }))}
-              />
-            </label>
-            <label className="setting-field">
-              <span>
-                <strong>Client ID</strong>
-                <em>OAuth 应用的客户端 ID。</em>
-              </span>
-              <Input
-                value={customOAuthProviderForm.clientId}
-                placeholder="oauth-client-id"
-                onChange={(value) => setCustomOAuthProviderForm((current) => ({ ...current, clientId: value }))}
-              />
-            </label>
-            <label className="setting-field">
-              <span>
-                <strong>Client Secret</strong>
-                <em>{editingCustomOAuthProviderId ? '留空则保留原密钥。' : '创建 provider 时必填。'}</em>
-              </span>
-              <Input
-                mode="password"
-                value={customOAuthProviderForm.clientSecret}
-                placeholder="oauth-client-secret"
-                onChange={(value) => setCustomOAuthProviderForm((current) => ({ ...current, clientSecret: value }))}
-              />
-            </label>
-            <label className="setting-field">
-              <span>
-                <strong>Well-Known URL</strong>
-                <em>可选，用于自动获取核心端点。</em>
-              </span>
-              <Input
-                value={customOAuthProviderForm.wellKnownUrl}
-                placeholder="https://id.example.com/.well-known/openid-configuration"
-                onChange={(value) => setCustomOAuthProviderForm((current) => ({ ...current, wellKnownUrl: value }))}
-              />
-            </label>
-            <label className="setting-field">
-              <span>
-                <strong>Authorization Endpoint</strong>
-                <em>发起 OAuth 授权跳转。</em>
-              </span>
-              <Input
-                value={customOAuthProviderForm.authorizationUrl}
-                placeholder="https://id.example.com/oauth2/authorize"
-                onChange={(value) => setCustomOAuthProviderForm((current) => ({ ...current, authorizationUrl: value }))}
-              />
-            </label>
-            <label className="setting-field">
-              <span>
-                <strong>Token Endpoint</strong>
-                <em>授权码换 access token。</em>
-              </span>
-              <Input
-                value={customOAuthProviderForm.tokenUrl}
-                placeholder="https://id.example.com/oauth2/token"
-                onChange={(value) => setCustomOAuthProviderForm((current) => ({ ...current, tokenUrl: value }))}
-              />
-            </label>
-            <label className="setting-field">
-              <span>
-                <strong>Userinfo Endpoint</strong>
-                <em>读取第三方用户资料。</em>
-              </span>
-              <Input
-                value={customOAuthProviderForm.userInfoUrl}
-                placeholder="https://id.example.com/oauth2/userinfo"
-                onChange={(value) => setCustomOAuthProviderForm((current) => ({ ...current, userInfoUrl: value }))}
-              />
-            </label>
-            <label className="setting-field">
-              <span>
-                <strong>Scopes</strong>
-                <em>默认 openid profile email。</em>
-              </span>
-              <Input
-                value={customOAuthProviderForm.scopes}
-                placeholder="openid profile email"
-                onChange={(value) => setCustomOAuthProviderForm((current) => ({ ...current, scopes: value }))}
-              />
-            </label>
-            <label className="setting-field">
-              <span>
-                <strong>Token Auth Style</strong>
-                <em>auto、参数传递或 Basic Auth。</em>
-              </span>
-              <Select
-                value={customOAuthProviderForm.authStyle}
-                onChange={(value) => setCustomOAuthProviderForm((current) => ({ ...current, authStyle: Number(value) as CustomOAuthProviderPayload['authStyle'] }))}
-              >
-                <Select.Option value={0}>auto</Select.Option>
-                <Select.Option value={1}>params</Select.Option>
-                <Select.Option value={2}>basic</Select.Option>
-              </Select>
-            </label>
-            <label className="setting-field">
-              <span>
-                <strong>User ID Field</strong>
-                <em>用户唯一标识字段路径。</em>
-              </span>
-              <Input
-                value={customOAuthProviderForm.userIdField}
-                placeholder="sub"
-                onChange={(value) => setCustomOAuthProviderForm((current) => ({ ...current, userIdField: value }))}
-              />
-            </label>
-            <label className="setting-field">
-              <span>
-                <strong>Username Field</strong>
-                <em>用户名字段路径。</em>
-              </span>
-              <Input
-                value={customOAuthProviderForm.usernameField}
-                placeholder="preferred_username"
-                onChange={(value) => setCustomOAuthProviderForm((current) => ({ ...current, usernameField: value }))}
-              />
-            </label>
-            <label className="setting-field">
-              <span>
-                <strong>Display Name Field</strong>
-                <em>显示名字段路径。</em>
-              </span>
-              <Input
-                value={customOAuthProviderForm.displayNameField}
-                placeholder="name"
-                onChange={(value) => setCustomOAuthProviderForm((current) => ({ ...current, displayNameField: value }))}
-              />
-            </label>
-            <label className="setting-field">
-              <span>
-                <strong>Email Field</strong>
-                <em>邮箱字段路径。</em>
-              </span>
-              <Input
-                value={customOAuthProviderForm.emailField}
-                placeholder="email"
-                onChange={(value) => setCustomOAuthProviderForm((current) => ({ ...current, emailField: value }))}
-              />
-            </label>
-            <label className="setting-field">
-              <span>
-                <strong>访问策略</strong>
-                <em>登录或绑定前会按该策略校验 userinfo。</em>
-              </span>
-              <TextArea
-                rows={4}
-                value={customOAuthProviderForm.accessPolicy}
-                placeholder='{"field":"groups","operator":"contains","value":"admin"}'
-                onChange={(value) => setCustomOAuthProviderForm((current) => ({ ...current, accessPolicy: value }))}
-              />
-            </label>
-            <label className="setting-field">
-              <span>
-                <strong>拒绝提示</strong>
-                <em>访问策略拒绝时展示。</em>
-              </span>
-              <TextArea
-                rows={4}
-                value={customOAuthProviderForm.accessDeniedMessage}
-                placeholder="当前账号不满足登录条件。"
-                onChange={(value) => setCustomOAuthProviderForm((current) => ({ ...current, accessDeniedMessage: value }))}
-              />
-            </label>
-          </div>
-
-          <Space wrap>
-            <Button loading={discoveringCustomOAuthProvider} onClick={() => void discoverCustomOAuthProvider()}>
-              获取自定义 OAuth 端点
-            </Button>
-            <Button theme="solid" type="primary" icon={<IconSave />} loading={savingCustomOAuthProvider} onClick={() => void saveCustomOAuthProvider()}>
-              {editingCustomOAuthProviderId ? '更新 provider' : '创建 provider'}
-            </Button>
-            {editingCustomOAuthProviderId ? (
-              <Button onClick={resetCustomOAuthProviderForm}>取消编辑</Button>
-            ) : null}
-          </Space>
-
-          <div className="oauth-binding-stack" style={{ width: '100%' }}>
-            {customOAuthProviders.length > 0 ? customOAuthProviders.map((provider) => (
-              <div key={provider.id} className="oauth-binding-panel">
-                <div className="oauth-binding-row">
-                  <div className="oauth-binding-main">
-                    <div className="oauth-binding-avatar">{provider.icon || provider.name.slice(0, 1).toUpperCase()}</div>
-                    <div className="oauth-binding-text">
-                      <strong>{provider.name}</strong>
-                      <span>{provider.slug} · {provider.enabled ? '已启用' : '已禁用'} · {provider.hasClientSecret ? '已保存密钥' : '未保存密钥'}</span>
-                    </div>
-                  </div>
-                  <div className="oauth-binding-actions">
-                    <Button onClick={() => editCustomOAuthProvider(provider)}>编辑</Button>
-                    <Button
-                      type="danger"
-                      loading={deletingCustomOAuthProviderId === provider.id}
-                      onClick={() => void deleteCustomOAuthProvider(provider.id)}
-                    >
-                      删除
-                    </Button>
-                  </div>
-                </div>
-                <div className="oauth-binding-meta">
-                  <span>Authorization: {provider.authorizationUrl}</span>
-                  <span>Userinfo: {provider.userInfoUrl}</span>
-                </div>
-              </div>
-            )) : (
-              <Typography.Text type="tertiary">还没有自定义 OAuth provider。</Typography.Text>
-            )}
-          </div>
-        </Space>
-      </Card>
+      <CustomOAuthProviderCard
+        visible={isSettingSectionActive(activeSection, 'oauth')}
+        providers={customOAuthProviders}
+        form={customOAuthProviderForm}
+        editingProviderId={editingCustomOAuthProviderId}
+        saving={savingCustomOAuthProvider}
+        discovering={discoveringCustomOAuthProvider}
+        deletingProviderId={deletingCustomOAuthProviderId}
+        onFormChange={(patch) => setCustomOAuthProviderForm((current) => ({ ...current, ...patch }))}
+        onDiscover={() => void discoverCustomOAuthProvider()}
+        onSave={() => void saveCustomOAuthProvider()}
+        onCancelEdit={resetCustomOAuthProviderForm}
+        onEdit={editCustomOAuthProvider}
+        onDelete={(id) => void deleteCustomOAuthProvider(id)}
+      />
 
       <MailSettingsCard
         visible={isSettingSectionActive(activeSection, 'security')}

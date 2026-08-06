@@ -130,4 +130,14 @@ describe('settings section navigation', () => {
     expect(oidcCard).toContain('获取 OIDC 端点');
     expect(oidcCard).toContain('配置校验');
   });
+
+  it('keeps custom OAuth provider management inside the settings feature', () => {
+    const settingPage = readFileSync('web/src/pages/Setting.tsx', 'utf8');
+    const providerCard = readFileSync('web/src/features/settings/components/CustomOAuthProviderCard.tsx', 'utf8');
+
+    expect(settingPage).toContain('<CustomOAuthProviderCard');
+    expect(providerCard).toContain('获取自定义 OAuth 端点');
+    expect(providerCard).toContain('创建 provider');
+    expect(providerCard).toContain('oauth-binding-stack');
+  });
 });
