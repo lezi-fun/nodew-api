@@ -110,4 +110,14 @@ describe('settings section navigation', () => {
     expect(optionCard).toContain('isNonBooleanDisabled');
     expect(optionCard).toContain('display: visible ? undefined');
   });
+
+  it('keeps mail provider controls inside the settings feature', () => {
+    const settingPage = readFileSync('web/src/pages/Setting.tsx', 'utf8');
+    const mailCard = readFileSync('web/src/features/settings/components/MailSettingsCard.tsx', 'utf8');
+
+    expect(settingPage).toContain('<MailSettingsCard');
+    expect(mailCard).toContain('value="smtp"');
+    expect(mailCard).toContain('value="resend"');
+    expect(mailCard).toContain('发送测试邮件');
+  });
 });

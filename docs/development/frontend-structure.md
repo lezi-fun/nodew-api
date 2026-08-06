@@ -90,6 +90,7 @@ Email verification and OAuth callbacks consume one-time values. They use `web/sr
 | `web/src/features/settings/components/SettingsPageHeader.tsx` | Settings page heading, actions, and business-domain navigation. |
 | `web/src/features/settings/components/SettingsOptionCard.tsx` | Shared titled option card with visibility and save handling. |
 | `web/src/features/settings/components/SettingsOptionGrid.tsx` | Shared renderer for typed system-option fields. |
+| `web/src/features/settings/components/MailSettingsCard.tsx` | SMTP/Resend configuration, status feedback, and test-mail controls. |
 | `web/src/features/settings/option-metadata.ts` | General, check-in, and Passkey option definitions. |
 | `web/src/features/settings/sections.ts` | Settings domains, URL sections, descriptions, and navigation attributes. |
 | `web/src/i18n/i18n.ts` | i18next resources and detector initialization. |
