@@ -93,6 +93,7 @@ Email verification and OAuth callbacks consume one-time values. They use `web/sr
 | `web/src/features/settings/components/MailSettingsCard.tsx` | SMTP/Resend configuration, status feedback, and test-mail controls. |
 | `web/src/features/settings/components/OidcSettingsCard.tsx` | OIDC fields, discovery, status feedback, and save controls. |
 | `web/src/features/settings/components/CustomOAuthProviderCard.tsx` | Custom OAuth provider form, discovery, CRUD actions, and provider list. |
+| `web/src/features/settings/components/PaymentChannelStatusGrid.tsx` | Stripe, Creem, and Waffo status cards with product summaries. |
 | `web/src/features/settings/option-metadata.ts` | General, check-in, and Passkey option definitions. |
 | `web/src/features/settings/sections.ts` | Settings domains, URL sections, descriptions, and navigation attributes. |
 | `web/src/i18n/i18n.ts` | i18next resources and detector initialization. |

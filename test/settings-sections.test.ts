@@ -140,4 +140,14 @@ describe('settings section navigation', () => {
     expect(providerCard).toContain('创建 provider');
     expect(providerCard).toContain('oauth-binding-stack');
   });
+
+  it('keeps payment channel status cards inside the settings feature', () => {
+    const settingPage = readFileSync('web/src/pages/Setting.tsx', 'utf8');
+    const statusGrid = readFileSync('web/src/features/settings/components/PaymentChannelStatusGrid.tsx', 'utf8');
+
+    expect(settingPage).toContain('<PaymentChannelStatusGrid');
+    expect(statusGrid).toContain('Stripe Checkout');
+    expect(statusGrid).toContain('Webhook 就绪');
+    expect(statusGrid).toContain('当前还没有可售产品。');
+  });
 });

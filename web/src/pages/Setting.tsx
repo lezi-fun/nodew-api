@@ -7,6 +7,7 @@ import { UserContext } from '../context/User';
 import CustomOAuthProviderCard from '../features/settings/components/CustomOAuthProviderCard';
 import MailSettingsCard from '../features/settings/components/MailSettingsCard';
 import OidcSettingsCard from '../features/settings/components/OidcSettingsCard';
+import PaymentChannelStatusGrid from '../features/settings/components/PaymentChannelStatusGrid';
 import SettingsOptionCard from '../features/settings/components/SettingsOptionCard';
 import SettingsPageHeader from '../features/settings/components/SettingsPageHeader';
 import SettingsOptionGrid from '../features/settings/components/SettingsOptionGrid';
@@ -183,9 +184,6 @@ const toSubscriptionPlanItem = (form: SubscriptionPlanForm): SubscriptionPlanIte
       .filter(Boolean),
   };
 };
-
-const formatPaymentAmount = (amountCents: number, currency: string) =>
-  `${(amountCents / 100).toFixed(2)} ${currency.toUpperCase()}`;
 
 export default function SettingPage() {
   const { user } = useContext(UserContext);
@@ -668,71 +666,11 @@ export default function SettingPage() {
             </Typography.Paragraph>
           </div>
 
-          <div className="settings-grid" style={{ width: '100%' }}>
-            <Card bordered>
-              <Space vertical align="start" style={{ width: '100%' }}>
-                <Space wrap>
-                  <Typography.Text strong>Stripe</Typography.Text>
-                  <Tag color={stripeConfig.enabled ? 'green' : 'grey'}>{stripeConfig.enabled ? '已启用' : '未启用'}</Tag>
-                  <Tag color={stripeConfig.configured ? 'blue' : 'orange'}>{stripeConfig.configured ? '配置完整' : '待配置'}</Tag>
-                </Space>
-                <Typography.Text type="tertiary">国际卡与 Stripe Checkout 单次充值。</Typography.Text>
-                <Typography.Text>单价：{formatPaymentAmount(stripeConfig.unitAmountCents, stripeConfig.currency)}</Typography.Text>
-                <Typography.Text>最少购买份数：{stripeConfig.minUnits}</Typography.Text>
-                <Typography.Text>每份入账额度：{stripeConfig.quotaPerUnit.toLocaleString('zh-CN')}</Typography.Text>
-              </Space>
-            </Card>
-
-            <Card bordered>
-              <Space vertical align="start" style={{ width: '100%' }}>
-                <Space wrap>
-                  <Typography.Text strong>Creem</Typography.Text>
-                  <Tag color={creemConfig.enabled ? 'green' : 'grey'}>{creemConfig.enabled ? '已启用' : '未启用'}</Tag>
-                  <Tag color={creemConfig.configured ? 'blue' : 'orange'}>{creemConfig.configured ? '配置完整' : '待配置'}</Tag>
-                  <Tag color={creemConfig.webhookConfigured ? 'cyan' : 'red'}>{creemConfig.webhookConfigured ? 'Webhook 就绪' : 'Webhook 缺失'}</Tag>
-                  {creemConfig.testMode ? <Tag color="purple">测试模式</Tag> : null}
-                </Space>
-                <Typography.Text type="tertiary">托管支付产品目录，适合预设档位充值。</Typography.Text>
-                <Typography.Text>可售产品数：{creemConfig.products.length}</Typography.Text>
-                {creemConfig.products.length > 0 ? (
-                  <Space vertical align="start" spacing="tight" style={{ width: '100%' }}>
-                    {creemConfig.products.slice(0, 3).map((product) => (
-                      <Typography.Text key={product.productId}>
-                        {product.name} · {formatPaymentAmount(product.amountCents, product.currency)} · {product.quotaAmount.toLocaleString('zh-CN')} 额度
-                      </Typography.Text>
-                    ))}
-                  </Space>
-                ) : (
-                  <Typography.Text type="tertiary">当前还没有可售产品。</Typography.Text>
-                )}
-              </Space>
-            </Card>
-
-            <Card bordered>
-              <Space vertical align="start" style={{ width: '100%' }}>
-                <Space wrap>
-                  <Typography.Text strong>Waffo</Typography.Text>
-                  <Tag color={waffoConfig.enabled ? 'green' : 'grey'}>{waffoConfig.enabled ? '已启用' : '未启用'}</Tag>
-                  <Tag color={waffoConfig.configured ? 'blue' : 'orange'}>{waffoConfig.configured ? '配置完整' : '待配置'}</Tag>
-                  <Tag color={waffoConfig.webhookConfigured ? 'cyan' : 'red'}>{waffoConfig.webhookConfigured ? 'Webhook 就绪' : 'Webhook 缺失'}</Tag>
-                  {waffoConfig.testMode ? <Tag color="purple">测试模式</Tag> : null}
-                </Space>
-                <Typography.Text type="tertiary">本地化支付方式目录，按后台产品配置跳转支付。</Typography.Text>
-                <Typography.Text>可售产品数：{waffoConfig.products.length}</Typography.Text>
-                {waffoConfig.products.length > 0 ? (
-                  <Space vertical align="start" spacing="tight" style={{ width: '100%' }}>
-                    {waffoConfig.products.slice(0, 3).map((product) => (
-                      <Typography.Text key={product.productId}>
-                        {product.name} · {formatPaymentAmount(product.amountCents, product.currency)} · {product.quotaAmount.toLocaleString('zh-CN')} 额度
-                      </Typography.Text>
-                    ))}
-                  </Space>
-                ) : (
-                  <Typography.Text type="tertiary">当前还没有可售产品。</Typography.Text>
-                )}
-              </Space>
-            </Card>
-          </div>
+          <PaymentChannelStatusGrid
+            stripe={stripeConfig}
+            creem={creemConfig}
+            waffo={waffoConfig}
+          />
 
           <div className="settings-grid" style={{ width: '100%' }}>
             <Card bordered>
