@@ -4,6 +4,7 @@ import { useCallback, useContext, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { UserContext } from '../context/User';
+import CreemPaymentSettingsCard from '../features/settings/components/CreemPaymentSettingsCard';
 import CustomOAuthProviderCard from '../features/settings/components/CustomOAuthProviderCard';
 import MailSettingsCard from '../features/settings/components/MailSettingsCard';
 import OidcSettingsCard from '../features/settings/components/OidcSettingsCard';
@@ -640,20 +641,15 @@ export default function SettingPage() {
           />
 
           <div className="settings-grid" style={{ width: '100%' }}>
-            <Card bordered>
-              <Space vertical align="start" style={{ width: '100%' }}>
-                <Typography.Title heading={5} style={{ marginBottom: 4 }}>Creem 设置</Typography.Title>
-                <Space wrap>
-                  <Switch checked={paymentConfig.creem.enabled} onChange={(enabled) => setPaymentConfig((current) => ({ ...current, creem: { ...current.creem, enabled } }))} />
-                  <span>启用 Creem</span>
-                  <Switch checked={paymentConfig.creem.testMode} onChange={(testMode) => setPaymentConfig((current) => ({ ...current, creem: { ...current.creem, testMode } }))} />
-                  <span>测试模式</span>
-                </Space>
-                <Input value={paymentConfig.creem.apiKey} placeholder={paymentConfig.creem.hasApiKey ? 'API Key 已配置，留空保持不变' : 'Creem API Key'} onChange={(apiKey) => setPaymentConfig((current) => ({ ...current, creem: { ...current.creem, apiKey } }))} />
-                <Input value={paymentConfig.creem.webhookSecret} placeholder={paymentConfig.creem.hasWebhookSecret ? 'Webhook Secret 已配置，留空保持不变' : 'Creem Webhook Secret'} onChange={(webhookSecret) => setPaymentConfig((current) => ({ ...current, creem: { ...current.creem, webhookSecret } }))} />
-                <TextArea rows={10} value={creemProductsText} onChange={setCreemProductsText} placeholder="Creem 产品 JSON 数组" />
-              </Space>
-            </Card>
+            <CreemPaymentSettingsCard
+              config={paymentConfig.creem}
+              productsText={creemProductsText}
+              onConfigChange={(patch) => setPaymentConfig((current) => ({
+                ...current,
+                creem: { ...current.creem, ...patch },
+              }))}
+              onProductsTextChange={setCreemProductsText}
+            />
 
             <Card bordered>
               <Space vertical align="start" style={{ width: '100%' }}>

@@ -74,7 +74,7 @@ describe('settings section navigation', () => {
     expect(settingPage).toContain('api.getPaymentConfig');
     expect(settingPage).toContain('api.updatePaymentConfig');
     expect(settingPage).toContain('保存支付设置');
-    expect(settingPage).toContain('Creem 设置');
+    expect(settingPage).toContain('<CreemPaymentSettingsCard');
     expect(settingPage).toContain('Waffo 设置');
   });
 
@@ -159,5 +159,15 @@ describe('settings section navigation', () => {
     expect(stripeCard).toContain('支付基础与 Stripe');
     expect(stripeCard).toContain('Stripe Webhook Secret');
     expect(stripeCard).toContain("update('unitAmountCents'");
+  });
+
+  it('keeps Creem payment fields inside the settings feature', () => {
+    const settingPage = readFileSync('web/src/pages/Setting.tsx', 'utf8');
+    const creemCard = readFileSync('web/src/features/settings/components/CreemPaymentSettingsCard.tsx', 'utf8');
+
+    expect(settingPage).toContain('<CreemPaymentSettingsCard');
+    expect(creemCard).toContain('Creem Webhook Secret');
+    expect(creemCard).toContain('Creem 产品 JSON 数组');
+    expect(creemCard).toContain("update('testMode'");
   });
 });
