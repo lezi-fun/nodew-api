@@ -150,4 +150,14 @@ describe('settings section navigation', () => {
     expect(statusGrid).toContain('Webhook 就绪');
     expect(statusGrid).toContain('当前还没有可售产品。');
   });
+
+  it('keeps Stripe payment fields inside the settings feature', () => {
+    const settingPage = readFileSync('web/src/pages/Setting.tsx', 'utf8');
+    const stripeCard = readFileSync('web/src/features/settings/components/StripePaymentSettingsCard.tsx', 'utf8');
+
+    expect(settingPage).toContain('<StripePaymentSettingsCard');
+    expect(stripeCard).toContain('支付基础与 Stripe');
+    expect(stripeCard).toContain('Stripe Webhook Secret');
+    expect(stripeCard).toContain("update('unitAmountCents'");
+  });
 });

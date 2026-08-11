@@ -11,6 +11,7 @@ import PaymentChannelStatusGrid from '../features/settings/components/PaymentCha
 import SettingsOptionCard from '../features/settings/components/SettingsOptionCard';
 import SettingsPageHeader from '../features/settings/components/SettingsPageHeader';
 import SettingsOptionGrid from '../features/settings/components/SettingsOptionGrid';
+import StripePaymentSettingsCard from '../features/settings/components/StripePaymentSettingsCard';
 import { checkinOptionMeta, generalOptionMeta, passkeyOptionMeta } from '../features/settings/option-metadata';
 import {
   getSettingSection,
@@ -615,49 +616,15 @@ export default function SettingPage() {
 
       <Card bordered={false} className="dashboard-card settings-card" style={{ marginTop: 16, display: isSettingSectionActive(activeSection, 'billing') ? undefined : 'none' }}>
         <Space vertical align="start" style={{ width: '100%' }}>
-          <Card bordered style={{ width: '100%' }}>
-            <Space vertical align="start" style={{ width: '100%' }}>
-              <Typography.Title heading={5} style={{ marginBottom: 4 }}>支付基础与 Stripe</Typography.Title>
-              <label className="setting-field">
-                <span><strong>应用回调地址</strong><em>支付成功、取消和 webhook 回调使用的公开站点地址。</em></span>
-                <Input
-                  value={paymentConfig.appBaseUrl}
-                  placeholder="https://example.com"
-                  onChange={(value) => setPaymentConfig((current) => ({ ...current, appBaseUrl: value }))}
-                />
-              </label>
-              <div className="settings-grid" style={{ width: '100%' }}>
-                <label className="setting-field">
-                  <span><strong>启用 Stripe</strong><em>密钥和回调地址完整时才会对用户开放。</em></span>
-                  <Switch checked={paymentConfig.stripe.enabled} onChange={(enabled) => setPaymentConfig((current) => ({ ...current, stripe: { ...current.stripe, enabled } }))} />
-                </label>
-                <label className="setting-field">
-                  <span><strong>Stripe Secret Key</strong><em>{paymentConfig.stripe.hasSecretKey ? '已配置，留空保持不变。' : '尚未配置。'}</em></span>
-                  <Input value={paymentConfig.stripe.secretKey} placeholder="留空保持原密钥" onChange={(secretKey) => setPaymentConfig((current) => ({ ...current, stripe: { ...current.stripe, secretKey } }))} />
-                </label>
-                <label className="setting-field">
-                  <span><strong>Stripe Webhook Secret</strong><em>{paymentConfig.stripe.hasWebhookSecret ? '已配置，留空保持不变。' : '尚未配置。'}</em></span>
-                  <Input value={paymentConfig.stripe.webhookSecret} placeholder="留空保持原密钥" onChange={(webhookSecret) => setPaymentConfig((current) => ({ ...current, stripe: { ...current.stripe, webhookSecret } }))} />
-                </label>
-                <label className="setting-field">
-                  <span><strong>币种</strong><em>三位币种代码。</em></span>
-                  <Input value={paymentConfig.stripe.currency} onChange={(currency) => setPaymentConfig((current) => ({ ...current, stripe: { ...current.stripe, currency } }))} />
-                </label>
-                <label className="setting-field">
-                  <span><strong>每份额度</strong><em>每购买一份增加的额度。</em></span>
-                  <InputNumber min={1} value={paymentConfig.stripe.quotaPerUnit} onChange={(value) => setPaymentConfig((current) => ({ ...current, stripe: { ...current.stripe, quotaPerUnit: Number(value ?? 1) } }))} />
-                </label>
-                <label className="setting-field">
-                  <span><strong>每份价格（分）</strong><em>Stripe Checkout 的最小计价单位。</em></span>
-                  <InputNumber min={1} value={paymentConfig.stripe.unitAmountCents} onChange={(value) => setPaymentConfig((current) => ({ ...current, stripe: { ...current.stripe, unitAmountCents: Number(value ?? 1) } }))} />
-                </label>
-                <label className="setting-field">
-                  <span><strong>最少份数</strong><em>单次充值允许购买的最小份数。</em></span>
-                  <InputNumber min={1} value={paymentConfig.stripe.minUnits} onChange={(value) => setPaymentConfig((current) => ({ ...current, stripe: { ...current.stripe, minUnits: Number(value ?? 1) } }))} />
-                </label>
-              </div>
-            </Space>
-          </Card>
+          <StripePaymentSettingsCard
+            appBaseUrl={paymentConfig.appBaseUrl}
+            stripe={paymentConfig.stripe}
+            onAppBaseUrlChange={(appBaseUrl) => setPaymentConfig((current) => ({ ...current, appBaseUrl }))}
+            onStripeChange={(patch) => setPaymentConfig((current) => ({
+              ...current,
+              stripe: { ...current.stripe, ...patch },
+            }))}
+          />
 
           <div>
             <Typography.Title heading={5} style={{ marginBottom: 4 }}>支付通道状态</Typography.Title>

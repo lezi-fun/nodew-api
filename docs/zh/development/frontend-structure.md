@@ -94,6 +94,7 @@
 | `web/src/features/settings/components/OidcSettingsCard.tsx` | OIDC 字段、端点发现、状态反馈和保存控制。 |
 | `web/src/features/settings/components/CustomOAuthProviderCard.tsx` | 自定义 OAuth provider 表单、端点发现、CRUD 操作和列表。 |
 | `web/src/features/settings/components/PaymentChannelStatusGrid.tsx` | Stripe、Creem 和 Waffo 状态卡片及产品摘要。 |
+| `web/src/features/settings/components/StripePaymentSettingsCard.tsx` | 公共回调地址与 Stripe 支付配置字段。 |
 | `web/src/features/settings/option-metadata.ts` | 基础、签到和 Passkey 设置项定义。 |
 | `web/src/features/settings/sections.ts` | 设置业务域、URL section、描述和导航属性。 |
 | `web/src/i18n/i18n.ts` | i18next 资源和 detector 初始化。 |
