@@ -21,6 +21,8 @@ The frontend lives in `web/` and uses React, React Router, Vite, Semi UI, and i1
 - `Footer.tsx`: footer.
 - `SetupCheck.tsx`: setup-state guard.
 
+The console shell uses bundled Geist typography, a 48px header, compact 8px surfaces, 6px controls, subtle borders, and shadow-free page headers. Shared tokens live at the top of `web/src/styles.css`; settings fields intentionally use unframed rows instead of nested cards.
+
 ## Page groups
 
 ### Public and authentication

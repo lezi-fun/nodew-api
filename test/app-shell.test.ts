@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 const read = (path: string) => readFileSync(path, 'utf8');
 
 describe('console app shell', () => {
+  const main = read('web/src/main.tsx');
   const layout = read('web/src/components/layout/PageLayout.tsx');
   const sidebar = read('web/src/components/layout/SiderBar.tsx');
   const header = read('web/src/components/layout/headerbar.tsx');
@@ -17,11 +18,23 @@ describe('console app shell', () => {
       '--app-border',
       '--app-primary',
       '--app-radius',
+      '--app-control-radius',
+      '--app-font-sans',
       '--app-header-height',
     ]) {
       expect(styles).toContain(token);
     }
     expect(styles).toContain("body[theme-mode='dark']");
+  });
+
+  it('uses the compact console visual system and bundled interface font', () => {
+    expect(main).toContain("import '@fontsource-variable/geist'");
+    expect(styles).toContain('--app-header-height: 48px');
+    expect(styles).toContain('--app-radius: 8px');
+    expect(styles).toContain('--console-shadow: none');
+    expect(styles).toMatch(/\.console-hero\s*\{[^}]*background:\s*transparent/s);
+    expect(styles).toMatch(/\.hero-copy\s*\{[^}]*background:\s*transparent/s);
+    expect(styles).toMatch(/\.setting-field\s*\{[^}]*border-radius:\s*0/s);
   });
 
   it('uses an accessible shell with a skip link and main landmark', () => {

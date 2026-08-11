@@ -21,6 +21,8 @@
 - `Footer.tsx`：页脚。
 - `SetupCheck.tsx`：初始化状态门禁。
 
+控制台壳层使用随包发布的 Geist 字体、48px 顶栏、8px 紧凑面板、6px 控件、细边框和无阴影页面标题。共享 tokens 位于 `web/src/styles.css` 顶部；设置字段使用无框行，避免卡片嵌套。
+
 ## 页面分组
 
 ### 公共和认证页
